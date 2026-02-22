@@ -16,3 +16,7 @@ export const supabaseCrm = createClient(supabaseUrl, supabaseAnonKey, {
 export const supabaseKb = createClient(supabaseUrl, supabaseAnonKey, {
   db: { schema: "knowledgebase" },
 })
+
+export const supabaseInsights = createClient(supabaseUrl, supabaseAnonKey, {
+  db: { schema: "insights" },
+})

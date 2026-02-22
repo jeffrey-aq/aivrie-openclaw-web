@@ -13,6 +13,12 @@ import {
   FileText,
   Network,
   Inbox,
+  Lightbulb,
+  Database,
+  BarChart3,
+  Play,
+  ThumbsUp,
+  Settings,
 } from "lucide-react"
 
 import { NavMain } from "@/components/nav-main"
@@ -89,6 +95,43 @@ const data = {
           title: "Ingestion Queue",
           url: "/knowledgebase/ingestion",
           icon: Inbox,
+        },
+      ],
+    },
+    {
+      title: "Insights",
+      url: "/insights/recommendations",
+      icon: Lightbulb,
+      items: [
+        {
+          title: "Recommendations",
+          url: "/insights/recommendations",
+          icon: Lightbulb,
+        },
+        {
+          title: "Analysis Runs",
+          url: "/insights/runs",
+          icon: Play,
+        },
+        {
+          title: "Data Sources",
+          url: "/insights/sources",
+          icon: Database,
+        },
+        {
+          title: "Metrics",
+          url: "/insights/metrics",
+          icon: BarChart3,
+        },
+        {
+          title: "Feedback",
+          url: "/insights/feedback",
+          icon: ThumbsUp,
+        },
+        {
+          title: "Preferences",
+          url: "/insights/preferences",
+          icon: Settings,
         },
       ],
     },
