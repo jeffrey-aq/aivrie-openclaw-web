@@ -18,17 +18,17 @@ interface FeedbackEvent {
   id: string
   action: string
   reason: string | null
-  recommendation_type: string | null
-  impact_level: string | null
-  was_successful: boolean | null
-  outcome_notes: string | null
-  created_at: string
+  recommendationType: string | null
+  impactLevel: string | null
+  wasSuccessful: boolean | null
+  outcomeNotes: string | null
+  createdAt: string
 }
 
 const FEEDBACK_QUERY = gql`
   query {
-    insights_feedback_eventsCollection(
-      orderBy: [{ created_at: DescNullsLast }]
+    feedbackEventsCollection(
+      orderBy: [{ createdAt: DescNullsLast }]
       first: 100
     ) {
       edges {
@@ -36,11 +36,11 @@ const FEEDBACK_QUERY = gql`
           id
           action
           reason
-          recommendation_type
-          impact_level
-          was_successful
-          outcome_notes
-          created_at
+          recommendationType
+          impactLevel
+          wasSuccessful
+          outcomeNotes
+          createdAt
         }
       }
     }
@@ -66,9 +66,9 @@ export default function FeedbackPage() {
     async function load() {
       try {
         const data = await graphqlClient.request<{
-          insights_feedback_eventsCollection: { edges: { node: FeedbackEvent }[] }
+          feedbackEventsCollection: { edges: { node: FeedbackEvent }[] }
         }>(FEEDBACK_QUERY)
-        setEvents(extractNodes(data.insights_feedback_eventsCollection))
+        setEvents(extractNodes(data.feedbackEventsCollection))
       } catch (error) {
         console.error("Error loading feedback:", error)
       }
@@ -103,13 +103,13 @@ export default function FeedbackPage() {
                 {events.map((e) => (
                   <TableRow key={e.id}>
                     <TableCell><Badge variant={actionVariant(e.action)}>{e.action}</Badge></TableCell>
-                    <TableCell>{e.recommendation_type || "—"}</TableCell>
-                    <TableCell>{e.impact_level || "—"}</TableCell>
+                    <TableCell>{e.recommendationType || "—"}</TableCell>
+                    <TableCell>{e.impactLevel || "—"}</TableCell>
                     <TableCell className="max-w-xs truncate text-muted-foreground">{e.reason || "—"}</TableCell>
                     <TableCell>
-                      {e.was_successful == null ? "—" : e.was_successful ? "Yes" : "No"}
+                      {e.wasSuccessful == null ? "—" : e.wasSuccessful ? "Yes" : "No"}
                     </TableCell>
-                    <TableCell>{new Date(e.created_at).toLocaleDateString()}</TableCell>
+                    <TableCell>{new Date(e.createdAt).toLocaleDateString()}</TableCell>
                   </TableRow>
                 ))}
               </TableBody>

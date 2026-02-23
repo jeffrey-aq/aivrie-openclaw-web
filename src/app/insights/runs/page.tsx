@@ -16,33 +16,33 @@ import {
 
 interface AnalysisRun {
   id: string
-  run_date: string
+  runDate: string
   status: string
-  specialists_spawned: number
-  specialists_completed: number
-  recommendations_generated: number
-  duration_seconds: number | null
-  error_message: string | null
-  started_at: string
+  specialistsSpawned: number
+  specialistsCompleted: number
+  recommendationsGenerated: number
+  durationSeconds: number | null
+  errorMessage: string | null
+  startedAt: string
 }
 
 const RUNS_QUERY = gql`
   query {
-    insights_analysis_runsCollection(
-      orderBy: [{ run_date: DescNullsLast }]
+    analysisRunsCollection(
+      orderBy: [{ runDate: DescNullsLast }]
       first: 50
     ) {
       edges {
         node {
           id
-          run_date
+          runDate
           status
-          specialists_spawned
-          specialists_completed
-          recommendations_generated
-          duration_seconds
-          error_message
-          started_at
+          specialistsSpawned
+          specialistsCompleted
+          recommendationsGenerated
+          durationSeconds
+          errorMessage
+          startedAt
         }
       }
     }
@@ -67,9 +67,9 @@ export default function RunsPage() {
     async function load() {
       try {
         const data = await graphqlClient.request<{
-          insights_analysis_runsCollection: { edges: { node: AnalysisRun }[] }
+          analysisRunsCollection: { edges: { node: AnalysisRun }[] }
         }>(RUNS_QUERY)
-        setRuns(extractNodes(data.insights_analysis_runsCollection))
+        setRuns(extractNodes(data.analysisRunsCollection))
       } catch (error) {
         console.error("Error loading runs:", error)
       }
@@ -103,15 +103,15 @@ export default function RunsPage() {
               <TableBody>
                 {runs.map((r) => (
                   <TableRow key={r.id}>
-                    <TableCell className="font-medium">{r.run_date}</TableCell>
+                    <TableCell className="font-medium">{r.runDate}</TableCell>
                     <TableCell><Badge variant={statusVariant(r.status)}>{r.status}</Badge></TableCell>
-                    <TableCell className="text-right">{r.specialists_completed}/{r.specialists_spawned}</TableCell>
-                    <TableCell className="text-right">{r.recommendations_generated}</TableCell>
+                    <TableCell className="text-right">{r.specialistsCompleted}/{r.specialistsSpawned}</TableCell>
+                    <TableCell className="text-right">{r.recommendationsGenerated}</TableCell>
                     <TableCell className="text-right">
-                      {r.duration_seconds != null ? `${r.duration_seconds}s` : "—"}
+                      {r.durationSeconds != null ? `${r.durationSeconds}s` : "—"}
                     </TableCell>
                     <TableCell className="max-w-xs truncate text-muted-foreground">
-                      {r.error_message || "—"}
+                      {r.errorMessage || "—"}
                     </TableCell>
                   </TableRow>
                 ))}

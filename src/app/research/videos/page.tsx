@@ -17,33 +17,33 @@ import {
 interface Video {
   id: string
   title: string
-  video_id: string
-  channel_id: string
+  videoId: string
+  channelId: string
   type: string | null
   views: number | null
   likes: number | null
   comments: number | null
-  published_date: string | null
+  publishedDate: string | null
   status: string | null
   workstream: string | null
 }
 
 const VIDEOS_QUERY = gql`
   query {
-    research_youtube_videosCollection(
-      orderBy: [{ published_date: DescNullsLast }]
+    youtubeVideosCollection(
+      orderBy: [{ publishedDate: DescNullsLast }]
     ) {
       edges {
         node {
           id
           title
-          video_id
-          channel_id
+          videoId
+          channelId
           type
           views
           likes
           comments
-          published_date
+          publishedDate
           status
           workstream
         }
@@ -67,9 +67,9 @@ export default function VideosPage() {
     async function load() {
       try {
         const data = await graphqlClient.request<{
-          research_youtube_videosCollection: { edges: { node: Video }[] }
+          youtubeVideosCollection: { edges: { node: Video }[] }
         }>(VIDEOS_QUERY)
-        setVideos(extractNodes(data.research_youtube_videosCollection))
+        setVideos(extractNodes(data.youtubeVideosCollection))
       } catch (error) {
         console.error("Error loading videos:", error)
       }
@@ -110,7 +110,7 @@ export default function VideosPage() {
                     <TableCell className="text-right">{formatNumber(v.views)}</TableCell>
                     <TableCell className="text-right">{formatNumber(v.likes)}</TableCell>
                     <TableCell className="text-right">{formatNumber(v.comments)}</TableCell>
-                    <TableCell>{v.published_date || "—"}</TableCell>
+                    <TableCell>{v.publishedDate || "—"}</TableCell>
                     <TableCell>
                       {v.workstream ? <Badge variant="outline">{v.workstream}</Badge> : "—"}
                     </TableCell>

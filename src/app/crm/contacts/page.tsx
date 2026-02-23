@@ -15,30 +15,30 @@ import {
 
 interface Contact {
   id: string
-  full_name: string
+  fullName: string
   company: string | null
   role: string | null
-  relationship_health_score: number
-  interaction_count: number
-  last_interaction_at: string | null
+  relationshipHealthScore: number
+  interactionCount: number
+  lastInteractionAt: string | null
   source: string | null
 }
 
 const CONTACTS_QUERY = gql`
   query {
-    crm_contactsCollection(
-      filter: { is_noise: { eq: false } }
-      orderBy: [{ last_interaction_at: DescNullsLast }]
+    contactsCollection(
+      filter: { isNoise: { eq: false } }
+      orderBy: [{ lastInteractionAt: DescNullsLast }]
     ) {
       edges {
         node {
           id
-          full_name
+          fullName
           company
           role
-          relationship_health_score
-          interaction_count
-          last_interaction_at
+          relationshipHealthScore
+          interactionCount
+          lastInteractionAt
           source
         }
       }
@@ -60,9 +60,9 @@ export default function ContactsPage() {
     async function load() {
       try {
         const data = await graphqlClient.request<{
-          crm_contactsCollection: { edges: { node: Contact }[] }
+          contactsCollection: { edges: { node: Contact }[] }
         }>(CONTACTS_QUERY)
-        setContacts(extractNodes(data.crm_contactsCollection))
+        setContacts(extractNodes(data.contactsCollection))
       } catch (error) {
         console.error("Error loading contacts:", error)
       }
@@ -97,16 +97,16 @@ export default function ContactsPage() {
               <TableBody>
                 {contacts.map((c) => (
                   <TableRow key={c.id}>
-                    <TableCell className="font-medium">{c.full_name}</TableCell>
+                    <TableCell className="font-medium">{c.fullName}</TableCell>
                     <TableCell>{c.company || "—"}</TableCell>
                     <TableCell>{c.role || "—"}</TableCell>
-                    <TableCell className={`text-right font-semibold ${healthColor(c.relationship_health_score)}`}>
-                      {c.relationship_health_score}
+                    <TableCell className={`text-right font-semibold ${healthColor(c.relationshipHealthScore)}`}>
+                      {c.relationshipHealthScore}
                     </TableCell>
-                    <TableCell className="text-right">{c.interaction_count}</TableCell>
+                    <TableCell className="text-right">{c.interactionCount}</TableCell>
                     <TableCell>
-                      {c.last_interaction_at
-                        ? new Date(c.last_interaction_at).toLocaleDateString()
+                      {c.lastInteractionAt
+                        ? new Date(c.lastInteractionAt).toLocaleDateString()
                         : "—"}
                     </TableCell>
                     <TableCell>{c.source || "—"}</TableCell>

@@ -39,27 +39,11 @@ import { VersionBadge } from "@/components/version-badge"
 const data = {
   navMain: [
     {
-      title: "Research",
-      url: "/research/creators",
-      icon: Search,
-      isActive: true,
-      items: [
-        {
-          title: "YouTube Creators",
-          url: "/research/creators",
-          icon: Youtube,
-        },
-        {
-          title: "YouTube Videos",
-          url: "/research/videos",
-          icon: Video,
-        },
-      ],
-    },
-    {
       title: "CRM",
       url: "/crm/contacts",
       icon: Users,
+      color: "text-blue-500",
+      isActive: true,
       items: [
         {
           title: "Contacts",
@@ -79,9 +63,10 @@ const data = {
       ],
     },
     {
-      title: "Knowledgebase",
+      title: "Knowledge Base",
       url: "/knowledgebase/sources",
       icon: Brain,
+      color: "text-purple-500",
       items: [
         {
           title: "Sources",
@@ -104,6 +89,7 @@ const data = {
       title: "Insights",
       url: "/insights/recommendations",
       icon: Lightbulb,
+      color: "text-amber-500",
       items: [
         {
           title: "Recommendations",
@@ -144,6 +130,24 @@ const data = {
           title: "Digest Deliveries",
           url: "/insights/deliveries",
           icon: Send,
+        },
+      ],
+    },
+    {
+      title: "Research",
+      url: "/research/creators",
+      icon: Search,
+      color: "text-red-500",
+      items: [
+        {
+          title: "YouTube Creators",
+          url: "/research/creators",
+          icon: Youtube,
+        },
+        {
+          title: "YouTube Videos",
+          url: "/research/videos",
+          icon: Video,
         },
       ],
     },

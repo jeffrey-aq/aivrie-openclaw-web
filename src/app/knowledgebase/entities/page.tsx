@@ -17,25 +17,25 @@ import {
 interface Entity {
   id: string
   name: string
-  entity_type: string
+  entityType: string
   description: string | null
-  mention_count: number
+  mentionCount: number
   aliases: string[] | null
 }
 
 const ENTITIES_QUERY = gql`
   query {
-    knowledgebase_entitiesCollection(
-      orderBy: [{ mention_count: DescNullsLast }]
+    entitiesCollection(
+      orderBy: [{ mentionCount: DescNullsLast }]
       first: 100
     ) {
       edges {
         node {
           id
           name
-          entity_type
+          entityType
           description
-          mention_count
+          mentionCount
           aliases
         }
       }
@@ -51,9 +51,9 @@ export default function EntitiesPage() {
     async function load() {
       try {
         const data = await graphqlClient.request<{
-          knowledgebase_entitiesCollection: { edges: { node: Entity }[] }
+          entitiesCollection: { edges: { node: Entity }[] }
         }>(ENTITIES_QUERY)
-        setEntities(extractNodes(data.knowledgebase_entitiesCollection))
+        setEntities(extractNodes(data.entitiesCollection))
       } catch (error) {
         console.error("Error loading entities:", error)
       }
@@ -64,7 +64,7 @@ export default function EntitiesPage() {
 
   return (
     <>
-      <PageHeader section="Knowledgebase" sectionHref="/knowledgebase/sources" page="Entities" />
+      <PageHeader section="Knowledge Base" sectionHref="/knowledgebase/sources" page="Entities" />
       <div className="flex-1 p-6">
         <h1 className="text-2xl font-semibold mb-4">Entities</h1>
         {loading ? (
@@ -88,12 +88,12 @@ export default function EntitiesPage() {
                   <TableRow key={e.id}>
                     <TableCell className="font-medium">{e.name}</TableCell>
                     <TableCell>
-                      <Badge variant="outline">{e.entity_type}</Badge>
+                      <Badge variant="outline">{e.entityType}</Badge>
                     </TableCell>
                     <TableCell className="max-w-sm truncate text-muted-foreground">
                       {e.description || "—"}
                     </TableCell>
-                    <TableCell className="text-right">{e.mention_count}</TableCell>
+                    <TableCell className="text-right">{e.mentionCount}</TableCell>
                     <TableCell>
                       {e.aliases?.length ? e.aliases.join(", ") : "—"}
                     </TableCell>

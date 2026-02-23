@@ -19,14 +19,14 @@ interface Interaction {
   type: string
   subject: string | null
   snippet: string | null
-  occurred_at: string
-  crm_contacts: { full_name: string } | null
+  occurredAt: string
+  contact: { fullName: string } | null
 }
 
 const INTERACTIONS_QUERY = gql`
   query {
-    crm_interactionsCollection(
-      orderBy: [{ occurred_at: DescNullsLast }]
+    interactionsCollection(
+      orderBy: [{ occurredAt: DescNullsLast }]
       first: 100
     ) {
       edges {
@@ -35,9 +35,9 @@ const INTERACTIONS_QUERY = gql`
           type
           subject
           snippet
-          occurred_at
-          crm_contacts {
-            full_name
+          occurredAt
+          contact {
+            fullName
           }
         }
       }
@@ -66,9 +66,9 @@ export default function InteractionsPage() {
     async function load() {
       try {
         const data = await graphqlClient.request<{
-          crm_interactionsCollection: { edges: { node: Interaction }[] }
+          interactionsCollection: { edges: { node: Interaction }[] }
         }>(INTERACTIONS_QUERY)
-        setInteractions(extractNodes(data.crm_interactionsCollection))
+        setInteractions(extractNodes(data.interactionsCollection))
       } catch (error) {
         console.error("Error loading interactions:", error)
       }
@@ -102,7 +102,7 @@ export default function InteractionsPage() {
                 {interactions.map((i) => (
                   <TableRow key={i.id}>
                     <TableCell className="font-medium">
-                      {i.crm_contacts?.full_name || "—"}
+                      {i.contact?.fullName || "—"}
                     </TableCell>
                     <TableCell>
                       <Badge variant="outline">{typeLabel(i.type)}</Badge>
@@ -112,7 +112,7 @@ export default function InteractionsPage() {
                       {i.snippet || "—"}
                     </TableCell>
                     <TableCell>
-                      {new Date(i.occurred_at).toLocaleDateString()}
+                      {new Date(i.occurredAt).toLocaleDateString()}
                     </TableCell>
                   </TableRow>
                 ))}

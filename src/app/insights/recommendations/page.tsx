@@ -23,16 +23,16 @@ interface Recommendation {
   effort: string
   urgency: string
   category: string | null
-  confidence_score: number | null
+  confidenceScore: number | null
   status: string
-  is_contradiction: boolean
-  created_at: string
+  isContradiction: boolean
+  createdAt: string
 }
 
 const RECOMMENDATIONS_QUERY = gql`
   query {
-    insights_recommendationsCollection(
-      orderBy: [{ created_at: DescNullsLast }]
+    recommendationsCollection(
+      orderBy: [{ createdAt: DescNullsLast }]
       first: 100
     ) {
       edges {
@@ -45,10 +45,10 @@ const RECOMMENDATIONS_QUERY = gql`
           effort
           urgency
           category
-          confidence_score
+          confidenceScore
           status
-          is_contradiction
-          created_at
+          isContradiction
+          createdAt
         }
       }
     }
@@ -91,9 +91,9 @@ export default function RecommendationsPage() {
     async function load() {
       try {
         const data = await graphqlClient.request<{
-          insights_recommendationsCollection: { edges: { node: Recommendation }[] }
+          recommendationsCollection: { edges: { node: Recommendation }[] }
         }>(RECOMMENDATIONS_QUERY)
-        setItems(extractNodes(data.insights_recommendationsCollection))
+        setItems(extractNodes(data.recommendationsCollection))
       } catch (error) {
         console.error("Error loading recommendations:", error)
       }
@@ -135,7 +135,7 @@ export default function RecommendationsPage() {
                     <TableCell><Badge variant={impactVariant(r.impact)}>{r.impact}</Badge></TableCell>
                     <TableCell>{r.effort}</TableCell>
                     <TableCell><Badge variant={urgencyVariant(r.urgency)}>{r.urgency}</Badge></TableCell>
-                    <TableCell>{r.confidence_score != null ? `${(r.confidence_score * 100).toFixed(0)}%` : "—"}</TableCell>
+                    <TableCell>{r.confidenceScore != null ? `${(r.confidenceScore * 100).toFixed(0)}%` : "—"}</TableCell>
                     <TableCell><Badge variant={statusVariant(r.status)}>{r.status}</Badge></TableCell>
                   </TableRow>
                 ))}

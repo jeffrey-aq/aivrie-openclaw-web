@@ -18,16 +18,16 @@ interface QueueItem {
   id: string
   url: string
   status: string
-  requires_browser: boolean
-  retry_count: number
-  last_error: string | null
-  created_at: string
+  requiresBrowser: boolean
+  retryCount: number
+  lastError: string | null
+  createdAt: string
 }
 
 const INGESTION_QUERY = gql`
   query {
-    knowledgebase_ingestion_queueCollection(
-      orderBy: [{ created_at: DescNullsLast }]
+    ingestionQueueCollection(
+      orderBy: [{ createdAt: DescNullsLast }]
       first: 100
     ) {
       edges {
@@ -35,10 +35,10 @@ const INGESTION_QUERY = gql`
           id
           url
           status
-          requires_browser
-          retry_count
-          last_error
-          created_at
+          requiresBrowser
+          retryCount
+          lastError
+          createdAt
         }
       }
     }
@@ -68,9 +68,9 @@ export default function IngestionPage() {
     async function load() {
       try {
         const data = await graphqlClient.request<{
-          knowledgebase_ingestion_queueCollection: { edges: { node: QueueItem }[] }
+          ingestionQueueCollection: { edges: { node: QueueItem }[] }
         }>(INGESTION_QUERY)
-        setItems(extractNodes(data.knowledgebase_ingestion_queueCollection))
+        setItems(extractNodes(data.ingestionQueueCollection))
       } catch (error) {
         console.error("Error loading ingestion queue:", error)
       }
@@ -81,7 +81,7 @@ export default function IngestionPage() {
 
   return (
     <>
-      <PageHeader section="Knowledgebase" sectionHref="/knowledgebase/sources" page="Ingestion Queue" />
+      <PageHeader section="Knowledge Base" sectionHref="/knowledgebase/sources" page="Ingestion Queue" />
       <div className="flex-1 p-6">
         <h1 className="text-2xl font-semibold mb-4">Ingestion Queue</h1>
         {loading ? (
@@ -112,13 +112,13 @@ export default function IngestionPage() {
                     <TableCell>
                       <Badge variant={statusVariant(item.status)}>{item.status}</Badge>
                     </TableCell>
-                    <TableCell>{item.requires_browser ? "Yes" : "No"}</TableCell>
-                    <TableCell className="text-right">{item.retry_count}</TableCell>
+                    <TableCell>{item.requiresBrowser ? "Yes" : "No"}</TableCell>
+                    <TableCell className="text-right">{item.retryCount}</TableCell>
                     <TableCell className="max-w-xs truncate text-muted-foreground">
-                      {item.last_error || "—"}
+                      {item.lastError || "—"}
                     </TableCell>
                     <TableCell>
-                      {new Date(item.created_at).toLocaleDateString()}
+                      {new Date(item.createdAt).toLocaleDateString()}
                     </TableCell>
                   </TableRow>
                 ))}

@@ -16,33 +16,33 @@ import {
 
 interface AggregatedMetric {
   id: string
-  metric_name: string
-  aggregation_type: string
+  metricName: string
+  aggregationType: string
   period: string
-  period_start: string
-  period_end: string
+  periodStart: string
+  periodEnd: string
   value: number
-  sample_count: number | null
-  dimension_1: string | null
+  sampleCount: number | null
+  dimension1: string | null
 }
 
 const METRICS_QUERY = gql`
   query {
-    insights_aggregated_metricsCollection(
-      orderBy: [{ period_start: DescNullsLast }]
+    aggregatedMetricsCollection(
+      orderBy: [{ periodStart: DescNullsLast }]
       first: 100
     ) {
       edges {
         node {
           id
-          metric_name
-          aggregation_type
+          metricName
+          aggregationType
           period
-          period_start
-          period_end
+          periodStart
+          periodEnd
           value
-          sample_count
-          dimension_1
+          sampleCount
+          dimension1
         }
       }
     }
@@ -57,9 +57,9 @@ export default function MetricsPage() {
     async function load() {
       try {
         const data = await graphqlClient.request<{
-          insights_aggregated_metricsCollection: { edges: { node: AggregatedMetric }[] }
+          aggregatedMetricsCollection: { edges: { node: AggregatedMetric }[] }
         }>(METRICS_QUERY)
-        setMetrics(extractNodes(data.insights_aggregated_metricsCollection))
+        setMetrics(extractNodes(data.aggregatedMetricsCollection))
       } catch (error) {
         console.error("Error loading metrics:", error)
       }
@@ -94,13 +94,13 @@ export default function MetricsPage() {
               <TableBody>
                 {metrics.map((m) => (
                   <TableRow key={m.id}>
-                    <TableCell className="font-medium">{m.metric_name}</TableCell>
-                    <TableCell><Badge variant="outline">{m.aggregation_type}</Badge></TableCell>
+                    <TableCell className="font-medium">{m.metricName}</TableCell>
+                    <TableCell><Badge variant="outline">{m.aggregationType}</Badge></TableCell>
                     <TableCell>{m.period}</TableCell>
-                    <TableCell>{new Date(m.period_start).toLocaleDateString()}</TableCell>
+                    <TableCell>{new Date(m.periodStart).toLocaleDateString()}</TableCell>
                     <TableCell className="text-right">{Number(m.value).toLocaleString()}</TableCell>
-                    <TableCell className="text-right">{m.sample_count ?? "—"}</TableCell>
-                    <TableCell>{m.dimension_1 || "—"}</TableCell>
+                    <TableCell className="text-right">{m.sampleCount ?? "—"}</TableCell>
+                    <TableCell>{m.dimension1 || "—"}</TableCell>
                   </TableRow>
                 ))}
               </TableBody>

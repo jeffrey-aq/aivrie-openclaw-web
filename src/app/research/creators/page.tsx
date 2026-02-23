@@ -17,33 +17,33 @@ import {
 interface Creator {
   id: string
   title: string
-  channel_id: string
+  channelId: string
   subscribers: number | null
-  total_views: number | null
-  video_count: number | null
+  totalViews: number | null
+  videoCount: number | null
   niche: string | null
   status: string | null
-  competitive_threat: string | null
-  upload_frequency: string | null
-  last_upload_date: string | null
+  competitiveThreat: string | null
+  uploadFrequency: string | null
+  lastUploadDate: string | null
 }
 
 const CREATORS_QUERY = gql`
   query {
-    research_youtube_creatorsCollection(orderBy: [{ subscribers: DescNullsLast }]) {
+    youtubeCreatorsCollection(orderBy: [{ subscribers: DescNullsLast }]) {
       edges {
         node {
           id
           title
-          channel_id
+          channelId
           subscribers
-          total_views
-          video_count
+          totalViews
+          videoCount
           niche
           status
-          competitive_threat
-          upload_frequency
-          last_upload_date
+          competitiveThreat
+          uploadFrequency
+          lastUploadDate
         }
       }
     }
@@ -93,9 +93,9 @@ export default function CreatorsPage() {
     async function load() {
       try {
         const data = await graphqlClient.request<{
-          research_youtube_creatorsCollection: { edges: { node: Creator }[] }
+          youtubeCreatorsCollection: { edges: { node: Creator }[] }
         }>(CREATORS_QUERY)
-        setCreators(extractNodes(data.research_youtube_creatorsCollection))
+        setCreators(extractNodes(data.youtubeCreatorsCollection))
       } catch (error) {
         console.error("Error loading creators:", error)
       }
@@ -134,15 +134,15 @@ export default function CreatorsPage() {
                     <TableCell className="font-medium">{c.title}</TableCell>
                     <TableCell>{c.niche || "—"}</TableCell>
                     <TableCell className="text-right">{formatNumber(c.subscribers)}</TableCell>
-                    <TableCell className="text-right">{formatNumber(c.total_views)}</TableCell>
-                    <TableCell className="text-right">{c.video_count ?? "—"}</TableCell>
-                    <TableCell>{c.upload_frequency || "—"}</TableCell>
+                    <TableCell className="text-right">{formatNumber(c.totalViews)}</TableCell>
+                    <TableCell className="text-right">{c.videoCount ?? "—"}</TableCell>
+                    <TableCell>{c.uploadFrequency || "—"}</TableCell>
                     <TableCell>
                       <Badge variant={statusColor(c.status)}>{c.status || "—"}</Badge>
                     </TableCell>
                     <TableCell>
-                      <Badge variant={threatColor(c.competitive_threat)}>
-                        {c.competitive_threat || "—"}
+                      <Badge variant={threatColor(c.competitiveThreat)}>
+                        {c.competitiveThreat || "—"}
                       </Badge>
                     </TableCell>
                   </TableRow>

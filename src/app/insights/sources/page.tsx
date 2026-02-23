@@ -17,25 +17,25 @@ import {
 interface DataSource {
   id: string
   name: string
-  display_name: string
+  displayName: string
   category: string
-  is_active: boolean
-  sync_frequency_hours: number
-  last_sync_at: string | null
+  isActive: boolean
+  syncFrequencyHours: number
+  lastSyncAt: string | null
 }
 
 const DATA_SOURCES_QUERY = gql`
   query {
-    insights_data_sourcesCollection(orderBy: [{ category: AscNullsLast }]) {
+    dataSourcesCollection(orderBy: [{ category: AscNullsLast }]) {
       edges {
         node {
           id
           name
-          display_name
+          displayName
           category
-          is_active
-          sync_frequency_hours
-          last_sync_at
+          isActive
+          syncFrequencyHours
+          lastSyncAt
         }
       }
     }
@@ -50,9 +50,9 @@ export default function DataSourcesPage() {
     async function load() {
       try {
         const data = await graphqlClient.request<{
-          insights_data_sourcesCollection: { edges: { node: DataSource }[] }
+          dataSourcesCollection: { edges: { node: DataSource }[] }
         }>(DATA_SOURCES_QUERY)
-        setSources(extractNodes(data.insights_data_sourcesCollection))
+        setSources(extractNodes(data.dataSourcesCollection))
       } catch (error) {
         console.error("Error loading data sources:", error)
       }
@@ -85,16 +85,16 @@ export default function DataSourcesPage() {
               <TableBody>
                 {sources.map((s) => (
                   <TableRow key={s.id}>
-                    <TableCell className="font-medium">{s.display_name}</TableCell>
+                    <TableCell className="font-medium">{s.displayName}</TableCell>
                     <TableCell><Badge variant="outline">{s.category}</Badge></TableCell>
                     <TableCell>
-                      <Badge variant={s.is_active ? "default" : "secondary"}>
-                        {s.is_active ? "Active" : "Inactive"}
+                      <Badge variant={s.isActive ? "default" : "secondary"}>
+                        {s.isActive ? "Active" : "Inactive"}
                       </Badge>
                     </TableCell>
-                    <TableCell className="text-right">{s.sync_frequency_hours}h</TableCell>
+                    <TableCell className="text-right">{s.syncFrequencyHours}h</TableCell>
                     <TableCell>
-                      {s.last_sync_at ? new Date(s.last_sync_at).toLocaleString() : "Never"}
+                      {s.lastSyncAt ? new Date(s.lastSyncAt).toLocaleString() : "Never"}
                     </TableCell>
                   </TableRow>
                 ))}

@@ -15,28 +15,28 @@ import {
 
 interface PreferencePattern {
   id: string
-  pattern_type: string
-  pattern_key: string
-  pattern_value: Record<string, unknown>
+  patternType: string
+  patternKey: string
+  patternValue: Record<string, unknown>
   confidence: number | null
-  sample_count: number
-  updated_at: string
+  sampleCount: number
+  updatedAt: string
 }
 
 const PREFERENCES_QUERY = gql`
   query {
-    insights_preference_patternsCollection(
-      orderBy: [{ updated_at: DescNullsLast }]
+    preferencePatternsCollection(
+      orderBy: [{ updatedAt: DescNullsLast }]
     ) {
       edges {
         node {
           id
-          pattern_type
-          pattern_key
-          pattern_value
+          patternType
+          patternKey
+          patternValue
           confidence
-          sample_count
-          updated_at
+          sampleCount
+          updatedAt
         }
       }
     }
@@ -51,9 +51,9 @@ export default function PreferencesPage() {
     async function load() {
       try {
         const data = await graphqlClient.request<{
-          insights_preference_patternsCollection: { edges: { node: PreferencePattern }[] }
+          preferencePatternsCollection: { edges: { node: PreferencePattern }[] }
         }>(PREFERENCES_QUERY)
-        setPatterns(extractNodes(data.insights_preference_patternsCollection))
+        setPatterns(extractNodes(data.preferencePatternsCollection))
       } catch (error) {
         console.error("Error loading preferences:", error)
       }
@@ -87,16 +87,16 @@ export default function PreferencesPage() {
               <TableBody>
                 {patterns.map((p) => (
                   <TableRow key={p.id}>
-                    <TableCell className="font-medium">{p.pattern_type}</TableCell>
-                    <TableCell>{p.pattern_key}</TableCell>
+                    <TableCell className="font-medium">{p.patternType}</TableCell>
+                    <TableCell>{p.patternKey}</TableCell>
                     <TableCell className="max-w-xs truncate text-muted-foreground font-mono text-xs">
-                      {JSON.stringify(p.pattern_value)}
+                      {JSON.stringify(p.patternValue)}
                     </TableCell>
                     <TableCell className="text-right">
                       {p.confidence != null ? `${(p.confidence * 100).toFixed(0)}%` : "—"}
                     </TableCell>
-                    <TableCell className="text-right">{p.sample_count}</TableCell>
-                    <TableCell>{new Date(p.updated_at).toLocaleDateString()}</TableCell>
+                    <TableCell className="text-right">{p.sampleCount}</TableCell>
+                    <TableCell>{new Date(p.updatedAt).toLocaleDateString()}</TableCell>
                   </TableRow>
                 ))}
               </TableBody>

@@ -17,30 +17,30 @@ import {
 interface Source {
   id: string
   title: string | null
-  source_type: string
+  sourceType: string
   url: string
   author: string | null
-  site_name: string | null
-  published_at: string | null
-  word_count: number | null
+  siteName: string | null
+  publishedAt: string | null
+  wordCount: number | null
 }
 
 const SOURCES_QUERY = gql`
   query {
-    knowledgebase_sourcesCollection(
-      orderBy: [{ created_at: DescNullsLast }]
+    sourcesCollection(
+      orderBy: [{ createdAt: DescNullsLast }]
       first: 100
     ) {
       edges {
         node {
           id
           title
-          source_type
+          sourceType
           url
           author
-          site_name
-          published_at
-          word_count
+          siteName
+          publishedAt
+          wordCount
         }
       }
     }
@@ -55,9 +55,9 @@ export default function SourcesPage() {
     async function load() {
       try {
         const data = await graphqlClient.request<{
-          knowledgebase_sourcesCollection: { edges: { node: Source }[] }
+          sourcesCollection: { edges: { node: Source }[] }
         }>(SOURCES_QUERY)
-        setSources(extractNodes(data.knowledgebase_sourcesCollection))
+        setSources(extractNodes(data.sourcesCollection))
       } catch (error) {
         console.error("Error loading sources:", error)
       }
@@ -68,7 +68,7 @@ export default function SourcesPage() {
 
   return (
     <>
-      <PageHeader section="Knowledgebase" sectionHref="/knowledgebase/sources" page="Sources" />
+      <PageHeader section="Knowledge Base" sectionHref="/knowledgebase/sources" page="Sources" />
       <div className="flex-1 p-6">
         <h1 className="text-2xl font-semibold mb-4">Sources</h1>
         {loading ? (
@@ -101,16 +101,16 @@ export default function SourcesPage() {
                       )}
                     </TableCell>
                     <TableCell>
-                      <Badge variant="outline">{s.source_type}</Badge>
+                      <Badge variant="outline">{s.sourceType}</Badge>
                     </TableCell>
                     <TableCell>{s.author || "—"}</TableCell>
-                    <TableCell>{s.site_name || "—"}</TableCell>
+                    <TableCell>{s.siteName || "—"}</TableCell>
                     <TableCell className="text-right">
-                      {s.word_count?.toLocaleString() || "—"}
+                      {s.wordCount?.toLocaleString() || "—"}
                     </TableCell>
                     <TableCell>
-                      {s.published_at
-                        ? new Date(s.published_at).toLocaleDateString()
+                      {s.publishedAt
+                        ? new Date(s.publishedAt).toLocaleDateString()
                         : "—"}
                     </TableCell>
                   </TableRow>

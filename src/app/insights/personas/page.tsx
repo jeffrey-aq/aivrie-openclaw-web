@@ -17,19 +17,19 @@ import {
 interface SpecialistPersona {
   id: string
   name: string
-  display_name: string
+  displayName: string
   focus: string
-  system_prompt: string
-  data_sources: string[]
-  is_active: boolean
+  systemPrompt: string
+  dataSources: string[]
+  isActive: boolean
   model: string
-  created_at: string
-  updated_at: string
+  createdAt: string
+  updatedAt: string
 }
 
 const PERSONAS_QUERY = gql`
   query {
-    insights_specialist_personasCollection(
+    specialistPersonasCollection(
       orderBy: [{ name: AscNullsLast }]
       first: 50
     ) {
@@ -37,14 +37,14 @@ const PERSONAS_QUERY = gql`
         node {
           id
           name
-          display_name
+          displayName
           focus
-          system_prompt
-          data_sources
-          is_active
+          systemPrompt
+          dataSources
+          isActive
           model
-          created_at
-          updated_at
+          createdAt
+          updatedAt
         }
       }
     }
@@ -59,9 +59,9 @@ export default function PersonasPage() {
     async function load() {
       try {
         const data = await graphqlClient.request<{
-          insights_specialist_personasCollection: { edges: { node: SpecialistPersona }[] }
+          specialistPersonasCollection: { edges: { node: SpecialistPersona }[] }
         }>(PERSONAS_QUERY)
-        setPersonas(extractNodes(data.insights_specialist_personasCollection))
+        setPersonas(extractNodes(data.specialistPersonasCollection))
       } catch (error) {
         console.error("Error loading personas:", error)
       }
@@ -96,13 +96,13 @@ export default function PersonasPage() {
                 {personas.map((p) => (
                   <TableRow key={p.id}>
                     <TableCell className="font-medium">{p.name}</TableCell>
-                    <TableCell>{p.display_name}</TableCell>
+                    <TableCell>{p.displayName}</TableCell>
                     <TableCell className="max-w-xs truncate">{p.focus}</TableCell>
                     <TableCell className="text-muted-foreground text-xs">{p.model}</TableCell>
-                    <TableCell>{p.data_sources.length}</TableCell>
+                    <TableCell>{p.dataSources.length}</TableCell>
                     <TableCell>
-                      <Badge variant={p.is_active ? "default" : "outline"}>
-                        {p.is_active ? "active" : "inactive"}
+                      <Badge variant={p.isActive ? "default" : "outline"}>
+                        {p.isActive ? "active" : "inactive"}
                       </Badge>
                     </TableCell>
                   </TableRow>

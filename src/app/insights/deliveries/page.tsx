@@ -15,29 +15,29 @@ import {
 
 interface DigestDelivery {
   id: string
-  telegram_message_id: string
-  telegram_chat_id: string
-  telegram_topic_id: string | null
-  recommendation_numbers: number[]
-  delivered_at: string
-  created_at: string
+  telegramMessageId: string
+  telegramChatId: string
+  telegramTopicId: string | null
+  recommendationNumbers: number[]
+  deliveredAt: string
+  createdAt: string
 }
 
 const DELIVERIES_QUERY = gql`
   query {
-    insights_digest_deliveriesCollection(
-      orderBy: [{ delivered_at: DescNullsLast }]
+    digestDeliveriesCollection(
+      orderBy: [{ deliveredAt: DescNullsLast }]
       first: 50
     ) {
       edges {
         node {
           id
-          telegram_message_id
-          telegram_chat_id
-          telegram_topic_id
-          recommendation_numbers
-          delivered_at
-          created_at
+          telegramMessageId
+          telegramChatId
+          telegramTopicId
+          recommendationNumbers
+          deliveredAt
+          createdAt
         }
       }
     }
@@ -52,9 +52,9 @@ export default function DeliveriesPage() {
     async function load() {
       try {
         const data = await graphqlClient.request<{
-          insights_digest_deliveriesCollection: { edges: { node: DigestDelivery }[] }
+          digestDeliveriesCollection: { edges: { node: DigestDelivery }[] }
         }>(DELIVERIES_QUERY)
-        setDeliveries(extractNodes(data.insights_digest_deliveriesCollection))
+        setDeliveries(extractNodes(data.digestDeliveriesCollection))
       } catch (error) {
         console.error("Error loading deliveries:", error)
       }
@@ -88,14 +88,14 @@ export default function DeliveriesPage() {
                 {deliveries.map((d) => (
                   <TableRow key={d.id}>
                     <TableCell className="font-medium">
-                      {new Date(d.delivered_at).toLocaleString()}
+                      {new Date(d.deliveredAt).toLocaleString()}
                     </TableCell>
-                    <TableCell className="text-muted-foreground text-xs">{d.telegram_chat_id}</TableCell>
-                    <TableCell className="text-muted-foreground text-xs">{d.telegram_topic_id || "—"}</TableCell>
-                    <TableCell className="text-muted-foreground text-xs">{d.telegram_message_id}</TableCell>
+                    <TableCell className="text-muted-foreground text-xs">{d.telegramChatId}</TableCell>
+                    <TableCell className="text-muted-foreground text-xs">{d.telegramTopicId || "—"}</TableCell>
+                    <TableCell className="text-muted-foreground text-xs">{d.telegramMessageId}</TableCell>
                     <TableCell>
-                      {d.recommendation_numbers.length > 0
-                        ? d.recommendation_numbers.join(", ")
+                      {d.recommendationNumbers.length > 0
+                        ? d.recommendationNumbers.join(", ")
                         : "—"}
                     </TableCell>
                   </TableRow>

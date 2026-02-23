@@ -17,24 +17,24 @@ import {
 interface FollowUp {
   id: string
   note: string | null
-  due_date: string
+  dueDate: string
   status: string
-  snoozed_until: string | null
-  crm_contacts: { full_name: string } | null
+  snoozedUntil: string | null
+  contact: { fullName: string } | null
 }
 
 const FOLLOW_UPS_QUERY = gql`
   query {
-    crm_follow_upsCollection(orderBy: [{ due_date: AscNullsLast }]) {
+    followUpsCollection(orderBy: [{ dueDate: AscNullsLast }]) {
       edges {
         node {
           id
           note
-          due_date
+          dueDate
           status
-          snoozed_until
-          crm_contacts {
-            full_name
+          snoozedUntil
+          contact {
+            fullName
           }
         }
       }
@@ -63,9 +63,9 @@ export default function FollowUpsPage() {
     async function load() {
       try {
         const data = await graphqlClient.request<{
-          crm_follow_upsCollection: { edges: { node: FollowUp }[] }
+          followUpsCollection: { edges: { node: FollowUp }[] }
         }>(FOLLOW_UPS_QUERY)
-        setFollowUps(extractNodes(data.crm_follow_upsCollection))
+        setFollowUps(extractNodes(data.followUpsCollection))
       } catch (error) {
         console.error("Error loading follow-ups:", error)
       }
@@ -99,11 +99,11 @@ export default function FollowUpsPage() {
                 {followUps.map((f) => (
                   <TableRow key={f.id}>
                     <TableCell className="font-medium">
-                      {f.crm_contacts?.full_name || "—"}
+                      {f.contact?.fullName || "—"}
                     </TableCell>
                     <TableCell className="max-w-md truncate">{f.note || "—"}</TableCell>
-                    <TableCell>{f.due_date}</TableCell>
-                    <TableCell>{f.snoozed_until || "—"}</TableCell>
+                    <TableCell>{f.dueDate}</TableCell>
+                    <TableCell>{f.snoozedUntil || "—"}</TableCell>
                     <TableCell>
                       <Badge variant={statusVariant(f.status)}>{f.status}</Badge>
                     </TableCell>
