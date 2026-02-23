@@ -1,7 +1,8 @@
 "use client"
 
 import { useEffect, useState } from "react"
-import { supabaseCrm } from "@/lib/supabase"
+import { gql } from "graphql-request"
+import { graphqlClient, extractNodes } from "@/lib/graphql"
 import { PageHeader } from "@/components/page-header"
 import { Badge } from "@/components/ui/badge"
 import {
@@ -19,8 +20,30 @@ interface Interaction {
   subject: string | null
   snippet: string | null
   occurred_at: string
-  contacts: { full_name: string } | null
+  crm_contacts: { full_name: string } | null
 }
+
+const INTERACTIONS_QUERY = gql`
+  query {
+    crm_interactionsCollection(
+      orderBy: [{ occurred_at: DescNullsLast }]
+      first: 100
+    ) {
+      edges {
+        node {
+          id
+          type
+          subject
+          snippet
+          occurred_at
+          crm_contacts {
+            full_name
+          }
+        }
+      }
+    }
+  }
+`
 
 function typeLabel(type: string) {
   switch (type) {
@@ -41,13 +64,14 @@ export default function InteractionsPage() {
 
   useEffect(() => {
     async function load() {
-      const { data, error } = await supabaseCrm
-        .from("interactions")
-        .select("id, type, subject, snippet, occurred_at, contacts(full_name)")
-        .order("occurred_at", { ascending: false })
-        .limit(100)
-      if (error) console.error("Error loading interactions:", error)
-      else setInteractions((data as unknown as Interaction[]) || [])
+      try {
+        const data = await graphqlClient.request<{
+          crm_interactionsCollection: { edges: { node: Interaction }[] }
+        }>(INTERACTIONS_QUERY)
+        setInteractions(extractNodes(data.crm_interactionsCollection))
+      } catch (error) {
+        console.error("Error loading interactions:", error)
+      }
       setLoading(false)
     }
     load()
@@ -78,7 +102,7 @@ export default function InteractionsPage() {
                 {interactions.map((i) => (
                   <TableRow key={i.id}>
                     <TableCell className="font-medium">
-                      {i.contacts?.full_name || "—"}
+                      {i.crm_contacts?.full_name || "—"}
                     </TableCell>
                     <TableCell>
                       <Badge variant="outline">{typeLabel(i.type)}</Badge>

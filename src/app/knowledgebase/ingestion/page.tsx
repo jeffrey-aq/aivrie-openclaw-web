@@ -1,7 +1,8 @@
 "use client"
 
 import { useEffect, useState } from "react"
-import { supabaseKb } from "@/lib/supabase"
+import { gql } from "graphql-request"
+import { graphqlClient, extractNodes } from "@/lib/graphql"
 import { PageHeader } from "@/components/page-header"
 import { Badge } from "@/components/ui/badge"
 import {
@@ -22,6 +23,27 @@ interface QueueItem {
   last_error: string | null
   created_at: string
 }
+
+const INGESTION_QUERY = gql`
+  query {
+    knowledgebase_ingestion_queueCollection(
+      orderBy: [{ created_at: DescNullsLast }]
+      first: 100
+    ) {
+      edges {
+        node {
+          id
+          url
+          status
+          requires_browser
+          retry_count
+          last_error
+          created_at
+        }
+      }
+    }
+  }
+`
 
 function statusVariant(status: string) {
   switch (status) {
@@ -44,13 +66,14 @@ export default function IngestionPage() {
 
   useEffect(() => {
     async function load() {
-      const { data, error } = await supabaseKb
-        .from("ingestion_queue")
-        .select("id, url, status, requires_browser, retry_count, last_error, created_at")
-        .order("created_at", { ascending: false })
-        .limit(100)
-      if (error) console.error("Error loading ingestion queue:", error)
-      else setItems(data || [])
+      try {
+        const data = await graphqlClient.request<{
+          knowledgebase_ingestion_queueCollection: { edges: { node: QueueItem }[] }
+        }>(INGESTION_QUERY)
+        setItems(extractNodes(data.knowledgebase_ingestion_queueCollection))
+      } catch (error) {
+        console.error("Error loading ingestion queue:", error)
+      }
       setLoading(false)
     }
     load()

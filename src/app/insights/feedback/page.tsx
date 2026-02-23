@@ -1,7 +1,8 @@
 "use client"
 
 import { useEffect, useState } from "react"
-import { supabaseInsights } from "@/lib/supabase"
+import { gql } from "graphql-request"
+import { graphqlClient, extractNodes } from "@/lib/graphql"
 import { PageHeader } from "@/components/page-header"
 import { Badge } from "@/components/ui/badge"
 import {
@@ -24,6 +25,28 @@ interface FeedbackEvent {
   created_at: string
 }
 
+const FEEDBACK_QUERY = gql`
+  query {
+    insights_feedback_eventsCollection(
+      orderBy: [{ created_at: DescNullsLast }]
+      first: 100
+    ) {
+      edges {
+        node {
+          id
+          action
+          reason
+          recommendation_type
+          impact_level
+          was_successful
+          outcome_notes
+          created_at
+        }
+      }
+    }
+  }
+`
+
 function actionVariant(action: string) {
   switch (action) {
     case "approved": return "default"
@@ -41,13 +64,14 @@ export default function FeedbackPage() {
 
   useEffect(() => {
     async function load() {
-      const { data, error } = await supabaseInsights
-        .from("feedback_events")
-        .select("id, action, reason, recommendation_type, impact_level, was_successful, outcome_notes, created_at")
-        .order("created_at", { ascending: false })
-        .limit(100)
-      if (error) console.error("Error loading feedback:", error)
-      else setEvents(data || [])
+      try {
+        const data = await graphqlClient.request<{
+          insights_feedback_eventsCollection: { edges: { node: FeedbackEvent }[] }
+        }>(FEEDBACK_QUERY)
+        setEvents(extractNodes(data.insights_feedback_eventsCollection))
+      } catch (error) {
+        console.error("Error loading feedback:", error)
+      }
       setLoading(false)
     }
     load()

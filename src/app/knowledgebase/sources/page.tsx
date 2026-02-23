@@ -1,7 +1,8 @@
 "use client"
 
 import { useEffect, useState } from "react"
-import { supabaseKb } from "@/lib/supabase"
+import { gql } from "graphql-request"
+import { graphqlClient, extractNodes } from "@/lib/graphql"
 import { PageHeader } from "@/components/page-header"
 import { Badge } from "@/components/ui/badge"
 import {
@@ -24,19 +25,42 @@ interface Source {
   word_count: number | null
 }
 
+const SOURCES_QUERY = gql`
+  query {
+    knowledgebase_sourcesCollection(
+      orderBy: [{ created_at: DescNullsLast }]
+      first: 100
+    ) {
+      edges {
+        node {
+          id
+          title
+          source_type
+          url
+          author
+          site_name
+          published_at
+          word_count
+        }
+      }
+    }
+  }
+`
+
 export default function SourcesPage() {
   const [sources, setSources] = useState<Source[]>([])
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
     async function load() {
-      const { data, error } = await supabaseKb
-        .from("sources")
-        .select("id, title, source_type, url, author, site_name, published_at, word_count")
-        .order("created_at", { ascending: false })
-        .limit(100)
-      if (error) console.error("Error loading sources:", error)
-      else setSources(data || [])
+      try {
+        const data = await graphqlClient.request<{
+          knowledgebase_sourcesCollection: { edges: { node: Source }[] }
+        }>(SOURCES_QUERY)
+        setSources(extractNodes(data.knowledgebase_sourcesCollection))
+      } catch (error) {
+        console.error("Error loading sources:", error)
+      }
       setLoading(false)
     }
     load()

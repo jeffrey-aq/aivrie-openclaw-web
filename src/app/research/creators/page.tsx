@@ -1,7 +1,8 @@
 "use client"
 
 import { useEffect, useState } from "react"
-import { supabaseResearch } from "@/lib/supabase"
+import { gql } from "graphql-request"
+import { graphqlClient, extractNodes } from "@/lib/graphql"
 import { PageHeader } from "@/components/page-header"
 import { Badge } from "@/components/ui/badge"
 import {
@@ -26,6 +27,28 @@ interface Creator {
   upload_frequency: string | null
   last_upload_date: string | null
 }
+
+const CREATORS_QUERY = gql`
+  query {
+    research_youtube_creatorsCollection(orderBy: [{ subscribers: DescNullsLast }]) {
+      edges {
+        node {
+          id
+          title
+          channel_id
+          subscribers
+          total_views
+          video_count
+          niche
+          status
+          competitive_threat
+          upload_frequency
+          last_upload_date
+        }
+      }
+    }
+  }
+`
 
 function formatNumber(n: number | null) {
   if (n == null) return "—"
@@ -68,12 +91,14 @@ export default function CreatorsPage() {
 
   useEffect(() => {
     async function load() {
-      const { data, error } = await supabaseResearch
-        .from("youtube_creators")
-        .select("id, title, channel_id, subscribers, total_views, video_count, niche, status, competitive_threat, upload_frequency, last_upload_date")
-        .order("subscribers", { ascending: false, nullsFirst: false })
-      if (error) console.error("Error loading creators:", error)
-      else setCreators(data || [])
+      try {
+        const data = await graphqlClient.request<{
+          research_youtube_creatorsCollection: { edges: { node: Creator }[] }
+        }>(CREATORS_QUERY)
+        setCreators(extractNodes(data.research_youtube_creatorsCollection))
+      } catch (error) {
+        console.error("Error loading creators:", error)
+      }
       setLoading(false)
     }
     load()

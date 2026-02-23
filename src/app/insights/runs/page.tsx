@@ -1,7 +1,8 @@
 "use client"
 
 import { useEffect, useState } from "react"
-import { supabaseInsights } from "@/lib/supabase"
+import { gql } from "graphql-request"
+import { graphqlClient, extractNodes } from "@/lib/graphql"
 import { PageHeader } from "@/components/page-header"
 import { Badge } from "@/components/ui/badge"
 import {
@@ -25,6 +26,29 @@ interface AnalysisRun {
   started_at: string
 }
 
+const RUNS_QUERY = gql`
+  query {
+    insights_analysis_runsCollection(
+      orderBy: [{ run_date: DescNullsLast }]
+      first: 50
+    ) {
+      edges {
+        node {
+          id
+          run_date
+          status
+          specialists_spawned
+          specialists_completed
+          recommendations_generated
+          duration_seconds
+          error_message
+          started_at
+        }
+      }
+    }
+  }
+`
+
 function statusVariant(status: string) {
   switch (status) {
     case "completed": return "default"
@@ -41,13 +65,14 @@ export default function RunsPage() {
 
   useEffect(() => {
     async function load() {
-      const { data, error } = await supabaseInsights
-        .from("analysis_runs")
-        .select("id, run_date, status, specialists_spawned, specialists_completed, recommendations_generated, duration_seconds, error_message, started_at")
-        .order("run_date", { ascending: false })
-        .limit(50)
-      if (error) console.error("Error loading runs:", error)
-      else setRuns(data || [])
+      try {
+        const data = await graphqlClient.request<{
+          insights_analysis_runsCollection: { edges: { node: AnalysisRun }[] }
+        }>(RUNS_QUERY)
+        setRuns(extractNodes(data.insights_analysis_runsCollection))
+      } catch (error) {
+        console.error("Error loading runs:", error)
+      }
       setLoading(false)
     }
     load()

@@ -1,7 +1,8 @@
 "use client"
 
 import { useEffect, useState } from "react"
-import { supabaseResearch } from "@/lib/supabase"
+import { gql } from "graphql-request"
+import { graphqlClient, extractNodes } from "@/lib/graphql"
 import { PageHeader } from "@/components/page-header"
 import { Badge } from "@/components/ui/badge"
 import {
@@ -27,6 +28,30 @@ interface Video {
   workstream: string | null
 }
 
+const VIDEOS_QUERY = gql`
+  query {
+    research_youtube_videosCollection(
+      orderBy: [{ published_date: DescNullsLast }]
+    ) {
+      edges {
+        node {
+          id
+          title
+          video_id
+          channel_id
+          type
+          views
+          likes
+          comments
+          published_date
+          status
+          workstream
+        }
+      }
+    }
+  }
+`
+
 function formatNumber(n: number | null) {
   if (n == null) return "—"
   if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M`
@@ -40,12 +65,14 @@ export default function VideosPage() {
 
   useEffect(() => {
     async function load() {
-      const { data, error } = await supabaseResearch
-        .from("youtube_videos")
-        .select("id, title, video_id, channel_id, type, views, likes, comments, published_date, status, workstream")
-        .order("published_date", { ascending: false, nullsFirst: false })
-      if (error) console.error("Error loading videos:", error)
-      else setVideos(data || [])
+      try {
+        const data = await graphqlClient.request<{
+          research_youtube_videosCollection: { edges: { node: Video }[] }
+        }>(VIDEOS_QUERY)
+        setVideos(extractNodes(data.research_youtube_videosCollection))
+      } catch (error) {
+        console.error("Error loading videos:", error)
+      }
       setLoading(false)
     }
     load()

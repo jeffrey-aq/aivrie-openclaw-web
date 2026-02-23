@@ -19,6 +19,8 @@ import {
   Play,
   ThumbsUp,
   Settings,
+  UserCog,
+  Send,
 } from "lucide-react"
 
 import { NavMain } from "@/components/nav-main"
@@ -132,6 +134,16 @@ const data = {
           title: "Preferences",
           url: "/insights/preferences",
           icon: Settings,
+        },
+        {
+          title: "Specialist Personas",
+          url: "/insights/personas",
+          icon: UserCog,
+        },
+        {
+          title: "Digest Deliveries",
+          url: "/insights/deliveries",
+          icon: Send,
         },
       ],
     },

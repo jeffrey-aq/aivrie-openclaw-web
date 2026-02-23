@@ -10,7 +10,7 @@ Next.js website for Aivrie/OpenClaw, deployed on Vercel. Uses Supabase as the ba
 - **Styling:** Tailwind CSS 4
 - **Language:** TypeScript 5
 - **Hosting:** Vercel
-- **Backend/DB:** Supabase (see `../aivrie-supabase`)
+- **Backend/DB:** Supabase (see `../aivrie-openclaw-supabase`)
 
 ## Branch Strategy
 
@@ -28,4 +28,4 @@ Next.js website for Aivrie/OpenClaw, deployed on Vercel. Uses Supabase as the ba
 
 ## Related Repos
 
-- **`aivrie-supabase`** (`../aivrie-supabase`) — Supabase project (migrations, edge functions, seed data). Follows the same three-branch model (`develop` / `staging` / `main`).
+- **`aivrie-openclaw-supabase`** (`../aivrie-openclaw-supabase`) — Supabase project (migrations, edge functions, seed data). Follows the same three-branch model (`develop` / `staging` / `main`).

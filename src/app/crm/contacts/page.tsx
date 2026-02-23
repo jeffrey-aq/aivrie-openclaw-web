@@ -1,7 +1,8 @@
 "use client"
 
 import { useEffect, useState } from "react"
-import { supabaseCrm } from "@/lib/supabase"
+import { gql } from "graphql-request"
+import { graphqlClient, extractNodes } from "@/lib/graphql"
 import { PageHeader } from "@/components/page-header"
 import {
   Table,
@@ -23,6 +24,28 @@ interface Contact {
   source: string | null
 }
 
+const CONTACTS_QUERY = gql`
+  query {
+    crm_contactsCollection(
+      filter: { is_noise: { eq: false } }
+      orderBy: [{ last_interaction_at: DescNullsLast }]
+    ) {
+      edges {
+        node {
+          id
+          full_name
+          company
+          role
+          relationship_health_score
+          interaction_count
+          last_interaction_at
+          source
+        }
+      }
+    }
+  }
+`
+
 function healthColor(score: number) {
   if (score >= 70) return "text-green-600"
   if (score >= 40) return "text-yellow-600"
@@ -35,13 +58,14 @@ export default function ContactsPage() {
 
   useEffect(() => {
     async function load() {
-      const { data, error } = await supabaseCrm
-        .from("contacts")
-        .select("id, full_name, company, role, relationship_health_score, interaction_count, last_interaction_at, source")
-        .eq("is_noise", false)
-        .order("last_interaction_at", { ascending: false, nullsFirst: false })
-      if (error) console.error("Error loading contacts:", error)
-      else setContacts(data || [])
+      try {
+        const data = await graphqlClient.request<{
+          crm_contactsCollection: { edges: { node: Contact }[] }
+        }>(CONTACTS_QUERY)
+        setContacts(extractNodes(data.crm_contactsCollection))
+      } catch (error) {
+        console.error("Error loading contacts:", error)
+      }
       setLoading(false)
     }
     load()

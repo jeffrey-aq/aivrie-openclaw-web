@@ -1,7 +1,8 @@
 "use client"
 
 import { useEffect, useState } from "react"
-import { supabaseInsights } from "@/lib/supabase"
+import { gql } from "graphql-request"
+import { graphqlClient, extractNodes } from "@/lib/graphql"
 import { PageHeader } from "@/components/page-header"
 import { Badge } from "@/components/ui/badge"
 import {
@@ -27,6 +28,32 @@ interface Recommendation {
   is_contradiction: boolean
   created_at: string
 }
+
+const RECOMMENDATIONS_QUERY = gql`
+  query {
+    insights_recommendationsCollection(
+      orderBy: [{ created_at: DescNullsLast }]
+      first: 100
+    ) {
+      edges {
+        node {
+          id
+          number
+          title
+          description
+          impact
+          effort
+          urgency
+          category
+          confidence_score
+          status
+          is_contradiction
+          created_at
+        }
+      }
+    }
+  }
+`
 
 function impactVariant(level: string) {
   switch (level) {
@@ -62,13 +89,14 @@ export default function RecommendationsPage() {
 
   useEffect(() => {
     async function load() {
-      const { data, error } = await supabaseInsights
-        .from("recommendations")
-        .select("id, number, title, description, impact, effort, urgency, category, confidence_score, status, is_contradiction, created_at")
-        .order("created_at", { ascending: false })
-        .limit(100)
-      if (error) console.error("Error loading recommendations:", error)
-      else setItems(data || [])
+      try {
+        const data = await graphqlClient.request<{
+          insights_recommendationsCollection: { edges: { node: Recommendation }[] }
+        }>(RECOMMENDATIONS_QUERY)
+        setItems(extractNodes(data.insights_recommendationsCollection))
+      } catch (error) {
+        console.error("Error loading recommendations:", error)
+      }
       setLoading(false)
     }
     load()

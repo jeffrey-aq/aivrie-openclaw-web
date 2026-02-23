@@ -1,7 +1,8 @@
 "use client"
 
 import { useEffect, useState } from "react"
-import { supabaseInsights } from "@/lib/supabase"
+import { gql } from "graphql-request"
+import { graphqlClient, extractNodes } from "@/lib/graphql"
 import { PageHeader } from "@/components/page-header"
 import { Badge } from "@/components/ui/badge"
 import {
@@ -25,19 +26,43 @@ interface AggregatedMetric {
   dimension_1: string | null
 }
 
+const METRICS_QUERY = gql`
+  query {
+    insights_aggregated_metricsCollection(
+      orderBy: [{ period_start: DescNullsLast }]
+      first: 100
+    ) {
+      edges {
+        node {
+          id
+          metric_name
+          aggregation_type
+          period
+          period_start
+          period_end
+          value
+          sample_count
+          dimension_1
+        }
+      }
+    }
+  }
+`
+
 export default function MetricsPage() {
   const [metrics, setMetrics] = useState<AggregatedMetric[]>([])
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
     async function load() {
-      const { data, error } = await supabaseInsights
-        .from("aggregated_metrics")
-        .select("id, metric_name, aggregation_type, period, period_start, period_end, value, sample_count, dimension_1")
-        .order("period_start", { ascending: false })
-        .limit(100)
-      if (error) console.error("Error loading metrics:", error)
-      else setMetrics(data || [])
+      try {
+        const data = await graphqlClient.request<{
+          insights_aggregated_metricsCollection: { edges: { node: AggregatedMetric }[] }
+        }>(METRICS_QUERY)
+        setMetrics(extractNodes(data.insights_aggregated_metricsCollection))
+      } catch (error) {
+        console.error("Error loading metrics:", error)
+      }
       setLoading(false)
     }
     load()

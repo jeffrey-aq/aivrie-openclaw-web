@@ -1,7 +1,8 @@
 "use client"
 
 import { useEffect, useState } from "react"
-import { supabaseInsights } from "@/lib/supabase"
+import { gql } from "graphql-request"
+import { graphqlClient, extractNodes } from "@/lib/graphql"
 import { PageHeader } from "@/components/page-header"
 import { Badge } from "@/components/ui/badge"
 import {
@@ -23,18 +24,38 @@ interface DataSource {
   last_sync_at: string | null
 }
 
+const DATA_SOURCES_QUERY = gql`
+  query {
+    insights_data_sourcesCollection(orderBy: [{ category: AscNullsLast }]) {
+      edges {
+        node {
+          id
+          name
+          display_name
+          category
+          is_active
+          sync_frequency_hours
+          last_sync_at
+        }
+      }
+    }
+  }
+`
+
 export default function DataSourcesPage() {
   const [sources, setSources] = useState<DataSource[]>([])
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
     async function load() {
-      const { data, error } = await supabaseInsights
-        .from("data_sources")
-        .select("id, name, display_name, category, is_active, sync_frequency_hours, last_sync_at")
-        .order("category")
-      if (error) console.error("Error loading data sources:", error)
-      else setSources(data || [])
+      try {
+        const data = await graphqlClient.request<{
+          insights_data_sourcesCollection: { edges: { node: DataSource }[] }
+        }>(DATA_SOURCES_QUERY)
+        setSources(extractNodes(data.insights_data_sourcesCollection))
+      } catch (error) {
+        console.error("Error loading data sources:", error)
+      }
       setLoading(false)
     }
     load()

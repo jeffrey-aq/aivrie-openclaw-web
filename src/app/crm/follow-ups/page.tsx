@@ -1,7 +1,8 @@
 "use client"
 
 import { useEffect, useState } from "react"
-import { supabaseCrm } from "@/lib/supabase"
+import { gql } from "graphql-request"
+import { graphqlClient, extractNodes } from "@/lib/graphql"
 import { PageHeader } from "@/components/page-header"
 import { Badge } from "@/components/ui/badge"
 import {
@@ -19,8 +20,27 @@ interface FollowUp {
   due_date: string
   status: string
   snoozed_until: string | null
-  contacts: { full_name: string } | null
+  crm_contacts: { full_name: string } | null
 }
+
+const FOLLOW_UPS_QUERY = gql`
+  query {
+    crm_follow_upsCollection(orderBy: [{ due_date: AscNullsLast }]) {
+      edges {
+        node {
+          id
+          note
+          due_date
+          status
+          snoozed_until
+          crm_contacts {
+            full_name
+          }
+        }
+      }
+    }
+  }
+`
 
 function statusVariant(status: string) {
   switch (status) {
@@ -41,12 +61,14 @@ export default function FollowUpsPage() {
 
   useEffect(() => {
     async function load() {
-      const { data, error } = await supabaseCrm
-        .from("follow_ups")
-        .select("id, note, due_date, status, snoozed_until, contacts(full_name)")
-        .order("due_date", { ascending: true })
-      if (error) console.error("Error loading follow-ups:", error)
-      else setFollowUps((data as unknown as FollowUp[]) || [])
+      try {
+        const data = await graphqlClient.request<{
+          crm_follow_upsCollection: { edges: { node: FollowUp }[] }
+        }>(FOLLOW_UPS_QUERY)
+        setFollowUps(extractNodes(data.crm_follow_upsCollection))
+      } catch (error) {
+        console.error("Error loading follow-ups:", error)
+      }
       setLoading(false)
     }
     load()
@@ -77,7 +99,7 @@ export default function FollowUpsPage() {
                 {followUps.map((f) => (
                   <TableRow key={f.id}>
                     <TableCell className="font-medium">
-                      {f.contacts?.full_name || "—"}
+                      {f.crm_contacts?.full_name || "—"}
                     </TableCell>
                     <TableCell className="max-w-md truncate">{f.note || "—"}</TableCell>
                     <TableCell>{f.due_date}</TableCell>

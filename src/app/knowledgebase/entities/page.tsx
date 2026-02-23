@@ -1,7 +1,8 @@
 "use client"
 
 import { useEffect, useState } from "react"
-import { supabaseKb } from "@/lib/supabase"
+import { gql } from "graphql-request"
+import { graphqlClient, extractNodes } from "@/lib/graphql"
 import { PageHeader } from "@/components/page-header"
 import { Badge } from "@/components/ui/badge"
 import {
@@ -22,19 +23,40 @@ interface Entity {
   aliases: string[] | null
 }
 
+const ENTITIES_QUERY = gql`
+  query {
+    knowledgebase_entitiesCollection(
+      orderBy: [{ mention_count: DescNullsLast }]
+      first: 100
+    ) {
+      edges {
+        node {
+          id
+          name
+          entity_type
+          description
+          mention_count
+          aliases
+        }
+      }
+    }
+  }
+`
+
 export default function EntitiesPage() {
   const [entities, setEntities] = useState<Entity[]>([])
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
     async function load() {
-      const { data, error } = await supabaseKb
-        .from("entities")
-        .select("id, name, entity_type, description, mention_count, aliases")
-        .order("mention_count", { ascending: false })
-        .limit(100)
-      if (error) console.error("Error loading entities:", error)
-      else setEntities(data || [])
+      try {
+        const data = await graphqlClient.request<{
+          knowledgebase_entitiesCollection: { edges: { node: Entity }[] }
+        }>(ENTITIES_QUERY)
+        setEntities(extractNodes(data.knowledgebase_entitiesCollection))
+      } catch (error) {
+        console.error("Error loading entities:", error)
+      }
       setLoading(false)
     }
     load()

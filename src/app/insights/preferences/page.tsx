@@ -1,7 +1,8 @@
 "use client"
 
 import { useEffect, useState } from "react"
-import { supabaseInsights } from "@/lib/supabase"
+import { gql } from "graphql-request"
+import { graphqlClient, extractNodes } from "@/lib/graphql"
 import { PageHeader } from "@/components/page-header"
 import {
   Table,
@@ -22,18 +23,40 @@ interface PreferencePattern {
   updated_at: string
 }
 
+const PREFERENCES_QUERY = gql`
+  query {
+    insights_preference_patternsCollection(
+      orderBy: [{ updated_at: DescNullsLast }]
+    ) {
+      edges {
+        node {
+          id
+          pattern_type
+          pattern_key
+          pattern_value
+          confidence
+          sample_count
+          updated_at
+        }
+      }
+    }
+  }
+`
+
 export default function PreferencesPage() {
   const [patterns, setPatterns] = useState<PreferencePattern[]>([])
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
     async function load() {
-      const { data, error } = await supabaseInsights
-        .from("preference_patterns")
-        .select("id, pattern_type, pattern_key, pattern_value, confidence, sample_count, updated_at")
-        .order("updated_at", { ascending: false })
-      if (error) console.error("Error loading preferences:", error)
-      else setPatterns(data || [])
+      try {
+        const data = await graphqlClient.request<{
+          insights_preference_patternsCollection: { edges: { node: PreferencePattern }[] }
+        }>(PREFERENCES_QUERY)
+        setPatterns(extractNodes(data.insights_preference_patternsCollection))
+      } catch (error) {
+        console.error("Error loading preferences:", error)
+      }
       setLoading(false)
     }
     load()
