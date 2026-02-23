@@ -2,7 +2,8 @@
 
 import { useEffect, useState } from "react"
 import { gql } from "graphql-request"
-import { graphqlClient, extractNodes } from "@/lib/graphql"
+import { extractNodes } from "@/lib/graphql"
+import { useGraphQLClient } from "@/hooks/use-graphql"
 import { PageHeader } from "@/components/page-header"
 import { Badge } from "@/components/ui/badge"
 import {
@@ -56,6 +57,7 @@ function statusVariant(status: string) {
 }
 
 export default function FollowUpsPage() {
+  const graphqlClient = useGraphQLClient()
   const [followUps, setFollowUps] = useState<FollowUp[]>([])
   const [loading, setLoading] = useState(true)
 
@@ -72,7 +74,7 @@ export default function FollowUpsPage() {
       setLoading(false)
     }
     load()
-  }, [])
+  }, [graphqlClient])
 
   return (
     <>

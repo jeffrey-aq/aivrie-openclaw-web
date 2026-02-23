@@ -2,7 +2,8 @@
 
 import { useEffect, useState } from "react"
 import { gql } from "graphql-request"
-import { graphqlClient, extractNodes } from "@/lib/graphql"
+import { extractNodes } from "@/lib/graphql"
+import { useGraphQLClient } from "@/hooks/use-graphql"
 import { PageHeader } from "@/components/page-header"
 import { Badge } from "@/components/ui/badge"
 import {
@@ -86,6 +87,7 @@ function statusColor(status: string | null) {
 }
 
 export default function CreatorsPage() {
+  const graphqlClient = useGraphQLClient()
   const [creators, setCreators] = useState<Creator[]>([])
   const [loading, setLoading] = useState(true)
 
@@ -102,7 +104,7 @@ export default function CreatorsPage() {
       setLoading(false)
     }
     load()
-  }, [])
+  }, [graphqlClient])
 
   return (
     <>

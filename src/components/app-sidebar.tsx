@@ -34,6 +34,7 @@ import {
   SidebarMenuItem,
   SidebarMenuButton,
 } from "@/components/ui/sidebar"
+import { NavUser } from "@/components/nav-user"
 import { VersionBadge } from "@/components/version-badge"
 
 const data = {
@@ -178,6 +179,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
         <NavMain items={data.navMain} />
       </SidebarContent>
       <SidebarFooter>
+        <NavUser />
         <VersionBadge />
       </SidebarFooter>
       <SidebarRail />

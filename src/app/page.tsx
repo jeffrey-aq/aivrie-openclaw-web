@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react"
 import { gql } from "graphql-request"
-import { graphqlClient } from "@/lib/graphql"
+import { useGraphQLClient } from "@/hooks/use-graphql"
 import { PageHeader } from "@/components/page-header"
 import {
   Users,
@@ -130,6 +130,7 @@ const sections: SectionConfig[] = [
 ]
 
 export default function Home() {
+  const graphqlClient = useGraphQLClient()
   const [counts, setCounts] = useState<CountsResponse | null>(null)
   const [loading, setLoading] = useState(true)
 
@@ -144,7 +145,7 @@ export default function Home() {
       setLoading(false)
     }
     load()
-  }, [])
+  }, [graphqlClient])
 
   return (
     <>

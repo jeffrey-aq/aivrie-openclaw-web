@@ -2,7 +2,8 @@
 
 import { useEffect, useState } from "react"
 import { gql } from "graphql-request"
-import { graphqlClient, extractNodes } from "@/lib/graphql"
+import { extractNodes } from "@/lib/graphql"
+import { useGraphQLClient } from "@/hooks/use-graphql"
 import { PageHeader } from "@/components/page-header"
 import {
   Table,
@@ -44,6 +45,7 @@ const PREFERENCES_QUERY = gql`
 `
 
 export default function PreferencesPage() {
+  const graphqlClient = useGraphQLClient()
   const [patterns, setPatterns] = useState<PreferencePattern[]>([])
   const [loading, setLoading] = useState(true)
 
@@ -60,7 +62,7 @@ export default function PreferencesPage() {
       setLoading(false)
     }
     load()
-  }, [])
+  }, [graphqlClient])
 
   return (
     <>

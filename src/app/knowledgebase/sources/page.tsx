@@ -2,7 +2,8 @@
 
 import { useEffect, useState } from "react"
 import { gql } from "graphql-request"
-import { graphqlClient, extractNodes } from "@/lib/graphql"
+import { extractNodes } from "@/lib/graphql"
+import { useGraphQLClient } from "@/hooks/use-graphql"
 import { PageHeader } from "@/components/page-header"
 import { Badge } from "@/components/ui/badge"
 import {
@@ -48,6 +49,7 @@ const SOURCES_QUERY = gql`
 `
 
 export default function SourcesPage() {
+  const graphqlClient = useGraphQLClient()
   const [sources, setSources] = useState<Source[]>([])
   const [loading, setLoading] = useState(true)
 
@@ -64,7 +66,7 @@ export default function SourcesPage() {
       setLoading(false)
     }
     load()
-  }, [])
+  }, [graphqlClient])
 
   return (
     <>

@@ -7,9 +7,20 @@ const { mockRequest } = vi.hoisted(() => ({
   mockRequest: vi.fn(),
 }))
 vi.mock("@/lib/graphql", () => ({
-  graphqlClient: { request: mockRequest },
+  getGraphQLClient: () => ({ request: mockRequest }),
   extractNodes: <T,>(connection: { edges: { node: T }[] }): T[] =>
     connection.edges.map((e) => e.node),
+}))
+
+// Mock auth provider so useAuth returns a session with an access token
+vi.mock("@/components/auth-provider", () => ({
+  useAuth: () => ({
+    session: { access_token: "test-token" },
+    user: { email: "test@test.com" },
+    loading: false,
+    signInWithGoogle: vi.fn(),
+    signOut: vi.fn(),
+  }),
 }))
 
 // Mock page-header to avoid sidebar context dependency

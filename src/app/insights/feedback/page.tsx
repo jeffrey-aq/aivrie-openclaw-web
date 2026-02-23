@@ -2,7 +2,8 @@
 
 import { useEffect, useState } from "react"
 import { gql } from "graphql-request"
-import { graphqlClient, extractNodes } from "@/lib/graphql"
+import { extractNodes } from "@/lib/graphql"
+import { useGraphQLClient } from "@/hooks/use-graphql"
 import { PageHeader } from "@/components/page-header"
 import { Badge } from "@/components/ui/badge"
 import {
@@ -59,6 +60,7 @@ function actionVariant(action: string) {
 }
 
 export default function FeedbackPage() {
+  const graphqlClient = useGraphQLClient()
   const [events, setEvents] = useState<FeedbackEvent[]>([])
   const [loading, setLoading] = useState(true)
 
@@ -75,7 +77,7 @@ export default function FeedbackPage() {
       setLoading(false)
     }
     load()
-  }, [])
+  }, [graphqlClient])
 
   return (
     <>

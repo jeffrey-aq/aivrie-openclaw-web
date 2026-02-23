@@ -2,7 +2,8 @@
 
 import { useEffect, useState } from "react"
 import { gql } from "graphql-request"
-import { graphqlClient, extractNodes } from "@/lib/graphql"
+import { extractNodes } from "@/lib/graphql"
+import { useGraphQLClient } from "@/hooks/use-graphql"
 import { PageHeader } from "@/components/page-header"
 import { Badge } from "@/components/ui/badge"
 import {
@@ -60,6 +61,7 @@ function statusVariant(status: string) {
 }
 
 export default function RunsPage() {
+  const graphqlClient = useGraphQLClient()
   const [runs, setRuns] = useState<AnalysisRun[]>([])
   const [loading, setLoading] = useState(true)
 
@@ -76,7 +78,7 @@ export default function RunsPage() {
       setLoading(false)
     }
     load()
-  }, [])
+  }, [graphqlClient])
 
   return (
     <>

@@ -2,7 +2,8 @@
 
 import { useEffect, useState } from "react"
 import { gql } from "graphql-request"
-import { graphqlClient, extractNodes } from "@/lib/graphql"
+import { extractNodes } from "@/lib/graphql"
+import { useGraphQLClient } from "@/hooks/use-graphql"
 import { PageHeader } from "@/components/page-header"
 import { Badge } from "@/components/ui/badge"
 import {
@@ -50,6 +51,7 @@ const METRICS_QUERY = gql`
 `
 
 export default function MetricsPage() {
+  const graphqlClient = useGraphQLClient()
   const [metrics, setMetrics] = useState<AggregatedMetric[]>([])
   const [loading, setLoading] = useState(true)
 
@@ -66,7 +68,7 @@ export default function MetricsPage() {
       setLoading(false)
     }
     load()
-  }, [])
+  }, [graphqlClient])
 
   return (
     <>

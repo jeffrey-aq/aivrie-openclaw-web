@@ -2,7 +2,8 @@
 
 import { useEffect, useState } from "react"
 import { gql } from "graphql-request"
-import { graphqlClient, extractNodes } from "@/lib/graphql"
+import { extractNodes } from "@/lib/graphql"
+import { useGraphQLClient } from "@/hooks/use-graphql"
 import { PageHeader } from "@/components/page-header"
 import {
   Table,
@@ -45,6 +46,7 @@ const DELIVERIES_QUERY = gql`
 `
 
 export default function DeliveriesPage() {
+  const graphqlClient = useGraphQLClient()
   const [deliveries, setDeliveries] = useState<DigestDelivery[]>([])
   const [loading, setLoading] = useState(true)
 
@@ -61,7 +63,7 @@ export default function DeliveriesPage() {
       setLoading(false)
     }
     load()
-  }, [])
+  }, [graphqlClient])
 
   return (
     <>
