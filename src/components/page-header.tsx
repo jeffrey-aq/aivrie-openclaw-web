@@ -1,3 +1,7 @@
+"use client"
+
+import { LogOut } from "lucide-react"
+import { useAuth } from "@/components/auth-provider"
 import {
   Breadcrumb,
   BreadcrumbItem,
@@ -18,6 +22,8 @@ export function PageHeader({
   sectionHref: string
   page: string
 }) {
+  const { signOut } = useAuth()
+
   return (
     <header className="flex h-16 shrink-0 items-center gap-2 border-b px-4">
       <SidebarTrigger className="-ml-1" />
@@ -36,6 +42,13 @@ export function PageHeader({
           </BreadcrumbItem>
         </BreadcrumbList>
       </Breadcrumb>
+      <button
+        onClick={signOut}
+        className="ml-auto inline-flex items-center gap-2 rounded-md px-3 py-1.5 text-sm text-muted-foreground hover:text-foreground hover:bg-accent transition-colors"
+      >
+        <LogOut className="size-4" />
+        <span className="hidden sm:inline">Sign out</span>
+      </button>
     </header>
   )
 }

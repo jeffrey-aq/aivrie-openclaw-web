@@ -9,30 +9,38 @@ export default function AuthCallbackPage() {
   const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
-    // Check for error in URL hash (Supabase returns errors there)
-    const hash = window.location.hash
-    if (hash) {
-      const params = new URLSearchParams(hash.substring(1))
-      const errorDesc = params.get("error_description")
-      if (errorDesc) {
+    async function handleCallback() {
+      // Check for error in URL hash
+      const hash = window.location.hash
+      if (hash) {
+        const params = new URLSearchParams(hash.substring(1))
+        if (params.get("error_description") || params.get("error")) {
+          setError("User not authorized")
+          return
+        }
+      }
+
+      // Check for error in query params
+      const searchParams = new URLSearchParams(window.location.search)
+      if (searchParams.get("error_description") || searchParams.get("error")) {
         setError("User not authorized")
         return
       }
-    }
 
-    // Check for error in query params
-    const searchParams = new URLSearchParams(window.location.search)
-    const errorParam = searchParams.get("error_description") || searchParams.get("error")
-    if (errorParam) {
-      setError("User not authorized")
-      return
-    }
-
-    supabase.auth.onAuthStateChange((event) => {
-      if (event === "SIGNED_IN") {
-        router.replace("/")
+      // Exchange the code for a session (PKCE flow)
+      const code = searchParams.get("code")
+      if (code) {
+        const { error } = await supabase.auth.exchangeCodeForSession(code)
+        if (error) {
+          setError("User not authorized")
+          return
+        }
       }
-    })
+
+      router.replace("/")
+    }
+
+    handleCallback()
   }, [router])
 
   if (error) {
