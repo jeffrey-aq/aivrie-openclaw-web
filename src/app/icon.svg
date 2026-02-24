@@ -1,0 +1,19 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" fill="none">
+  <defs>
+    <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#6366f1"/>
+      <stop offset="100%" stop-color="#8b5cf6"/>
+    </linearGradient>
+    <linearGradient id="claw" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#ffffff"/>
+      <stop offset="100%" stop-color="#e0e7ff"/>
+    </linearGradient>
+  </defs>
+  <rect width="512" height="512" rx="108" fill="url(#bg)"/>
+  <!-- Three claw marks -->
+  <path d="M160 120 C140 200, 130 280, 160 380 C165 395, 175 395, 180 380 C210 280, 200 200, 180 120 Z" fill="url(#claw)" opacity="0.95"/>
+  <path d="M246 100 C226 190, 216 280, 246 400 C251 415, 261 415, 266 400 C296 280, 286 190, 266 100 Z" fill="url(#claw)" opacity="0.95"/>
+  <path d="M332 120 C312 200, 302 280, 332 380 C337 395, 347 395, 352 380 C382 280, 372 200, 352 120 Z" fill="url(#claw)" opacity="0.95"/>
+  <!-- AI dot / eye -->
+  <circle cx="256" cy="440" r="20" fill="url(#claw)" opacity="0.8"/>
+</svg>

@@ -21,6 +21,7 @@ import {
   Settings,
   UserCog,
   Send,
+  LayoutDashboard,
 } from "lucide-react"
 
 import { NavMain } from "@/components/nav-main"
@@ -36,16 +37,22 @@ import {
 } from "@/components/ui/sidebar"
 import { NavUser } from "@/components/nav-user"
 import { VersionBadge } from "@/components/version-badge"
+import { ThemeToggle } from "@/components/theme-toggle"
 
 const data = {
   navMain: [
     {
       title: "CRM",
-      url: "/crm/contacts",
+      url: "/crm",
       icon: Users,
       color: "text-blue-500",
       isActive: true,
       items: [
+        {
+          title: "Dashboard",
+          url: "/crm",
+          icon: LayoutDashboard,
+        },
         {
           title: "Contacts",
           url: "/crm/contacts",
@@ -180,6 +187,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
       </SidebarContent>
       <SidebarFooter>
         <NavUser />
+        <ThemeToggle />
         <VersionBadge />
       </SidebarFooter>
       <SidebarRail />

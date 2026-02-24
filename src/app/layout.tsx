@@ -1,4 +1,5 @@
 import type { Metadata } from "next"
+import { cookies } from "next/headers"
 import { Geist, Geist_Mono } from "next/font/google"
 import "./globals.css"
 import { AppSidebar } from "@/components/app-sidebar"
@@ -21,11 +22,15 @@ export const metadata: Metadata = {
   description: "Data dashboard for Aivrie OpenClaw",
 }
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode
 }>) {
+  const cookieStore = await cookies()
+  const sidebarState = cookieStore.get("sidebar_state")?.value
+  const defaultOpen = sidebarState !== "false"
+
   return (
     <html lang="en">
       <body
@@ -33,7 +38,7 @@ export default function RootLayout({
       >
         <AuthProvider>
           <TooltipProvider>
-            <SidebarProvider>
+            <SidebarProvider defaultOpen={defaultOpen}>
               <AppSidebar />
               <SidebarInset>{children}</SidebarInset>
             </SidebarProvider>

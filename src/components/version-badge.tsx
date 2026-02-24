@@ -61,14 +61,21 @@ function CommitDate({ date }: { date: string }) {
   return <span>{formatted}</span>
 }
 
+export function EnvironmentBadge() {
+  return (
+    <span
+      className={`rounded-md px-3 py-1 text-sm font-bold tracking-wide uppercase ${envColors[env] || envColors.develop}`}
+    >
+      {envLabels[env] || env}
+    </span>
+  )
+}
+
 export function VersionBadge() {
   return (
     <div className="flex flex-col gap-0.5 px-3 py-2 text-sm text-muted-foreground group-data-[collapsible=icon]:hidden">
       <div className="flex items-center gap-2">
-        <span className={`rounded px-1.5 py-0.5 text-xs font-semibold ${envColors[env] || envColors.develop}`}>
-          {envLabels[env] || env}
-        </span>
-        <span className="flex-1 text-center font-bold">v{version}</span>
+        <span className="font-bold">v{version}</span>
         <span className="ml-auto text-xs">+{hash}</span>
       </div>
       {commitDate && (

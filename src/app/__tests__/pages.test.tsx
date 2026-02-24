@@ -23,13 +23,32 @@ vi.mock("@/components/auth-provider", () => ({
   }),
 }))
 
+// Mock next/navigation for useSearchParams
+vi.mock("next/navigation", () => ({
+  useSearchParams: () => new URLSearchParams(),
+}))
+
 // Mock page-header to avoid sidebar context dependency
 vi.mock("@/components/page-header", () => ({
   PageHeader: () => null,
 }))
 
+// Mock recharts to avoid SSR issues in tests
+vi.mock("recharts", () => ({
+  ResponsiveContainer: ({ children }: { children: React.ReactNode }) => children,
+  BarChart: () => null,
+  Bar: () => null,
+  XAxis: () => null,
+  YAxis: () => null,
+  CartesianGrid: () => null,
+  Tooltip: () => null,
+  Legend: () => null,
+}))
+
 // Page imports (mock is hoisted, so these get the mocked graphqlClient)
+import React from "react"
 import HomePage from "@/app/page"
+import CrmDashboardPage from "@/app/crm/page"
 import ContactsPage from "@/app/crm/contacts/page"
 import FollowUpsPage from "@/app/crm/follow-ups/page"
 import InteractionsPage from "@/app/crm/interactions/page"
@@ -128,6 +147,9 @@ const pageTests = [
       status: "Published",
       workstream: "Education",
     },
+    extraData: {
+      youtubeCreatorsCollection: { edges: [{ node: { channelId: "UC123", title: "TechChannel" } }] },
+    },
     assertText: "How to Code",
   },
   {
@@ -210,7 +232,7 @@ const pageTests = [
       errorMessage: null,
       startedAt: "2024-06-01T08:00:00Z",
     },
-    assertText: "2024-06-01",
+    assertText: "completed",
   },
   {
     name: "Data Sources",
@@ -318,9 +340,10 @@ describe("Page rendering", () => {
 
   it.each(pageTests)(
     "$name page renders table with data",
-    async ({ Component, collection, node, assertText }) => {
+    async ({ Component, collection, node, assertText, extraData }) => {
       mockRequest.mockResolvedValueOnce({
         [collection]: { edges: [{ node }] },
+        ...extraData,
       })
 
       render(<Component />)
@@ -464,5 +487,75 @@ describe("Page rendering", () => {
     const query = mockRequest.mock.calls[0][0]
     const queryStr = typeof query === "string" ? query : print(query)
     expect(queryStr).toContain("isNoise")
+  })
+
+  it("CRM dashboard renders summary cards and chart sections", async () => {
+    const now = new Date().toISOString()
+    mockRequest.mockResolvedValueOnce({
+      contactsCollection: { edges: [
+        { node: { createdAt: now, updatedAt: now } },
+        { node: { createdAt: now, updatedAt: now } },
+      ] },
+      interactionsCollection: { edges: [
+        { node: { createdAt: now, updatedAt: now } },
+      ] },
+      followUpsCollection: { edges: [] },
+    })
+
+    render(<CrmDashboardPage />)
+
+    expect(await screen.findByText("CRM Dashboard")).toBeInTheDocument()
+    expect(screen.getByText("Contacts")).toBeInTheDocument()
+    expect(screen.getByText("Interactions")).toBeInTheDocument()
+    expect(screen.getByText("Follow-ups")).toBeInTheDocument()
+    expect(screen.getByText("2")).toBeInTheDocument() // 2 contacts
+    expect(screen.getByText("Contacts Activity")).toBeInTheDocument()
+    expect(screen.getByText("Interactions Activity")).toBeInTheDocument()
+    expect(screen.getByText("Follow-ups Activity")).toBeInTheDocument()
+  })
+
+  it("CRM dashboard shows error when request fails", async () => {
+    mockRequest.mockRejectedValueOnce(new Error("Network error"))
+
+    render(<CrmDashboardPage />)
+
+    expect(await screen.findByText("Failed to load dashboard data.")).toBeInTheDocument()
+  })
+
+  it("videos page includes creator filter in query", async () => {
+    mockRequest.mockResolvedValueOnce({
+      youtubeVideosCollection: { edges: [{ node: {
+        id: "v1", title: "Test Video", videoId: "vid1", channelId: "UC123",
+        type: null, views: 100, likes: 10, comments: 5,
+        publishedDate: "2024-01-10", status: "Published", workstream: null,
+      }}] },
+      youtubeCreatorsCollection: { edges: [{ node: {
+        channelId: "UC123", title: "TestCreator",
+      }}] },
+    })
+
+    render(<VideosPage />)
+    await screen.findByText("Test Video")
+
+    // Creator name resolved from lookup (appears in table row and dropdown)
+    expect(screen.getAllByText("TestCreator").length).toBeGreaterThanOrEqual(1)
+  })
+
+  it("creators page links to videos filtered by channelId", async () => {
+    mockRequest.mockResolvedValueOnce({
+      youtubeCreatorsCollection: { edges: [{ node: {
+        id: "cr1", title: "LinkCreator", channelId: "UC_LINK",
+        videoCount: 10, viewsToSubRatio: null, avgViewsPerVideo: 5000,
+        uploadFrequency: "Weekly", contentTypes: null, topContentType: null,
+        typicalVideoLength: null, estRevenueRange: null, otherVentures: null,
+        monetization: null, strengths: null, opportunities: null,
+        keyInsights: null, competitiveThreat: "Low", lastAnalyzedDate: null,
+        status: "Active", workstream: "YouTube", notes: null,
+      }}] },
+    })
+
+    render(<CreatorsPage />)
+    const link = await screen.findByText("LinkCreator")
+    expect(link.closest("a")).toHaveAttribute("href", "/research/videos?creator=UC_LINK")
   })
 })

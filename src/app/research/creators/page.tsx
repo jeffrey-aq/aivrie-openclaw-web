@@ -1,11 +1,20 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { useEffect, useMemo, useState } from "react"
 import { gql } from "graphql-request"
 import { extractNodes } from "@/lib/graphql"
 import { useGraphQLClient } from "@/hooks/use-graphql"
 import { PageHeader } from "@/components/page-header"
-import { Badge } from "@/components/ui/badge"
+import { ArrowUp, ArrowDown, ArrowUpDown, X, ChevronDown, ChevronRight, ChevronsDownUp, ChevronsUpDown } from "lucide-react"
+import {
+  UploadFrequencyBadge,
+  ContentTypeBadge,
+  RevenueRangeBadge,
+  MonetizationBadges,
+  CompetitiveThreatBadge,
+  StatusBadge,
+  WorkstreamBadge,
+} from "@/components/enum-badge"
 import {
   Table,
   TableBody,
@@ -14,82 +23,160 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table"
+import { Input } from "@/components/ui/input"
 
 interface Creator {
   id: string
   title: string
   channelId: string
-  subscribers: number | null
-  totalViews: number | null
   videoCount: number | null
-  niche: string | null
-  status: string | null
-  competitiveThreat: string | null
+  viewsToSubRatio: number | null
+  avgViewsPerVideo: number | null
   uploadFrequency: string | null
-  lastUploadDate: string | null
+  contentTypes: string | null
+  topContentType: string | null
+  typicalVideoLength: number | null
+  estRevenueRange: string | null
+  otherVentures: string | null
+  monetization: string[] | null
+  strengths: string | null
+  opportunities: string | null
+  keyInsights: string | null
+  competitiveThreat: string | null
+  lastAnalyzedDate: string | null
+  status: string | null
+  workstream: string | null
+  notes: string | null
 }
 
 const CREATORS_QUERY = gql`
   query {
-    youtubeCreatorsCollection(orderBy: [{ subscribers: DescNullsLast }]) {
+    youtubeCreatorsCollection(orderBy: [{ title: AscNullsLast }]) {
       edges {
         node {
           id
           title
           channelId
-          subscribers
-          totalViews
           videoCount
-          niche
-          status
-          competitiveThreat
+          viewsToSubRatio
+          avgViewsPerVideo
           uploadFrequency
-          lastUploadDate
+          contentTypes
+          topContentType
+          typicalVideoLength
+          estRevenueRange
+          otherVentures
+          monetization
+          strengths
+          opportunities
+          keyInsights
+          competitiveThreat
+          lastAnalyzedDate
+          status
+          workstream
+          notes
         }
       }
     }
   }
 `
 
+const uploadFrequencyOptions = ["Daily", "3-4x/week", "Weekly", "Bi-Weekly", "Monthly", "Irregular"]
+const competitiveThreatOptions = ["Low", "Medium", "High"]
+const statusOptions = ["Active", "Rising", "Monitoring", "Inactive"]
+const workstreamOptions = ["Research", "YouTube", "SaaS", "Newsletter", "Apps", "Courses"]
+
 function formatNumber(n: number | null) {
-  if (n == null) return "—"
+  if (n == null) return "\u2014"
   if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M`
-  if (n >= 1_000) return `${(n / 1_000).toFixed(1)}K`
+  if (n >= 1_000) return `${(n / 1_000).toFixed(0)}K`
   return n.toLocaleString()
 }
 
-function threatColor(level: string | null) {
-  switch (level) {
-    case "High":
-      return "destructive"
-    case "Medium":
-      return "default"
-    case "Low":
-      return "secondary"
-    default:
-      return "outline"
-  }
+function formatPercent(n: number | null) {
+  if (n == null) return "\u2014"
+  return `${Math.round(n)}%`
 }
 
-function statusColor(status: string | null) {
-  switch (status) {
-    case "Active":
-      return "default"
-    case "Rising":
-      return "default"
-    case "Monitoring":
-      return "secondary"
-    case "Inactive":
-      return "outline"
-    default:
-      return "outline"
-  }
+function formatDate(d: string | null) {
+  if (!d) return "\u2014"
+  return new Date(d).toLocaleDateString(undefined, { year: "numeric", month: "short", day: "numeric" })
 }
+
+const revenueOrder: Record<string, number> = {
+  "<$1K/mo": 0, "$1-5K/mo": 1, "$5-10K/mo": 2, "$10-50k/mo": 3, "$50K+/mo": 4,
+}
+
+type SortDir = "asc" | "desc"
+type SortKey = keyof Creator
+
+interface Filters {
+  search: string
+  uploadFrequency: string
+  competitiveThreat: string
+  status: string
+  workstream: string
+}
+
+const emptyFilters: Filters = {
+  search: "",
+  uploadFrequency: "",
+  competitiveThreat: "",
+  status: "",
+  workstream: "",
+}
+
+function compareValues(a: unknown, b: unknown, key: SortKey): number {
+  if (a == null && b == null) return 0
+  if (a == null) return 1
+  if (b == null) return -1
+  if (key === "estRevenueRange") return (revenueOrder[a as string] ?? -1) - (revenueOrder[b as string] ?? -1)
+  if (typeof a === "number" && typeof b === "number") return a - b
+  if (typeof a === "string" && typeof b === "string") return a.localeCompare(b)
+  return 0
+}
+
+function FilterSelect({
+  label, value, options, onChange,
+}: { label: string; value: string; options: string[]; onChange: (v: string) => void }) {
+  return (
+    <select
+      value={value}
+      onChange={(e) => onChange(e.target.value)}
+      className="h-8 rounded-md border border-input bg-background px-2 text-xs text-foreground min-w-[100px]"
+    >
+      <option value="">{label}</option>
+      {options.map((o) => <option key={o} value={o}>{o}</option>)}
+    </select>
+  )
+}
+
+function SortableHead({
+  label, sortKey, currentSort, currentDir, onSort, className,
+}: { label: string; sortKey: SortKey; currentSort: SortKey | null; currentDir: SortDir; onSort: (key: SortKey) => void; className?: string }) {
+  const active = currentSort === sortKey
+  return (
+    <TableHead className={`cursor-pointer select-none hover:bg-muted/50 transition-colors ${className || ""}`} onClick={() => onSort(sortKey)}>
+      <div className="flex items-center gap-1">
+        <span>{label}</span>
+        {active ? (currentDir === "asc" ? <ArrowUp className="size-3" /> : <ArrowDown className="size-3" />) : <ArrowUpDown className="size-3 opacity-30" />}
+      </div>
+    </TableHead>
+  )
+}
+
+// Number of primary columns (for colspan on detail row)
+const PRIMARY_COL_COUNT = 8
 
 export default function CreatorsPage() {
   const graphqlClient = useGraphQLClient()
   const [creators, setCreators] = useState<Creator[]>([])
   const [loading, setLoading] = useState(true)
+  const [sortKey, setSortKey] = useState<SortKey | null>(null)
+  const [sortDir, setSortDir] = useState<SortDir>("asc")
+  const [filters, setFilters] = useState<Filters>(emptyFilters)
+  const [expanded, setExpanded] = useState<Set<string>>(new Set())
+  const [allExpanded, setAllExpanded] = useState(false)
 
   useEffect(() => {
     async function load() {
@@ -106,11 +193,111 @@ export default function CreatorsPage() {
     load()
   }, [graphqlClient])
 
+  function handleSort(key: SortKey) {
+    if (sortKey === key) setSortDir((d) => (d === "asc" ? "desc" : "asc"))
+    else { setSortKey(key); setSortDir("asc") }
+  }
+
+  function setFilter<K extends keyof Filters>(key: K, value: Filters[K]) {
+    setFilters((f) => ({ ...f, [key]: value }))
+  }
+
+  function toggleRow(id: string) {
+    setExpanded((prev) => {
+      const next = new Set(prev)
+      if (next.has(id)) next.delete(id)
+      else next.add(id)
+      return next
+    })
+  }
+
+  function toggleAll() {
+    if (allExpanded) {
+      setExpanded(new Set())
+      setAllExpanded(false)
+    } else {
+      setExpanded(new Set(sorted.map((c) => c.id)))
+      setAllExpanded(true)
+    }
+  }
+
+  const hasFilters = Object.values(filters).some((v) => v !== "")
+
+  const filtered = useMemo(() => {
+    let result = creators
+    if (filters.search) {
+      const q = filters.search.toLowerCase()
+      result = result.filter(
+        (c) =>
+          c.title.toLowerCase().includes(q) ||
+          c.strengths?.toLowerCase().includes(q) ||
+          c.opportunities?.toLowerCase().includes(q) ||
+          c.keyInsights?.toLowerCase().includes(q) ||
+          c.notes?.toLowerCase().includes(q)
+      )
+    }
+    if (filters.uploadFrequency) result = result.filter((c) => c.uploadFrequency === filters.uploadFrequency)
+    if (filters.competitiveThreat) result = result.filter((c) => c.competitiveThreat === filters.competitiveThreat)
+    if (filters.status) result = result.filter((c) => c.status === filters.status)
+    if (filters.workstream) result = result.filter((c) => c.workstream === filters.workstream)
+    return result
+  }, [creators, filters])
+
+  const sorted = useMemo(() => {
+    if (!sortKey) return filtered
+    return [...filtered].sort((a, b) => {
+      const cmp = compareValues(a[sortKey], b[sortKey], sortKey)
+      return sortDir === "asc" ? cmp : -cmp
+    })
+  }, [filtered, sortKey, sortDir])
+
+  function isExpanded(id: string) {
+    return allExpanded ? !expanded.has(id) : expanded.has(id)
+  }
+
+  // Re-implement toggleRow and toggleAll to work with the inverted logic
+  // Actually, let's keep it simple: expanded set = explicitly expanded rows. allExpanded is separate.
+  // When allExpanded is true, all are expanded. Individual toggle removes from "all".
+
   return (
     <>
       <PageHeader section="Research" sectionHref="/research/creators" page="YouTube Creators" />
       <div className="flex-1 p-6">
         <h1 className="text-2xl font-semibold mb-4">YouTube Creators</h1>
+
+        <div className="flex flex-wrap items-center gap-2 mb-4">
+          <Input
+            placeholder="Search creators..."
+            value={filters.search}
+            onChange={(e) => setFilter("search", e.target.value)}
+            className="h-8 w-[200px] text-xs"
+          />
+          <FilterSelect label="Frequency" value={filters.uploadFrequency} options={uploadFrequencyOptions} onChange={(v) => setFilter("uploadFrequency", v)} />
+          <FilterSelect label="Threat" value={filters.competitiveThreat} options={competitiveThreatOptions} onChange={(v) => setFilter("competitiveThreat", v)} />
+          <FilterSelect label="Status" value={filters.status} options={statusOptions} onChange={(v) => setFilter("status", v)} />
+          <FilterSelect label="Workstream" value={filters.workstream} options={workstreamOptions} onChange={(v) => setFilter("workstream", v)} />
+          {hasFilters && (
+            <button
+              onClick={() => setFilters(emptyFilters)}
+              className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs text-muted-foreground hover:text-foreground hover:bg-accent transition-colors"
+            >
+              <X className="size-3" /> Clear
+            </button>
+          )}
+          <div className="ml-auto flex items-center gap-3">
+            <button
+              onClick={toggleAll}
+              className={`inline-flex items-center gap-1.5 rounded-md px-2 py-1 text-xs transition-colors ${allExpanded ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground hover:bg-accent"}`}
+            >
+              {allExpanded ? <ChevronsDownUp className="size-3" /> : <ChevronsUpDown className="size-3" />}
+              {allExpanded ? "Collapse" : "Expand"}
+            </button>
+            <span className="text-xs text-muted-foreground">
+              {sorted.length} of {creators.length} creators
+            </span>
+          </div>
+        </div>
+
         {loading ? (
           <p className="text-muted-foreground">Loading...</p>
         ) : creators.length === 0 ? (
@@ -120,40 +307,79 @@ export default function CreatorsPage() {
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>Creator</TableHead>
-                  <TableHead>Niche</TableHead>
-                  <TableHead className="text-right">Subscribers</TableHead>
-                  <TableHead className="text-right">Total Views</TableHead>
-                  <TableHead className="text-right">Videos</TableHead>
-                  <TableHead>Frequency</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead>Threat</TableHead>
+                  <TableHead className="w-8" />
+                  <SortableHead label="Creator" sortKey="title" currentSort={sortKey} currentDir={sortDir} onSort={handleSort} />
+                  <SortableHead label="# Videos" sortKey="videoCount" currentSort={sortKey} currentDir={sortDir} onSort={handleSort} className="text-right" />
+                  <SortableHead label="Avg Views" sortKey="avgViewsPerVideo" currentSort={sortKey} currentDir={sortDir} onSort={handleSort} className="text-right" />
+                  <SortableHead label="Frequency" sortKey="uploadFrequency" currentSort={sortKey} currentDir={sortDir} onSort={handleSort} />
+                  <SortableHead label="Threat" sortKey="competitiveThreat" currentSort={sortKey} currentDir={sortDir} onSort={handleSort} />
+                  <SortableHead label="Status" sortKey="status" currentSort={sortKey} currentDir={sortDir} onSort={handleSort} />
+                  <SortableHead label="Workstream" sortKey="workstream" currentSort={sortKey} currentDir={sortDir} onSort={handleSort} />
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {creators.map((c) => (
-                  <TableRow key={c.id}>
-                    <TableCell className="font-medium">{c.title}</TableCell>
-                    <TableCell>{c.niche || "—"}</TableCell>
-                    <TableCell className="text-right">{formatNumber(c.subscribers)}</TableCell>
-                    <TableCell className="text-right">{formatNumber(c.totalViews)}</TableCell>
-                    <TableCell className="text-right">{c.videoCount ?? "—"}</TableCell>
-                    <TableCell>{c.uploadFrequency || "—"}</TableCell>
-                    <TableCell>
-                      <Badge variant={statusColor(c.status)}>{c.status || "—"}</Badge>
-                    </TableCell>
-                    <TableCell>
-                      <Badge variant={threatColor(c.competitiveThreat)}>
-                        {c.competitiveThreat || "—"}
-                      </Badge>
-                    </TableCell>
-                  </TableRow>
-                ))}
+                {sorted.map((c) => {
+                  const open = isExpanded(c.id)
+                  return (
+                    <>
+                      <TableRow key={c.id} className="cursor-pointer hover:bg-muted/50" onClick={() => toggleRow(c.id)}>
+                        <TableCell className="w-8 px-2">
+                          {open ? <ChevronDown className="size-4 text-muted-foreground" /> : <ChevronRight className="size-4 text-muted-foreground" />}
+                        </TableCell>
+                        <TableCell className="font-medium">
+                          <a
+                            href={`/research/videos?creator=${encodeURIComponent(c.channelId)}`}
+                            onClick={(e) => e.stopPropagation()}
+                            className="text-blue-600 dark:text-blue-400 hover:underline"
+                          >
+                            {c.title}
+                          </a>
+                        </TableCell>
+                        <TableCell className="text-right">{formatNumber(c.videoCount)}</TableCell>
+                        <TableCell className="text-right">{formatNumber(c.avgViewsPerVideo)}</TableCell>
+                        <TableCell><UploadFrequencyBadge value={c.uploadFrequency} /></TableCell>
+                        <TableCell><CompetitiveThreatBadge value={c.competitiveThreat} /></TableCell>
+                        <TableCell><StatusBadge value={c.status} /></TableCell>
+                        <TableCell><WorkstreamBadge value={c.workstream} /></TableCell>
+                      </TableRow>
+                      {open && (
+                        <TableRow key={`${c.id}-detail`} className="bg-muted/30 hover:bg-muted/40">
+                          <TableCell />
+                          <TableCell colSpan={PRIMARY_COL_COUNT - 1}>
+                            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-x-6 gap-y-2 py-2 text-sm">
+                              <Detail label="Views:Sub %" value={formatPercent(c.viewsToSubRatio)} />
+                              <Detail label="Video Length" value={c.typicalVideoLength != null ? `${c.typicalVideoLength}m` : "\u2014"} />
+                              <Detail label="Content Type"><ContentTypeBadge value={c.contentTypes} /></Detail>
+                              <Detail label="Top Content Type" value={c.topContentType || "\u2014"} />
+                              <Detail label="Est. Revenue"><RevenueRangeBadge value={c.estRevenueRange} /></Detail>
+                              <Detail label="Monetization"><MonetizationBadges values={c.monetization} /></Detail>
+                              <Detail label="Last Analyzed" value={formatDate(c.lastAnalyzedDate)} />
+                              <Detail label="Other Ventures" value={c.otherVentures || "\u2014"} />
+                              <Detail label="Strengths" value={c.strengths || "\u2014"} wide />
+                              <Detail label="Opportunities" value={c.opportunities || "\u2014"} wide />
+                              <Detail label="Key Insights" value={c.keyInsights || "\u2014"} wide />
+                              <Detail label="Notes" value={c.notes || "\u2014"} wide />
+                            </div>
+                          </TableCell>
+                        </TableRow>
+                      )}
+                    </>
+                  )
+                })}
               </TableBody>
             </Table>
           </div>
         )}
       </div>
     </>
+  )
+}
+
+function Detail({ label, value, children, wide }: { label: string; value?: string; children?: React.ReactNode; wide?: boolean }) {
+  return (
+    <div className={wide ? "col-span-2" : ""}>
+      <span className="text-xs text-muted-foreground">{label}</span>
+      <div className="mt-0.5">{children || <span className="text-xs">{value}</span>}</div>
+    </div>
   )
 }
