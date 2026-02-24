@@ -40,6 +40,13 @@ interface Video {
   notes: string | null
   transcript: string | null
   summary: string | null
+  thumbnailUrl: string | null
+  description: string | null
+  captionAvailable: boolean | null
+  language: string | null
+  definition: string | null
+  topicCategories: string[] | null
+  categoryId: number | null
   createdAt: string | null
   updatedAt: string | null
 }
@@ -72,6 +79,13 @@ const VIDEOS_QUERY = gql`
           notes
           transcript
           summary
+          thumbnailUrl
+          description
+          captionAvailable
+          language
+          definition
+          topicCategories
+          categoryId
           createdAt
           updatedAt
         }
@@ -380,10 +394,19 @@ export default function VideosPage() {
                           <TableCell />
                           <TableCell colSpan={PRIMARY_COL_COUNT - 1}>
                             <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-x-6 gap-y-2 py-2 text-sm">
+                              {v.thumbnailUrl && (
+                                <Detail label="Thumbnail">
+                                  <img src={v.thumbnailUrl} alt={v.title} className="h-16 rounded" />
+                                </Detail>
+                              )}
                               <Detail label="Type" value={v.type || "\u2014"} />
                               <Detail label="Video ID" value={v.videoId} />
                               <Detail label="Engagement %" value={v.engagementRatePercent != null ? `${Number(v.engagementRatePercent).toFixed(1)}%` : "\u2014"} />
                               <Detail label="Duration" value={v.duration != null ? `${v.duration}m` : "\u2014"} />
+                              <Detail label="Definition" value={v.definition?.toUpperCase() || "\u2014"} />
+                              <Detail label="Language" value={v.language || "\u2014"} />
+                              <Detail label="Captions" value={v.captionAvailable ? "Yes" : "No"} />
+                              <Detail label="Category ID" value={v.categoryId != null ? String(v.categoryId) : "\u2014"} />
                               <Detail label="Created" value={formatDate(v.createdAt)} />
                               <Detail label="Updated" value={formatDate(v.updatedAt)} />
                               {v.url && (
@@ -394,8 +417,19 @@ export default function VideosPage() {
                                 </Detail>
                               )}
                               <Detail label="Tags" value={v.tags && v.tags.length > 0 ? v.tags.join(", ") : "\u2014"} wide />
+                              <Detail label="Topics" value={v.topicCategories && v.topicCategories.length > 0 ? v.topicCategories.join(", ") : "\u2014"} wide />
                               <Detail label="Notes" value={v.notes || "\u2014"} wide />
                             </div>
+                            {v.description && (
+                              <details className="mt-2">
+                                <summary className="cursor-pointer text-xs font-medium text-muted-foreground hover:text-foreground transition-colors">
+                                  Description
+                                </summary>
+                                <div className="mt-2 rounded-md border bg-background/50 p-3 max-h-48 overflow-y-auto">
+                                  <p className="text-xs whitespace-pre-wrap leading-relaxed">{v.description}</p>
+                                </div>
+                              </details>
+                            )}
                             {v.summary && (
                               <div className="mt-3 rounded-md border bg-background/50 p-3">
                                 <span className="text-xs font-medium text-muted-foreground">TLDR</span>

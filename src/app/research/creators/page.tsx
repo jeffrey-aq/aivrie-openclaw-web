@@ -47,6 +47,13 @@ interface Creator {
   status: string | null
   workstream: string | null
   notes: string | null
+  avatarUrl: string | null
+  bannerUrl: string | null
+  description: string | null
+  keywords: string[] | null
+  country: string | null
+  topicCategories: string[] | null
+  trailerVideoId: string | null
 }
 
 const CREATORS_QUERY = gql`
@@ -75,6 +82,13 @@ const CREATORS_QUERY = gql`
           status
           workstream
           notes
+          avatarUrl
+          bannerUrl
+          description
+          keywords
+          country
+          topicCategories
+          trailerVideoId
         }
       }
     }
@@ -347,6 +361,12 @@ export default function CreatorsPage() {
                           <TableCell />
                           <TableCell colSpan={PRIMARY_COL_COUNT - 1}>
                             <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-x-6 gap-y-2 py-2 text-sm">
+                              {c.avatarUrl && (
+                                <Detail label="Avatar">
+                                  <img src={c.avatarUrl} alt={c.title} className="size-10 rounded-full" />
+                                </Detail>
+                              )}
+                              <Detail label="Country" value={c.country || "\u2014"} />
                               <Detail label="Views:Sub %" value={formatPercent(c.viewsToSubRatio)} />
                               <Detail label="Video Length" value={c.typicalVideoLength != null ? `${c.typicalVideoLength}m` : "\u2014"} />
                               <Detail label="Content Type"><ContentTypeBadge value={c.contentTypes} /></Detail>
@@ -355,6 +375,9 @@ export default function CreatorsPage() {
                               <Detail label="Monetization"><MonetizationBadges values={c.monetization} /></Detail>
                               <Detail label="Last Analyzed" value={formatDate(c.lastAnalyzedDate)} />
                               <Detail label="Other Ventures" value={c.otherVentures || "\u2014"} />
+                              <Detail label="Keywords" value={c.keywords && c.keywords.length > 0 ? c.keywords.join(", ") : "\u2014"} wide />
+                              <Detail label="Topics" value={c.topicCategories && c.topicCategories.length > 0 ? c.topicCategories.join(", ") : "\u2014"} wide />
+                              <Detail label="Description" value={c.description || "\u2014"} wide />
                               <Detail label="Strengths" value={c.strengths || "\u2014"} wide />
                               <Detail label="Opportunities" value={c.opportunities || "\u2014"} wide />
                               <Detail label="Key Insights" value={c.keyInsights || "\u2014"} wide />

@@ -127,6 +127,13 @@ const pageTests = [
       competitiveThreat: "Medium",
       uploadFrequency: "Weekly",
       lastUploadDate: "2024-01-20",
+      avatarUrl: "https://example.com/avatar.jpg",
+      bannerUrl: null,
+      description: "A tech channel",
+      keywords: ["tech", "coding"],
+      country: "US",
+      topicCategories: ["Technology"],
+      trailerVideoId: null,
     },
     assertText: "TechChannel",
   },
@@ -146,6 +153,13 @@ const pageTests = [
       publishedDate: "2024-01-10",
       status: "Published",
       workstream: "Education",
+      thumbnailUrl: "https://example.com/thumb.jpg",
+      description: "A coding tutorial",
+      captionAvailable: true,
+      language: "en",
+      definition: "hd",
+      topicCategories: ["Education"],
+      categoryId: 27,
     },
     extraData: {
       youtubeCreatorsCollection: { edges: [{ node: { channelId: "UC123", title: "TechChannel" } }] },
@@ -539,6 +553,63 @@ describe("Page rendering", () => {
 
     // Creator name resolved from lookup (appears in table row and dropdown)
     expect(screen.getAllByText("TestCreator").length).toBeGreaterThanOrEqual(1)
+  })
+
+  it("creators query includes YouTube metadata fields", async () => {
+    mockRequest.mockResolvedValueOnce({
+      youtubeCreatorsCollection: { edges: [{ node: {
+        id: "cr1", title: "MetaCreator", channelId: "UC_META",
+        videoCount: 10, viewsToSubRatio: null, avgViewsPerVideo: 5000,
+        uploadFrequency: "Weekly", contentTypes: null, topContentType: null,
+        typicalVideoLength: null, estRevenueRange: null, otherVentures: null,
+        monetization: null, strengths: null, opportunities: null,
+        keyInsights: null, competitiveThreat: "Low", lastAnalyzedDate: null,
+        status: "Active", workstream: "YouTube", notes: null,
+        avatarUrl: "https://example.com/avatar.jpg", bannerUrl: null,
+        description: "Test channel", keywords: ["test"], country: "US",
+        topicCategories: ["Tech"], trailerVideoId: null,
+      }}] },
+    })
+
+    render(<CreatorsPage />)
+    await screen.findByText("MetaCreator")
+
+    const query = mockRequest.mock.calls[0][0]
+    const queryStr = typeof query === "string" ? query : print(query)
+    expect(queryStr).toContain("avatarUrl")
+    expect(queryStr).toContain("bannerUrl")
+    expect(queryStr).toContain("keywords")
+    expect(queryStr).toContain("country")
+    expect(queryStr).toContain("topicCategories")
+    expect(queryStr).toContain("trailerVideoId")
+  })
+
+  it("videos query includes YouTube metadata fields", async () => {
+    mockRequest.mockResolvedValueOnce({
+      youtubeVideosCollection: { edges: [{ node: {
+        id: "v1", title: "MetaVideo", videoId: "vid_meta", channelId: "UC123",
+        type: null, views: 100, likes: 10, comments: 5,
+        publishedDate: "2024-01-10", status: "Published", workstream: null,
+        thumbnailUrl: "https://example.com/thumb.jpg", description: "A video",
+        captionAvailable: true, language: "en", definition: "hd",
+        topicCategories: ["Education"], categoryId: 27,
+      }}] },
+      youtubeCreatorsCollection: { edges: [{ node: {
+        channelId: "UC123", title: "TestCreator",
+      }}] },
+    })
+
+    render(<VideosPage />)
+    await screen.findByText("MetaVideo")
+
+    const query = mockRequest.mock.calls[0][0]
+    const queryStr = typeof query === "string" ? query : print(query)
+    expect(queryStr).toContain("thumbnailUrl")
+    expect(queryStr).toContain("captionAvailable")
+    expect(queryStr).toContain("language")
+    expect(queryStr).toContain("definition")
+    expect(queryStr).toContain("topicCategories")
+    expect(queryStr).toContain("categoryId")
   })
 
   it("creators page links to videos filtered by channelId", async () => {
