@@ -1,6 +1,7 @@
 "use client"
 
 import { createContext, useContext, useEffect, useState } from "react"
+import { usePathname } from "next/navigation"
 import type { Session, User } from "@supabase/supabase-js"
 import { supabase } from "@/lib/supabase-client"
 
@@ -15,6 +16,7 @@ interface AuthContext {
 const AuthContext = createContext<AuthContext | undefined>(undefined)
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
+  const pathname = usePathname()
   const [session, setSession] = useState<Session | null>(null)
   const [loading, setLoading] = useState(true)
   const [signingIn, setSigningIn] = useState(false)
@@ -32,19 +34,37 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   async function signInWithGoogle() {
     setSigningIn(true)
-    await supabase.auth.signInWithOAuth({
+    const { data, error } = await supabase.auth.signInWithOAuth({
       provider: "google",
       options: {
         redirectTo: `${window.location.origin}/auth/callback`,
       },
     })
+    if (error) {
+      console.error("OAuth error:", error)
+      setSigningIn(false)
+    } else {
+      console.log("OAuth redirect URL:", data.url)
+    }
   }
 
   async function signOut() {
     await supabase.auth.signOut()
   }
 
-  if (loading) {
+  const contextValue = {
+    session,
+    user: session?.user ?? null,
+    loading,
+    signInWithGoogle,
+    signOut,
+  }
+
+  // Allow the auth callback page to render so it can exchange the OAuth code
+  // for a session — otherwise AuthProvider blocks it with the login screen
+  const isCallback = pathname === "/auth/callback"
+
+  if (!isCallback && loading) {
     return (
       <div className="flex h-screen items-center justify-center">
         <div className="flex flex-col items-center gap-3">
@@ -55,7 +75,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     )
   }
 
-  if (!session) {
+  if (!isCallback && !session) {
     return (
       <div className="flex h-screen items-center justify-center">
         <div className="flex flex-col items-center gap-6">
@@ -79,15 +99,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }
 
   return (
-    <AuthContext.Provider
-      value={{
-        session,
-        user: session.user,
-        loading,
-        signInWithGoogle,
-        signOut,
-      }}
-    >
+    <AuthContext.Provider value={contextValue}>
       {children}
     </AuthContext.Provider>
   )
