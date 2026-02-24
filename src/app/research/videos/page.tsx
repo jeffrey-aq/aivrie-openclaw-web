@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useMemo, useState } from "react"
+import React, { useEffect, useMemo, useState } from "react"
 import { useSearchParams } from "next/navigation"
 import { gql } from "graphql-request"
 import { extractNodes } from "@/lib/graphql"
@@ -38,6 +38,8 @@ interface Video {
   workstream: string | null
   status: string | null
   notes: string | null
+  transcript: string | null
+  summary: string | null
   createdAt: string | null
   updatedAt: string | null
 }
@@ -68,6 +70,8 @@ const VIDEOS_QUERY = gql`
           workstream
           status
           notes
+          transcript
+          summary
           createdAt
           updatedAt
         }
@@ -87,6 +91,16 @@ const VIDEOS_QUERY = gql`
 const workstreamOptions = ["Research", "YouTube", "SaaS", "Newsletter", "Apps", "Courses"]
 const statusOptions = ["Published", "Draft", "Unlisted"]
 
+function ratio(num: number | null, denom: number | null): number | null {
+  if (num == null || denom == null || denom === 0) return null
+  return num / denom
+}
+
+function formatPercent(n: number | null) {
+  if (n == null) return "\u2014"
+  return `${(n * 100).toFixed(2)}%`
+}
+
 function formatNumber(n: number | null) {
   if (n == null) return "\u2014"
   if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M`
@@ -100,7 +114,7 @@ function formatDate(d: string | null) {
 }
 
 type SortDir = "asc" | "desc"
-type SortKey = keyof Video | "creatorName"
+type SortKey = keyof Video | "creatorName" | "likesPerView" | "commentsPerView"
 
 interface Filters {
   search: string
@@ -149,7 +163,7 @@ function SortableHead({
   )
 }
 
-const PRIMARY_COL_COUNT = 9
+const PRIMARY_COL_COUNT = 11
 
 export default function VideosPage() {
   const graphqlClient = useGraphQLClient()
@@ -263,6 +277,12 @@ export default function VideosPage() {
       if (sortKey === "creatorName") {
         av = creatorLookup[a.channelId] || ""
         bv = creatorLookup[b.channelId] || ""
+      } else if (sortKey === "likesPerView") {
+        av = ratio(a.likes, a.views)
+        bv = ratio(b.likes, b.views)
+      } else if (sortKey === "commentsPerView") {
+        av = ratio(a.comments, a.views)
+        bv = ratio(b.comments, b.views)
       } else {
         av = a[sortKey]
         bv = b[sortKey]
@@ -325,6 +345,8 @@ export default function VideosPage() {
                   <SortableHead label="Views" sortKey="views" currentSort={sortKey} currentDir={sortDir} onSort={handleSort} className="text-right" />
                   <SortableHead label="Likes" sortKey="likes" currentSort={sortKey} currentDir={sortDir} onSort={handleSort} className="text-right" />
                   <SortableHead label="Comments" sortKey="comments" currentSort={sortKey} currentDir={sortDir} onSort={handleSort} className="text-right" />
+                  <SortableHead label="Likes/View" sortKey="likesPerView" currentSort={sortKey} currentDir={sortDir} onSort={handleSort} className="text-right" />
+                  <SortableHead label="Comments/View" sortKey="commentsPerView" currentSort={sortKey} currentDir={sortDir} onSort={handleSort} className="text-right" />
                   <SortableHead label="Published" sortKey="publishedDate" currentSort={sortKey} currentDir={sortDir} onSort={handleSort} />
                   <SortableHead label="Status" sortKey="status" currentSort={sortKey} currentDir={sortDir} onSort={handleSort} />
                   <SortableHead label="Workstream" sortKey="workstream" currentSort={sortKey} currentDir={sortDir} onSort={handleSort} />
@@ -335,8 +357,8 @@ export default function VideosPage() {
                   const open = isExpanded(v.id)
                   const creatorName = creatorLookup[v.channelId] || v.channelId
                   return (
-                    <>
-                      <TableRow key={v.id} className="cursor-pointer hover:bg-muted/50" onClick={() => toggleRow(v.id)}>
+                    <React.Fragment key={v.id}>
+                      <TableRow className="cursor-pointer hover:bg-muted/50" onClick={() => toggleRow(v.id)}>
                         <TableCell className="w-8 px-2">
                           {open ? <ChevronDown className="size-4 text-muted-foreground" /> : <ChevronRight className="size-4 text-muted-foreground" />}
                         </TableCell>
@@ -347,18 +369,20 @@ export default function VideosPage() {
                         <TableCell className="text-right">{formatNumber(v.views)}</TableCell>
                         <TableCell className="text-right">{formatNumber(v.likes)}</TableCell>
                         <TableCell className="text-right">{formatNumber(v.comments)}</TableCell>
+                        <TableCell className="text-right">{formatPercent(ratio(v.likes, v.views))}</TableCell>
+                        <TableCell className="text-right">{formatPercent(ratio(v.comments, v.views))}</TableCell>
                         <TableCell className="whitespace-nowrap">{formatDate(v.publishedDate)}</TableCell>
                         <TableCell><VideoStatusBadge value={v.status} /></TableCell>
                         <TableCell><WorkstreamBadge value={v.workstream} /></TableCell>
                       </TableRow>
                       {open && (
-                        <TableRow key={`${v.id}-detail`} className="bg-muted/30 hover:bg-muted/40">
+                        <TableRow className="bg-muted/30 hover:bg-muted/40">
                           <TableCell />
                           <TableCell colSpan={PRIMARY_COL_COUNT - 1}>
                             <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-x-6 gap-y-2 py-2 text-sm">
                               <Detail label="Type" value={v.type || "\u2014"} />
                               <Detail label="Video ID" value={v.videoId} />
-                              <Detail label="Engagement %" value={v.engagementRatePercent != null ? `${v.engagementRatePercent.toFixed(1)}%` : "\u2014"} />
+                              <Detail label="Engagement %" value={v.engagementRatePercent != null ? `${Number(v.engagementRatePercent).toFixed(1)}%` : "\u2014"} />
                               <Detail label="Duration" value={v.duration != null ? `${v.duration}m` : "\u2014"} />
                               <Detail label="Created" value={formatDate(v.createdAt)} />
                               <Detail label="Updated" value={formatDate(v.updatedAt)} />
@@ -372,10 +396,26 @@ export default function VideosPage() {
                               <Detail label="Tags" value={v.tags && v.tags.length > 0 ? v.tags.join(", ") : "\u2014"} wide />
                               <Detail label="Notes" value={v.notes || "\u2014"} wide />
                             </div>
+                            {v.summary && (
+                              <div className="mt-3 rounded-md border bg-background/50 p-3">
+                                <span className="text-xs font-medium text-muted-foreground">TLDR</span>
+                                <p className="mt-1 text-sm whitespace-pre-wrap">{v.summary}</p>
+                              </div>
+                            )}
+                            {v.transcript && (
+                              <details className="mt-2">
+                                <summary className="cursor-pointer text-xs font-medium text-muted-foreground hover:text-foreground transition-colors">
+                                  Transcript
+                                </summary>
+                                <div className="mt-2 rounded-md border bg-background/50 p-3 max-h-64 overflow-y-auto">
+                                  <p className="text-xs whitespace-pre-wrap leading-relaxed">{v.transcript}</p>
+                                </div>
+                              </details>
+                            )}
                           </TableCell>
                         </TableRow>
                       )}
-                    </>
+                    </React.Fragment>
                   )
                 })}
               </TableBody>

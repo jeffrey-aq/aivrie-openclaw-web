@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useMemo, useState } from "react"
+import React, { useEffect, useMemo, useState } from "react"
 import { gql } from "graphql-request"
 import { extractNodes } from "@/lib/graphql"
 import { useGraphQLClient } from "@/hooks/use-graphql"
@@ -321,8 +321,8 @@ export default function CreatorsPage() {
                 {sorted.map((c) => {
                   const open = isExpanded(c.id)
                   return (
-                    <>
-                      <TableRow key={c.id} className="cursor-pointer hover:bg-muted/50" onClick={() => toggleRow(c.id)}>
+                    <React.Fragment key={c.id}>
+                      <TableRow className="cursor-pointer hover:bg-muted/50" onClick={() => toggleRow(c.id)}>
                         <TableCell className="w-8 px-2">
                           {open ? <ChevronDown className="size-4 text-muted-foreground" /> : <ChevronRight className="size-4 text-muted-foreground" />}
                         </TableCell>
@@ -343,7 +343,7 @@ export default function CreatorsPage() {
                         <TableCell><WorkstreamBadge value={c.workstream} /></TableCell>
                       </TableRow>
                       {open && (
-                        <TableRow key={`${c.id}-detail`} className="bg-muted/30 hover:bg-muted/40">
+                        <TableRow className="bg-muted/30 hover:bg-muted/40">
                           <TableCell />
                           <TableCell colSpan={PRIMARY_COL_COUNT - 1}>
                             <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-x-6 gap-y-2 py-2 text-sm">
@@ -363,7 +363,7 @@ export default function CreatorsPage() {
                           </TableCell>
                         </TableRow>
                       )}
-                    </>
+                    </React.Fragment>
                   )
                 })}
               </TableBody>
