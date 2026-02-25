@@ -275,7 +275,7 @@ export default function CreatorsPage() {
 
   return (
     <>
-      <PageHeader section="Research" sectionHref="/research/creators" page="YouTube Creators" />
+      <PageHeader section="YouTube" sectionHref="/research/creators" page="Creators" />
       <div className="flex-1 p-6">
         <h1 className="text-2xl font-semibold mb-4">YouTube Creators</h1>
 

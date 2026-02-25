@@ -119,12 +119,12 @@ const sections: SectionConfig[] = [
     ],
   },
   {
-    title: "Research",
+    title: "YouTube",
     color: "text-red-500",
     bgColor: "bg-red-50 dark:bg-red-950",
     items: [
-      { label: "YouTube Creators", key: "youtubeCreatorsCollection", icon: Youtube, href: "/research/creators" },
-      { label: "YouTube Videos", key: "youtubeVideosCollection", icon: Video, href: "/research/videos" },
+      { label: "Creators", key: "youtubeCreatorsCollection", icon: Youtube, href: "/research/creators" },
+      { label: "Videos", key: "youtubeVideosCollection", icon: Video, href: "/research/videos" },
     ],
   },
 ]

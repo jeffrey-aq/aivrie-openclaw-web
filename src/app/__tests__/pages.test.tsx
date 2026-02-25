@@ -426,11 +426,11 @@ describe("Page rendering", () => {
     expect(await screen.findByText("CRM")).toBeInTheDocument()
     expect(screen.getByText("Knowledge Base")).toBeInTheDocument()
     expect(screen.getByText("Insights")).toBeInTheDocument()
-    expect(screen.getByText("Research")).toBeInTheDocument()
+    expect(screen.getByText("YouTube")).toBeInTheDocument()
 
     // All 16 item labels render
     expect(screen.getByText("Contacts")).toBeInTheDocument()
-    expect(screen.getByText("YouTube Videos")).toBeInTheDocument()
+    expect(screen.getByText("Videos")).toBeInTheDocument()
     expect(screen.getByText("Digest Deliveries")).toBeInTheDocument()
 
     // All 16 count spans render (one per collection)

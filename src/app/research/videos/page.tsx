@@ -308,7 +308,7 @@ export default function VideosPage() {
 
   return (
     <>
-      <PageHeader section="Research" sectionHref="/research/creators" page="YouTube Videos" />
+      <PageHeader section="YouTube" sectionHref="/research/creators" page="Videos" />
       <div className="flex-1 p-6">
         <h1 className="text-2xl font-semibold mb-4">YouTube Videos</h1>
 
@@ -431,18 +431,22 @@ export default function VideosPage() {
                               </details>
                             )}
                             {v.summary && (
-                              <div className="mt-3 rounded-md border bg-background/50 p-3">
-                                <span className="text-xs font-medium text-muted-foreground">TLDR</span>
-                                <p className="mt-1 text-sm whitespace-pre-wrap">{v.summary}</p>
-                              </div>
+                              <details className="mt-2">
+                                <summary className="cursor-pointer text-xs font-medium text-muted-foreground hover:text-foreground transition-colors">
+                                  Summary
+                                </summary>
+                                <div className="mt-2 rounded-md border bg-background/50 p-3 max-h-48 overflow-y-auto overflow-x-hidden">
+                                  <p className="text-sm whitespace-pre-wrap break-words leading-relaxed">{v.summary}</p>
+                                </div>
+                              </details>
                             )}
                             {v.transcript && (
                               <details className="mt-2">
                                 <summary className="cursor-pointer text-xs font-medium text-muted-foreground hover:text-foreground transition-colors">
                                   Transcript
                                 </summary>
-                                <div className="mt-2 rounded-md border bg-background/50 p-3 max-h-64 overflow-y-auto">
-                                  <p className="text-xs whitespace-pre-wrap leading-relaxed">{v.transcript}</p>
+                                <div className="mt-2 rounded-md border bg-background/50 p-3 max-h-64 overflow-y-auto overflow-x-hidden">
+                                  <p className="text-xs whitespace-pre-wrap break-words leading-relaxed">{v.transcript}</p>
                                 </div>
                               </details>
                             )}

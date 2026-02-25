@@ -141,18 +141,18 @@ const data = {
       ],
     },
     {
-      title: "Research",
+      title: "YouTube",
       url: "/research/creators",
-      icon: Search,
+      icon: Youtube,
       color: "text-red-500",
       items: [
         {
-          title: "YouTube Creators",
+          title: "Creators",
           url: "/research/creators",
           icon: Youtube,
         },
         {
-          title: "YouTube Videos",
+          title: "Videos",
           url: "/research/videos",
           icon: Video,
         },
