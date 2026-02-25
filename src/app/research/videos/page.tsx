@@ -81,12 +81,38 @@ const PAGE_SIZE_OPTIONS = [
 
 type PageSize = (typeof PAGE_SIZE_OPTIONS)[number]["value"]
 
-function buildVideosQuery(channelId?: string, limit: number = 1000): string {
+type SortDir = "asc" | "desc"
+type SortKey = keyof Video | "creatorName" | "likesPerView" | "commentsPerView"
+
+// Sort keys that map directly to DB columns for server-side ordering
+const SERVER_SORT_FIELDS: Partial<Record<SortKey, string>> = {
+  title: "title",
+  views: "views",
+  likes: "likes",
+  comments: "comments",
+  duration: "duration",
+  durationType: "durationType",
+  publishedDate: "publishedDate",
+  status: "status",
+  workstream: "workstream",
+  engagementRatePercent: "engagementRatePercent",
+}
+
+function buildVideosQuery(
+  channelId?: string,
+  limit: number = 1000,
+  sortField?: string,
+  sortDirection: SortDir = "desc",
+): string {
   const filter = channelId
     ? `filter: { channelId: { eq: "${channelId}" } }, `
     : ""
+  const dir = sortDirection === "asc" ? "AscNullsLast" : "DescNullsLast"
+  const orderBy = sortField
+    ? `{ ${sortField}: ${dir} }`
+    : "{ publishedDate: DescNullsLast }"
   return `{
-    youtubeVideosCollection(${filter}orderBy: [{ publishedDate: DescNullsLast }], first: ${limit}) {
+    youtubeVideosCollection(${filter}orderBy: [${orderBy}], first: ${limit}) {
       totalCount
       edges {
         node {
@@ -152,9 +178,6 @@ function formatDate(d: string | null) {
   if (!d) return "\u2014"
   return new Date(d).toLocaleDateString(undefined, { year: "numeric", month: "short", day: "numeric" })
 }
-
-type SortDir = "asc" | "desc"
-type SortKey = keyof Video | "creatorName" | "likesPerView" | "commentsPerView"
 
 interface Filters {
   search: string
@@ -236,14 +259,15 @@ export default function VideosPage() {
       .catch((err) => console.error("Error loading creators:", err))
   }, [graphqlClient])
 
-  // Fetch videos — re-runs when server-side creator filter or page size changes
+  // Fetch videos — re-runs when creator filter, page size, or server-side sort changes
   const creatorFilter = filters.creator
+  const serverSortField = sortKey ? SERVER_SORT_FIELDS[sortKey] : undefined
   useEffect(() => {
     let cancelled = false
     setLoading(true)
     graphqlClient
       .request<{ youtubeVideosCollection: { totalCount: number; edges: { node: Video }[] } }>(
-        buildVideosQuery(creatorFilter || undefined, pageSize)
+        buildVideosQuery(creatorFilter || undefined, pageSize, serverSortField, sortDir)
       )
       .then((data) => {
         if (!cancelled) {
@@ -258,7 +282,7 @@ export default function VideosPage() {
         if (!cancelled) setLoading(false)
       })
     return () => { cancelled = true }
-  }, [graphqlClient, creatorFilter, pageSize])
+  }, [graphqlClient, creatorFilter, pageSize, serverSortField, sortDir])
 
   const creatorLookup = useMemo(() => {
     const map: Record<string, string> = {}
@@ -325,6 +349,9 @@ export default function VideosPage() {
 
   const sorted = useMemo(() => {
     if (!sortKey) return filtered
+    // Server-side sorted columns — already ordered by the DB, skip client re-sort
+    if (SERVER_SORT_FIELDS[sortKey]) return filtered
+    // Client-side sort for computed columns only
     return [...filtered].sort((a, b) => {
       let av: unknown, bv: unknown
       if (sortKey === "creatorName") {
