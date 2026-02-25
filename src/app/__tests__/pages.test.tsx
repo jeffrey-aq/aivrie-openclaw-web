@@ -545,14 +545,13 @@ describe("Page rendering", () => {
   })
 
   it("YouTube dashboard renders summary cards and charts", async () => {
+    // OVERVIEW_QUERY returns server-side aggregates
     mockRequest.mockResolvedValueOnce({
-      youtubeCreatorsCollection: { edges: [
-        { node: { id: "cr1", title: "TestCreator", channelId: "UC123", videoCount: 5, avgViewsPerVideo: 1000, uploadFrequency: "Weekly", competitiveThreat: "Low", status: "Active" } },
-      ] },
-      youtubeVideosCollection: { edges: [
-        { node: { id: "v1", title: "Vid1", channelId: "UC123", views: 500, likes: 50, comments: 10, duration: 15, durationType: "Full", transcript: "text", summary: "sum", publishedDate: "2024-01-10", engagementRatePercent: 5.0 } },
-        { node: { id: "v2", title: "Vid2", channelId: "UC123", views: 200, likes: 20, comments: 5, duration: 1.5, durationType: "Short", transcript: null, summary: "sum2", publishedDate: "2024-01-12", engagementRatePercent: 6.0 } },
-      ] },
+      creatorsTotal: { totalCount: 1 },
+      videosTotal: { totalCount: 2 },
+      videoAggregates: { aggregate: { sum: { views: "700", likes: "70", comments: "15", duration: "16.5" } } },
+      shortsTotal: { totalCount: 1 },
+      transcriptTotal: { totalCount: 1 },
     })
 
     render(<YouTubeDashboardPage />)
