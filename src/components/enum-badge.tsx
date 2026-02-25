@@ -96,8 +96,17 @@ export function CompetitiveThreatBadge({ value }: { value: string | null }) {
   return <ColorBadge value={value} colors={competitiveThreatColors} />
 }
 
+const durationTypeColors: Record<string, string> = {
+  "Short": "bg-pink-500/15 text-pink-700 dark:text-pink-400",
+  "Full": "bg-sky-500/15 text-sky-700 dark:text-sky-400",
+}
+
 export function VideoStatusBadge({ value }: { value: string | null }) {
   return <ColorBadge value={value} colors={videoStatusColors} />
+}
+
+export function DurationTypeBadge({ value }: { value: string | null }) {
+  return <ColorBadge value={value} colors={durationTypeColors} />
 }
 
 // ===================== SHARED ACROSS SCHEMAS =====================

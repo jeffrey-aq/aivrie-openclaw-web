@@ -10,6 +10,7 @@ import { ArrowUp, ArrowDown, ArrowUpDown, X, ChevronDown, ChevronRight, Chevrons
 import {
   WorkstreamBadge,
   VideoStatusBadge,
+  DurationTypeBadge,
 } from "@/components/enum-badge"
 import {
   Table,
@@ -47,6 +48,7 @@ interface Video {
   definition: string | null
   topicCategories: string[] | null
   categoryId: number | null
+  durationType: string | null
   createdAt: string | null
   updatedAt: string | null
 }
@@ -86,6 +88,7 @@ const VIDEOS_QUERY = gql`
           definition
           topicCategories
           categoryId
+          durationType
           createdAt
           updatedAt
         }
@@ -104,6 +107,33 @@ const VIDEOS_QUERY = gql`
 
 const workstreamOptions = ["Research", "YouTube", "SaaS", "Newsletter", "Apps", "Courses"]
 const statusOptions = ["Published", "Draft", "Unlisted"]
+const durationTypeOptions = ["Short", "Full"]
+
+function formatDuration(minutes: number | null): string {
+  if (minutes == null) return "\u2014"
+  const totalSeconds = Math.round(minutes * 60)
+  const h = Math.floor(totalSeconds / 3600)
+  const m = Math.floor((totalSeconds % 3600) / 60)
+  const s = totalSeconds % 60
+  if (h > 0) return `${h}:${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}`
+  return `${m}:${String(s).padStart(2, "0")}`
+}
+
+function DurationBar({ minutes, durationType }: { minutes: number | null; durationType: string | null }) {
+  if (minutes == null) return <span className="text-muted-foreground">{"\u2014"}</span>
+  const isShort = durationType === "Short"
+  const maxMinutes = isShort ? 3 : 120
+  const pct = Math.min((minutes / maxMinutes) * 100, 100)
+  const barColor = isShort ? "bg-pink-500" : "bg-sky-500"
+  return (
+    <div className="flex items-center gap-2 min-w-[100px]">
+      <span className="text-xs whitespace-nowrap tabular-nums">{formatDuration(minutes)}</span>
+      <div className="flex-1 h-1.5 rounded-full bg-muted overflow-hidden">
+        <div className={`h-full rounded-full ${barColor}`} style={{ width: `${pct}%` }} />
+      </div>
+    </div>
+  )
+}
 
 function ratio(num: number | null, denom: number | null): number | null {
   if (num == null || denom == null || denom === 0) return null
@@ -135,6 +165,7 @@ interface Filters {
   creator: string
   workstream: string
   status: string
+  durationType: string
 }
 
 const emptyFilters: Filters = {
@@ -142,6 +173,7 @@ const emptyFilters: Filters = {
   creator: "",
   workstream: "",
   status: "",
+  durationType: "",
 }
 
 function FilterSelect({
@@ -177,7 +209,7 @@ function SortableHead({
   )
 }
 
-const PRIMARY_COL_COUNT = 11
+const PRIMARY_COL_COUNT = 13
 
 export default function VideosPage() {
   const graphqlClient = useGraphQLClient()
@@ -281,6 +313,7 @@ export default function VideosPage() {
     if (filters.creator) result = result.filter((v) => v.channelId === filters.creator)
     if (filters.workstream) result = result.filter((v) => v.workstream === filters.workstream)
     if (filters.status) result = result.filter((v) => v.status === filters.status)
+    if (filters.durationType) result = result.filter((v) => v.durationType === filters.durationType)
     return result
   }, [videos, filters, creatorLookup])
 
@@ -322,6 +355,7 @@ export default function VideosPage() {
           <FilterSelect label="Creator" value={filters.creator} options={creatorOptions} onChange={(v) => setFilter("creator", v)} />
           <FilterSelect label="Workstream" value={filters.workstream} options={workstreamOptions} onChange={(v) => setFilter("workstream", v)} />
           <FilterSelect label="Status" value={filters.status} options={statusOptions} onChange={(v) => setFilter("status", v)} />
+          <FilterSelect label="Type" value={filters.durationType} options={durationTypeOptions} onChange={(v) => setFilter("durationType", v)} />
           {hasFilters && (
             <button
               onClick={() => setFilters(emptyFilters)}
@@ -361,6 +395,8 @@ export default function VideosPage() {
                   <SortableHead label="Comments" sortKey="comments" currentSort={sortKey} currentDir={sortDir} onSort={handleSort} className="text-right" />
                   <SortableHead label="Likes/View" sortKey="likesPerView" currentSort={sortKey} currentDir={sortDir} onSort={handleSort} className="text-right" />
                   <SortableHead label="Comments/View" sortKey="commentsPerView" currentSort={sortKey} currentDir={sortDir} onSort={handleSort} className="text-right" />
+                  <SortableHead label="Duration" sortKey="duration" currentSort={sortKey} currentDir={sortDir} onSort={handleSort} />
+                  <SortableHead label="Type" sortKey="durationType" currentSort={sortKey} currentDir={sortDir} onSort={handleSort} />
                   <SortableHead label="Published" sortKey="publishedDate" currentSort={sortKey} currentDir={sortDir} onSort={handleSort} />
                   <SortableHead label="Status" sortKey="status" currentSort={sortKey} currentDir={sortDir} onSort={handleSort} />
                   <SortableHead label="Workstream" sortKey="workstream" currentSort={sortKey} currentDir={sortDir} onSort={handleSort} />
@@ -385,6 +421,8 @@ export default function VideosPage() {
                         <TableCell className="text-right">{formatNumber(v.comments)}</TableCell>
                         <TableCell className="text-right">{formatPercent(ratio(v.likes, v.views))}</TableCell>
                         <TableCell className="text-right">{formatPercent(ratio(v.comments, v.views))}</TableCell>
+                        <TableCell><DurationBar minutes={v.duration} durationType={v.durationType} /></TableCell>
+                        <TableCell><DurationTypeBadge value={v.durationType} /></TableCell>
                         <TableCell className="whitespace-nowrap">{formatDate(v.publishedDate)}</TableCell>
                         <TableCell><VideoStatusBadge value={v.status} /></TableCell>
                         <TableCell><WorkstreamBadge value={v.workstream} /></TableCell>
@@ -402,7 +440,6 @@ export default function VideosPage() {
                               <Detail label="Type" value={v.type || "\u2014"} />
                               <Detail label="Video ID" value={v.videoId} />
                               <Detail label="Engagement %" value={v.engagementRatePercent != null ? `${Number(v.engagementRatePercent).toFixed(1)}%` : "\u2014"} />
-                              <Detail label="Duration" value={v.duration != null ? `${v.duration}m` : "\u2014"} />
                               <Detail label="Definition" value={v.definition?.toUpperCase() || "\u2014"} />
                               <Detail label="Language" value={v.language || "\u2014"} />
                               <Detail label="Captions" value={v.captionAvailable ? "Yes" : "No"} />
