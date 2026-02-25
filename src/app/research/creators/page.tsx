@@ -15,6 +15,7 @@ import {
   CompetitiveThreatBadge,
   StatusBadge,
   WorkstreamBadge,
+  CreatorBadge,
 } from "@/components/enum-badge"
 import {
   Table,
@@ -345,9 +346,8 @@ export default function CreatorsPage() {
                           <Link
                             href={`/research/videos?creator=${encodeURIComponent(c.channelId)}`}
                             onClick={(e) => e.stopPropagation()}
-                            className="text-blue-600 dark:text-blue-400 hover:underline"
                           >
-                            {c.title}
+                            <CreatorBadge name={c.title} channelId={c.channelId} />
                           </Link>
                         </TableCell>
                         <TableCell className="text-right">{formatNumber(c.videoCount)}</TableCell>
