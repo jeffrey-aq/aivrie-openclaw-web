@@ -1,5 +1,6 @@
 "use client"
 
+import { usePathname } from "next/navigation"
 import { ChevronRight, type LucideIcon } from "lucide-react"
 
 import {
@@ -43,6 +44,12 @@ export function NavMain({
 }) {
   const { state } = useSidebar()
   const collapsed = state === "collapsed"
+  const pathname = usePathname()
+
+  function isSectionActive(item: { url: string; items?: { url: string }[] }) {
+    if (pathname === item.url) return true
+    return item.items?.some((sub) => pathname.startsWith(sub.url)) ?? false
+  }
 
   return (
     <SidebarGroup>
@@ -73,7 +80,7 @@ export function NavMain({
             <Collapsible
               key={item.title}
               asChild
-              defaultOpen={item.isActive}
+              defaultOpen={isSectionActive(item)}
               className="group/collapsible"
             >
               <SidebarMenuItem>

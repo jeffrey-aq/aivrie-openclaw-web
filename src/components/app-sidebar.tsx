@@ -45,7 +45,6 @@ const data = {
       url: "/crm",
       icon: Users,
       color: "text-blue-500",
-      isActive: true,
       items: [
         {
           title: "Dashboard",
