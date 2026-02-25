@@ -410,21 +410,24 @@ describe("Page rendering", () => {
   })
 
   it("dashboard renders section headers and counts", async () => {
-    const mockCounts: Record<string, { edges: { node: { nodeId: string } }[] }> = {}
-    const collections = [
+    const ytCollections = ["youtubeCreatorsCollection", "youtubeVideosCollection"]
+    const edgeCollections = [
       "contactsCollection", "interactionsCollection", "followUpsCollection",
-      "youtubeCreatorsCollection", "youtubeVideosCollection",
       "sourcesCollection", "entitiesCollection", "ingestionQueueCollection",
       "recommendationsCollection", "analysisRunsCollection",
       "dataSourcesCollection", "aggregatedMetricsCollection",
       "feedbackEventsCollection", "preferencePatternsCollection",
       "specialistPersonasCollection", "digestDeliveriesCollection",
     ]
-    collections.forEach((col, i) => {
+    const mockCounts: Record<string, unknown> = {}
+    edgeCollections.forEach((col, i) => {
       mockCounts[col] = {
         edges: Array.from({ length: i + 1 }, (_, j) => ({ node: { nodeId: `${col}-${j}` } })),
       }
     })
+    // YouTube collections use totalCount
+    mockCounts["youtubeCreatorsCollection"] = { totalCount: 4 }
+    mockCounts["youtubeVideosCollection"] = { totalCount: 5 }
 
     mockRequest.mockResolvedValueOnce(mockCounts)
 
@@ -457,7 +460,6 @@ describe("Page rendering", () => {
   })
 
   it("dashboard query fetches all 16 collections", async () => {
-    const mockCounts: Record<string, { edges: { node: { nodeId: string } }[] }> = {}
     const collections = [
       "contactsCollection", "interactionsCollection", "followUpsCollection",
       "youtubeCreatorsCollection", "youtubeVideosCollection",
@@ -467,8 +469,11 @@ describe("Page rendering", () => {
       "feedbackEventsCollection", "preferencePatternsCollection",
       "specialistPersonasCollection", "digestDeliveriesCollection",
     ]
+    const mockCounts: Record<string, unknown> = {}
     collections.forEach((col) => {
-      mockCounts[col] = { edges: [{ node: { nodeId: `${col}-0` } }] }
+      mockCounts[col] = col.startsWith("youtube")
+        ? { totalCount: 1 }
+        : { edges: [{ node: { nodeId: `${col}-0` } }] }
     })
 
     mockRequest.mockResolvedValueOnce(mockCounts)

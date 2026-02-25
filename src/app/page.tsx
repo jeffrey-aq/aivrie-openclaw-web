@@ -31,12 +31,16 @@ interface EdgeList {
   edges: { node: { nodeId: string } }[]
 }
 
+interface TotalCount {
+  totalCount: number
+}
+
 interface CountsResponse {
   contactsCollection: EdgeList
   interactionsCollection: EdgeList
   followUpsCollection: EdgeList
-  youtubeCreatorsCollection: EdgeList
-  youtubeVideosCollection: EdgeList
+  youtubeCreatorsCollection: TotalCount
+  youtubeVideosCollection: TotalCount
   sourcesCollection: EdgeList
   entitiesCollection: EdgeList
   ingestionQueueCollection: EdgeList
@@ -55,8 +59,8 @@ const COUNTS_QUERY = gql`
     contactsCollection(first: 1000) { edges { node { nodeId } } }
     interactionsCollection(first: 1000) { edges { node { nodeId } } }
     followUpsCollection(first: 1000) { edges { node { nodeId } } }
-    youtubeCreatorsCollection(first: 1000) { edges { node { nodeId } } }
-    youtubeVideosCollection(first: 1000) { edges { node { nodeId } } }
+    youtubeCreatorsCollection { totalCount }
+    youtubeVideosCollection { totalCount }
     sourcesCollection(first: 1000) { edges { node { nodeId } } }
     entitiesCollection(first: 1000) { edges { node { nodeId } } }
     ingestionQueueCollection(first: 1000) { edges { node { nodeId } } }
@@ -174,7 +178,10 @@ export default function Home() {
                         <span className="text-sm">{item.label}</span>
                       </div>
                       <span className="text-lg font-bold">
-                        {counts[item.key].edges.length.toLocaleString()}
+                        {("totalCount" in counts[item.key]
+                          ? (counts[item.key] as TotalCount).totalCount
+                          : (counts[item.key] as EdgeList).edges.length
+                        ).toLocaleString()}
                       </span>
                     </Link>
                   ))}
