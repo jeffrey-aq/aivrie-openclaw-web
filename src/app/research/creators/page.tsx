@@ -6,7 +6,6 @@ import { gql } from "graphql-request"
 import { extractNodes } from "@/lib/graphql"
 import { useGraphQLClient } from "@/hooks/use-graphql"
 import { PageHeader } from "@/components/page-header"
-import { Switch } from "@/components/ui/switch"
 import { ArrowUp, ArrowDown, ArrowUpDown, X, ChevronDown, ChevronRight, ChevronsDownUp, ChevronsUpDown, LayoutGrid } from "lucide-react"
 import {
   UploadFrequencyBadge,
@@ -287,7 +286,20 @@ export default function CreatorsPage() {
     <>
       <PageHeader section="YouTube" sectionHref="/research/creators" page="Creators" />
       <div className="flex-1 p-6">
-        <h1 className="text-2xl font-semibold mb-4">YouTube Creators</h1>
+        <div className="flex items-center justify-between mb-4">
+          <h1 className="text-2xl font-semibold">YouTube Creators</h1>
+          <button
+            onClick={() => setGridView((v) => !v)}
+            className={`inline-flex items-center gap-1.5 rounded-full px-3.5 py-1.5 text-xs font-medium transition-all ${
+              gridView
+                ? "bg-blue-500 text-white shadow-sm hover:bg-blue-600"
+                : "bg-blue-50 text-blue-600 hover:bg-blue-100 dark:bg-blue-950 dark:text-blue-400 dark:hover:bg-blue-900"
+            }`}
+          >
+            <LayoutGrid className="size-3.5" />
+            {gridView ? "Grid View" : "Grid View"}
+          </button>
+        </div>
 
         <div className="flex flex-wrap items-center gap-2 mb-4">
           <Input
@@ -321,11 +333,6 @@ export default function CreatorsPage() {
             <span className="text-xs text-muted-foreground">
               {sorted.length} of {creators.length} creators
             </span>
-            <label className="inline-flex items-center gap-1.5 cursor-pointer">
-              <LayoutGrid className="size-3.5 text-muted-foreground" />
-              <span className="text-xs text-muted-foreground">Grid</span>
-              <Switch checked={gridView} onCheckedChange={setGridView} size="sm" />
-            </label>
           </div>
         </div>
 
