@@ -6,7 +6,7 @@ import { gql } from "graphql-request"
 import { extractNodes } from "@/lib/graphql"
 import { useGraphQLClient } from "@/hooks/use-graphql"
 import { PageHeader } from "@/components/page-header"
-import { ArrowUp, ArrowDown, ArrowUpDown, X, ChevronDown, ChevronRight, ChevronsDownUp, ChevronsUpDown, LayoutGrid } from "lucide-react"
+import { ArrowUp, ArrowDown, ArrowUpDown, X, ChevronDown, ChevronLeft, ChevronRight, ChevronsDownUp, ChevronsUpDown, LayoutGrid } from "lucide-react"
 import {
   WorkstreamBadge,
   VideoStatusBadge,
@@ -453,7 +453,35 @@ export default function VideosPage() {
             onChange={(e) => setFilter("search", e.target.value)}
             className="h-8 w-[200px] text-xs"
           />
-          <FilterSelect label="Creator" value={filters.creator} options={creatorOptions} onChange={(v) => setFilter("creator", v)} />
+          <div className="inline-flex items-center gap-0.5">
+            <button
+              onClick={() => {
+                const idx = creatorOptions.findIndex((o) => o.value === filters.creator)
+                // If no creator selected or at first, wrap to last
+                const prev = idx <= 0 ? creatorOptions.length - 1 : idx - 1
+                setFilter("creator", creatorOptions[prev]?.value ?? "")
+              }}
+              disabled={creatorOptions.length === 0}
+              className="inline-flex items-center justify-center size-8 rounded-md border border-input bg-background text-muted-foreground hover:text-foreground hover:bg-accent transition-colors disabled:opacity-40"
+              aria-label="Previous creator"
+            >
+              <ChevronLeft className="size-3.5" />
+            </button>
+            <FilterSelect label="Creator" value={filters.creator} options={creatorOptions} onChange={(v) => setFilter("creator", v)} />
+            <button
+              onClick={() => {
+                const idx = creatorOptions.findIndex((o) => o.value === filters.creator)
+                // If no creator selected or at last, wrap to first
+                const next = idx < 0 || idx >= creatorOptions.length - 1 ? 0 : idx + 1
+                setFilter("creator", creatorOptions[next]?.value ?? "")
+              }}
+              disabled={creatorOptions.length === 0}
+              className="inline-flex items-center justify-center size-8 rounded-md border border-input bg-background text-muted-foreground hover:text-foreground hover:bg-accent transition-colors disabled:opacity-40"
+              aria-label="Next creator"
+            >
+              <ChevronRight className="size-3.5" />
+            </button>
+          </div>
           <FilterSelect label="Workstream" value={filters.workstream} options={workstreamOptions} onChange={(v) => setFilter("workstream", v)} />
           <FilterSelect label="Status" value={filters.status} options={statusOptions} onChange={(v) => setFilter("status", v)} />
           <FilterSelect label="Type" value={filters.durationType} options={durationTypeOptions} onChange={(v) => setFilter("durationType", v)} />
