@@ -61,13 +61,31 @@ function CommitDate({ date }: { date: string }) {
   return <span>{formatted}</span>
 }
 
+const envUrls: Record<string, string> = {
+  develop: "http://localhost:3000/",
+  staging: "https://aivrie-openclaw-web-git-staging-jeffrey-shmigelskys-projects.vercel.app/",
+  production: "https://aivrie-openclaw-web.vercel.app/",
+}
+
 export function EnvironmentBadge() {
   return (
-    <span
-      className={`rounded-md px-3 py-1 text-sm font-bold tracking-wide uppercase ${envColors[env] || envColors.develop}`}
-    >
-      {envLabels[env] || env}
-    </span>
+    <div className="relative inline-block">
+      <select
+        value={env}
+        onChange={(e) => {
+          const url = envUrls[e.target.value]
+          if (url) window.location.href = url
+        }}
+        className={`appearance-none cursor-pointer rounded-md px-3 py-1 pr-7 text-sm font-bold tracking-wide uppercase border-0 outline-none ${envColors[env] || envColors.develop}`}
+      >
+        {Object.entries(envLabels).map(([key, label]) => (
+          <option key={key} value={key}>{label}</option>
+        ))}
+      </select>
+      <svg className="pointer-events-none absolute right-1.5 top-1/2 -translate-y-1/2 size-3.5 opacity-60" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+        <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+      </svg>
+    </div>
   )
 }
 
