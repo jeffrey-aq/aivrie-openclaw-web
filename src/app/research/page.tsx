@@ -21,27 +21,32 @@ import {
   Cell,
 } from "recharts"
 
-// ─── Server-side aggregate query for the Overview tab ───────────────────────
+// ─── Overview query: totalCount for counts + minimal rows for sums ───────────
 const OVERVIEW_QUERY = gql`
   query {
     creatorsTotal: youtubeCreatorsCollection { totalCount }
     videosTotal: youtubeVideosCollection { totalCount }
-    videoAggregates: youtubeVideosCollection {
-      aggregate {
-        sum { views likes comments duration }
-      }
-    }
     shortsTotal: youtubeVideosCollection(filter: { durationType: { eq: "Short" } }) { totalCount }
     transcriptTotal: youtubeVideosCollection(filter: { transcript: { is: NOT_NULL } }) { totalCount }
+    videoSums: youtubeVideosCollection(first: 1000) {
+      edges { node { views likes comments duration } }
+    }
   }
 `
+
+interface OverviewSumRow {
+  views: string | number | null
+  likes: string | number | null
+  comments: string | number | null
+  duration: string | number | null
+}
 
 interface OverviewData {
   creatorsTotal: { totalCount: number }
   videosTotal: { totalCount: number }
-  videoAggregates: { aggregate: { sum: { views: string | null; likes: string | null; comments: string | null; duration: string | null } } }
   shortsTotal: { totalCount: number }
   transcriptTotal: { totalCount: number }
+  videoSums: { edges: { node: OverviewSumRow }[] }
 }
 
 // ─── Row-level query for per-creator charts (Content/Engagement/Coverage) ───
@@ -154,13 +159,14 @@ export default function YouTubeDashboard() {
       .finally(() => setDetailLoading(false))
   }, [activeTab, detailLoaded, detailLoading, graphqlClient])
 
-  // ─── Overview computed values (from server-side aggregates) ─────────────
+  // ─── Overview computed values (counts from totalCount, sums from rows) ────
   const totalCreators = overview?.creatorsTotal.totalCount ?? 0
   const totalVideos = overview?.videosTotal.totalCount ?? 0
-  const totalViews = toNum(overview?.videoAggregates.aggregate.sum.views)
-  const totalLikes = toNum(overview?.videoAggregates.aggregate.sum.likes)
-  const totalComments = toNum(overview?.videoAggregates.aggregate.sum.comments)
-  const totalDuration = toNum(overview?.videoAggregates.aggregate.sum.duration)
+  const sumRows = useMemo(() => overview?.videoSums?.edges?.map((e) => e.node) ?? [], [overview])
+  const totalViews = useMemo(() => sumRows.reduce((s, r) => s + toNum(r.views), 0), [sumRows])
+  const totalLikes = useMemo(() => sumRows.reduce((s, r) => s + toNum(r.likes), 0), [sumRows])
+  const totalComments = useMemo(() => sumRows.reduce((s, r) => s + toNum(r.comments), 0), [sumRows])
+  const totalDuration = useMemo(() => sumRows.reduce((s, r) => s + toNum(r.duration), 0), [sumRows])
   const shortVideos = overview?.shortsTotal.totalCount ?? 0
   const fullVideos = totalVideos - shortVideos
   const withTranscript = overview?.transcriptTotal.totalCount ?? 0

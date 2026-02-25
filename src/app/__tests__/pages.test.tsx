@@ -545,13 +545,16 @@ describe("Page rendering", () => {
   })
 
   it("YouTube dashboard renders summary cards and charts", async () => {
-    // OVERVIEW_QUERY returns server-side aggregates
+    // OVERVIEW_QUERY returns totalCount + minimal rows for sums
     mockRequest.mockResolvedValueOnce({
       creatorsTotal: { totalCount: 1 },
       videosTotal: { totalCount: 2 },
-      videoAggregates: { aggregate: { sum: { views: "700", likes: "70", comments: "15", duration: "16.5" } } },
       shortsTotal: { totalCount: 1 },
       transcriptTotal: { totalCount: 1 },
+      videoSums: { edges: [
+        { node: { views: "500", likes: "50", comments: "10", duration: "15" } },
+        { node: { views: "200", likes: "20", comments: "5", duration: "1.5" } },
+      ] },
     })
 
     render(<YouTubeDashboardPage />)
