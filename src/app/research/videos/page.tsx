@@ -59,6 +59,7 @@ interface Video {
 interface Creator {
   channelId: string
   title: string
+  avatarUrl: string | null
 }
 
 const CREATORS_LOOKUP_QUERY = gql`
@@ -68,6 +69,7 @@ const CREATORS_LOOKUP_QUERY = gql`
         node {
           channelId
           title
+          avatarUrl
         }
       }
     }
@@ -206,6 +208,24 @@ function formatDate(d: string | null) {
   return new Date(d).toLocaleDateString(undefined, { year: "numeric", month: "short", day: "numeric" })
 }
 
+function timeAgo(d: string | null): string {
+  if (!d) return ""
+  const now = Date.now()
+  const then = new Date(d).getTime()
+  const seconds = Math.floor((now - then) / 1000)
+  if (seconds < 60) return "just now"
+  const minutes = Math.floor(seconds / 60)
+  if (minutes < 60) return `${minutes} minute${minutes !== 1 ? "s" : ""} ago`
+  const hours = Math.floor(minutes / 60)
+  if (hours < 24) return `${hours} hour${hours !== 1 ? "s" : ""} ago`
+  const days = Math.floor(hours / 24)
+  if (days < 30) return `${days} day${days !== 1 ? "s" : ""} ago`
+  const months = Math.floor(days / 30)
+  if (months < 12) return `${months} month${months !== 1 ? "s" : ""} ago`
+  const years = Math.floor(months / 12)
+  return `${years} year${years !== 1 ? "s" : ""} ago`
+}
+
 interface Filters {
   search: string
   creator: string
@@ -321,6 +341,12 @@ export default function VideosPage() {
   const creatorLookup = useMemo(() => {
     const map: Record<string, string> = {}
     creators.forEach((c) => { map[c.channelId] = c.title })
+    return map
+  }, [creators])
+
+  const creatorAvatarLookup = useMemo(() => {
+    const map: Record<string, string> = {}
+    creators.forEach((c) => { if (c.avatarUrl) map[c.channelId] = c.avatarUrl })
     return map
   }, [creators])
 
@@ -471,53 +497,49 @@ export default function VideosPage() {
         ) : videos.length === 0 ? (
           <p className="text-muted-foreground">No videos found.</p>
         ) : gridView ? (
-          <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+          <div className="grid gap-x-4 gap-y-6 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
             {sorted.map((v) => {
               const creatorName = creatorLookup[v.channelId] || v.channelId
+              const avatar = creatorAvatarLookup[v.channelId]
               return (
                 <a
                   key={v.id}
                   href={v.url || undefined}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="group rounded-lg border bg-card overflow-hidden hover:shadow-md transition-shadow"
+                  className="group"
                 >
                   {/* Thumbnail */}
-                  {v.thumbnailUrl ? (
-                    <div className="aspect-video bg-muted overflow-hidden relative">
+                  <div className="aspect-video bg-muted rounded-xl overflow-hidden relative">
+                    {v.thumbnailUrl ? (
                       <img src={v.thumbnailUrl} alt={v.title} className="w-full h-full object-cover" />
-                      {v.duration != null && (
-                        <span className="absolute bottom-1 right-1 rounded bg-black/80 px-1 py-0.5 text-[10px] font-medium text-white tabular-nums">
-                          {formatDuration(v.duration)}
-                        </span>
-                      )}
-                    </div>
-                  ) : (
-                    <div className="aspect-video bg-muted flex items-center justify-center text-muted-foreground text-xs">
-                      No thumbnail
-                    </div>
-                  )}
-                  <div className="p-3">
-                    {/* Title */}
-                    <h3 className="text-sm font-medium leading-snug line-clamp-2 group-hover:text-primary transition-colors">
-                      {v.title}
-                    </h3>
-                    {/* Creator + date */}
-                    <div className="flex items-center gap-2 mt-1.5">
-                      <CreatorBadge name={creatorName} channelId={v.channelId} />
-                      <span className="text-xs text-muted-foreground">{formatDate(v.publishedDate)}</span>
-                    </div>
-                    {/* Stats row */}
-                    <div className="flex items-center gap-3 mt-2 text-xs text-muted-foreground">
-                      <span>{formatViews(v.views)} views</span>
-                      <span>{formatCompact(v.likes)} likes</span>
-                      <span>{formatCompact(v.comments)} comments</span>
-                    </div>
-                    {/* Badges */}
-                    <div className="flex flex-wrap gap-1 mt-2">
-                      <DurationTypeBadge value={v.durationType} />
-                      <VideoStatusBadge value={v.status} />
-                      {v.workstream && <WorkstreamBadge value={v.workstream} />}
+                    ) : (
+                      <div className="w-full h-full flex items-center justify-center text-muted-foreground text-xs">No thumbnail</div>
+                    )}
+                    {v.duration != null && (
+                      <span className="absolute bottom-1.5 right-1.5 rounded-md bg-black/80 px-1.5 py-0.5 text-[11px] font-medium text-white tabular-nums">
+                        {formatDuration(v.duration)}
+                      </span>
+                    )}
+                  </div>
+                  {/* Info row — avatar + text */}
+                  <div className="flex gap-3 mt-3">
+                    {/* Channel avatar */}
+                    {avatar ? (
+                      <img src={avatar} alt={creatorName} className="size-9 rounded-full shrink-0 mt-0.5" />
+                    ) : (
+                      <div className="size-9 rounded-full shrink-0 mt-0.5 bg-muted flex items-center justify-center text-xs font-bold text-muted-foreground">
+                        {creatorName.charAt(0)}
+                      </div>
+                    )}
+                    <div className="min-w-0">
+                      <h3 className="text-sm font-medium leading-snug line-clamp-2 group-hover:text-primary transition-colors">
+                        {v.title}
+                      </h3>
+                      <p className="text-xs text-muted-foreground mt-1 truncate">{creatorName}</p>
+                      <p className="text-xs text-muted-foreground">
+                        {formatViews(v.views)} views{v.publishedDate ? ` \u00b7 ${timeAgo(v.publishedDate)}` : ""}
+                      </p>
                     </div>
                   </div>
                 </a>

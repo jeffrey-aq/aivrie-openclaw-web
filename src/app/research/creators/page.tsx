@@ -341,56 +341,38 @@ export default function CreatorsPage() {
         ) : creators.length === 0 ? (
           <p className="text-muted-foreground">No creators found.</p>
         ) : gridView ? (
-          <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+          <div className="grid gap-x-4 gap-y-6 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
             {sorted.map((c) => (
               <Link
                 key={c.id}
                 href={`/research/videos?creator=${encodeURIComponent(c.channelId)}`}
-                className="group rounded-lg border bg-card overflow-hidden hover:shadow-md transition-shadow"
+                className="group"
               >
-                {/* Banner / color strip */}
-                {c.bannerUrl ? (
-                  <div className="h-20 bg-muted overflow-hidden">
+                {/* Banner */}
+                <div className="aspect-[16/5] bg-muted rounded-xl overflow-hidden">
+                  {c.bannerUrl ? (
                     <img src={c.bannerUrl} alt="" className="w-full h-full object-cover" />
-                  </div>
-                ) : (
-                  <div className="h-10 bg-gradient-to-r from-red-500/20 to-red-500/5" />
-                )}
-                <div className="p-4 -mt-6 relative">
-                  {/* Avatar */}
-                  {c.avatarUrl ? (
-                    <img src={c.avatarUrl} alt={c.title} className="size-12 rounded-full border-2 border-card bg-card" />
                   ) : (
-                    <div className="size-12 rounded-full border-2 border-card bg-muted flex items-center justify-center text-lg font-bold text-muted-foreground">
+                    <div className="w-full h-full bg-gradient-to-br from-red-500/20 via-red-500/10 to-transparent" />
+                  )}
+                </div>
+                {/* Info row — avatar + text */}
+                <div className="flex gap-3 mt-3">
+                  {c.avatarUrl ? (
+                    <img src={c.avatarUrl} alt={c.title} className="size-9 rounded-full shrink-0 mt-0.5" />
+                  ) : (
+                    <div className="size-9 rounded-full shrink-0 mt-0.5 bg-muted flex items-center justify-center text-sm font-bold text-muted-foreground">
                       {c.title.charAt(0)}
                     </div>
                   )}
-                  {/* Name + meta */}
-                  <h3 className="text-sm font-semibold mt-2 truncate group-hover:text-primary transition-colors">{c.title}</h3>
-                  <div className="flex flex-wrap items-center gap-x-3 gap-y-0.5 mt-1 text-xs text-muted-foreground">
-                    {c.country && <span>{c.country}</span>}
-                    {c.uploadFrequency && <span>{c.uploadFrequency}</span>}
-                  </div>
-                  {/* Stats row */}
-                  <div className="grid grid-cols-3 gap-2 mt-3 pt-3 border-t text-center">
-                    <div>
-                      <div className="text-xs font-bold">{formatNumber(Number(c.subscribers) || null)}</div>
-                      <div className="text-[10px] text-muted-foreground">Subscribers</div>
-                    </div>
-                    <div>
-                      <div className="text-xs font-bold">{formatNumber(c.videoCount)}</div>
-                      <div className="text-[10px] text-muted-foreground">Videos</div>
-                    </div>
-                    <div>
-                      <div className="text-xs font-bold">{formatNumber(c.avgViewsPerVideo)}</div>
-                      <div className="text-[10px] text-muted-foreground">Avg Views</div>
-                    </div>
-                  </div>
-                  {/* Badges */}
-                  <div className="flex flex-wrap gap-1 mt-3">
-                    <StatusBadge value={c.status} />
-                    <CompetitiveThreatBadge value={c.competitiveThreat} />
-                    <WorkstreamBadge value={c.workstream} />
+                  <div className="min-w-0">
+                    <h3 className="text-sm font-medium leading-snug truncate group-hover:text-primary transition-colors">{c.title}</h3>
+                    <p className="text-xs text-muted-foreground mt-0.5">
+                      {formatNumber(Number(c.subscribers) || null)} subscribers{c.videoCount ? ` \u00b7 ${formatNumber(c.videoCount)} videos` : ""}
+                    </p>
+                    <p className="text-xs text-muted-foreground">
+                      {c.uploadFrequency || ""}{c.uploadFrequency && c.country ? ` \u00b7 ` : ""}{c.country || ""}
+                    </p>
                   </div>
                 </div>
               </Link>
