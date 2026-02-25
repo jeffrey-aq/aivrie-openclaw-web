@@ -575,9 +575,12 @@ export default function VideosPage() {
                         {v.title}
                       </h3>
                       <div className="mt-1"><CreatorBadge name={creatorName} channelId={v.channelId} /></div>
-                      <p className="text-xs text-muted-foreground">
-                        {formatViews(v.views)} views{v.publishedDate ? ` \u00b7 ${timeAgo(v.publishedDate)}` : ""}
-                      </p>
+                      <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
+                        <span className="text-xs text-muted-foreground">
+                          {formatViews(v.views)} views{v.publishedDate ? ` \u00b7 ${timeAgo(v.publishedDate)}` : ""}
+                        </span>
+                        <DurationTypeBadge value={v.durationType} />
+                      </div>
                     </div>
                   </div>
                 </a>
