@@ -142,10 +142,15 @@ const data = {
     },
     {
       title: "YouTube",
-      url: "/research/creators",
+      url: "/research",
       icon: Youtube,
       color: "text-red-500",
       items: [
+        {
+          title: "Dashboard",
+          url: "/research",
+          icon: LayoutDashboard,
+        },
         {
           title: "Creators",
           url: "/research/creators",

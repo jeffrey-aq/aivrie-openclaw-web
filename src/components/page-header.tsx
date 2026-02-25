@@ -28,7 +28,7 @@ import { SidebarTrigger } from "@/components/ui/sidebar"
 const dashboardTabs = [
   { label: "Overview", href: "/" },
   { label: "CRM", href: "/crm" },
-  { label: "YouTube", href: "/research/creators" },
+  { label: "YouTube", href: "/research" },
 ]
 
 function isTabActive(tabHref: string, pathname: string): boolean {

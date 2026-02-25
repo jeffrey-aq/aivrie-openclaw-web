@@ -44,12 +44,16 @@ vi.mock("recharts", () => ({
   CartesianGrid: () => null,
   Tooltip: () => null,
   Legend: () => null,
+  PieChart: () => null,
+  Pie: () => null,
+  Cell: () => null,
 }))
 
 // Page imports (mock is hoisted, so these get the mocked graphqlClient)
 import React from "react"
 import HomePage from "@/app/page"
 import CrmDashboardPage from "@/app/crm/page"
+import YouTubeDashboardPage from "@/app/research/page"
 import ContactsPage from "@/app/crm/contacts/page"
 import FollowUpsPage from "@/app/crm/follow-ups/page"
 import InteractionsPage from "@/app/crm/interactions/page"
@@ -533,6 +537,33 @@ describe("Page rendering", () => {
     mockRequest.mockRejectedValueOnce(new Error("Network error"))
 
     render(<CrmDashboardPage />)
+
+    expect(await screen.findByText("Failed to load dashboard data.")).toBeInTheDocument()
+  })
+
+  it("YouTube dashboard renders summary cards and charts", async () => {
+    mockRequest.mockResolvedValueOnce({
+      youtubeCreatorsCollection: { edges: [
+        { node: { id: "cr1", title: "TestCreator", channelId: "UC123", videoCount: 5, avgViewsPerVideo: 1000, uploadFrequency: "Weekly", competitiveThreat: "Low", status: "Active" } },
+      ] },
+      youtubeVideosCollection: { edges: [
+        { node: { id: "v1", title: "Vid1", channelId: "UC123", views: 500, likes: 50, comments: 10, duration: 15, durationType: "Full", transcript: "text", summary: "sum", publishedDate: "2024-01-10", engagementRatePercent: 5.0 } },
+        { node: { id: "v2", title: "Vid2", channelId: "UC123", views: 200, likes: 20, comments: 5, duration: 1.5, durationType: "Short", transcript: null, summary: "sum2", publishedDate: "2024-01-12", engagementRatePercent: 6.0 } },
+      ] },
+    })
+
+    render(<YouTubeDashboardPage />)
+
+    expect(await screen.findByText("YouTube Dashboard")).toBeInTheDocument()
+    expect(screen.getByText("Creators")).toBeInTheDocument()
+    expect(screen.getByText("Shorts vs Full-Length Videos")).toBeInTheDocument()
+    expect(screen.getByText("Videos per Creator")).toBeInTheDocument()
+  })
+
+  it("YouTube dashboard shows error when request fails", async () => {
+    mockRequest.mockRejectedValueOnce(new Error("Network error"))
+
+    render(<YouTubeDashboardPage />)
 
     expect(await screen.findByText("Failed to load dashboard data.")).toBeInTheDocument()
   })
