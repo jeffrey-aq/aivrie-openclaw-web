@@ -507,12 +507,12 @@ export default function VideosPage() {
                   href={v.url || undefined}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="group"
+                  className="group rounded-2xl p-2 -m-2 transition-colors hover:bg-accent/60"
                 >
                   {/* Thumbnail */}
                   <div className="aspect-video bg-muted rounded-xl overflow-hidden relative">
                     {v.thumbnailUrl ? (
-                      <img src={v.thumbnailUrl} alt={v.title} className="w-full h-full object-cover" />
+                      <img src={v.thumbnailUrl} alt={v.title} className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105" />
                     ) : (
                       <div className="w-full h-full flex items-center justify-center text-muted-foreground text-xs">No thumbnail</div>
                     )}

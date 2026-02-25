@@ -346,12 +346,12 @@ export default function CreatorsPage() {
               <Link
                 key={c.id}
                 href={`/research/videos?creator=${encodeURIComponent(c.channelId)}`}
-                className="group"
+                className="group rounded-2xl p-2 -m-2 transition-colors hover:bg-accent/60"
               >
                 {/* Banner */}
                 <div className="aspect-[16/5] bg-muted rounded-xl overflow-hidden">
                   {c.bannerUrl ? (
-                    <img src={c.bannerUrl} alt="" className="w-full h-full object-cover" />
+                    <img src={c.bannerUrl} alt="" className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105" />
                   ) : (
                     <div className="w-full h-full bg-gradient-to-br from-red-500/20 via-red-500/10 to-transparent" />
                   )}
