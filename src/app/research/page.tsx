@@ -21,32 +21,41 @@ import {
   Cell,
 } from "recharts"
 
-// ─── Overview query: totalCount for counts + minimal rows for sums ───────────
+// ─── Overview query: server-side aggregation via GraphQL ─────────────────────
 const OVERVIEW_QUERY = gql`
   query {
     creatorsTotal: youtubeCreatorsCollection { totalCount }
-    videosTotal: youtubeVideosCollection { totalCount }
+    youtubeVideosCollection {
+      totalCount
+      aggregate {
+        sum {
+          views
+          likes
+          comments
+          duration
+        }
+      }
+    }
     shortsTotal: youtubeVideosCollection(filter: { durationType: { eq: "Short" } }) { totalCount }
     transcriptTotal: youtubeVideosCollection(filter: { transcript: { is: NOT_NULL } }) { totalCount }
-    videoSums: youtubeVideosCollection(first: 1000) {
-      edges { node { views likes comments duration } }
-    }
   }
 `
 
-interface OverviewSumRow {
-  views: string | number | null
-  likes: string | number | null
-  comments: string | number | null
-  duration: string | number | null
-}
-
 interface OverviewData {
   creatorsTotal: { totalCount: number }
-  videosTotal: { totalCount: number }
+  youtubeVideosCollection: {
+    totalCount: number
+    aggregate: {
+      sum: {
+        views: number | string
+        likes: number | string
+        comments: number | string
+        duration: number | string
+      }
+    }
+  }
   shortsTotal: { totalCount: number }
   transcriptTotal: { totalCount: number }
-  videoSums: { edges: { node: OverviewSumRow }[] }
 }
 
 // ─── Row-level query for per-creator charts (Content/Engagement/Coverage) ───
@@ -121,7 +130,7 @@ export default function YouTubeDashboard() {
   const graphqlClient = useGraphQLClient()
   const [activeTab, setActiveTab] = useState<TabKey>("overview")
 
-  // Overview state (lightweight aggregates)
+  // Overview state (server-side aggregates via GraphQL)
   const [overview, setOverview] = useState<OverviewData | null>(null)
   const [overviewLoading, setOverviewLoading] = useState(true)
   const [overviewError, setOverviewError] = useState(false)
@@ -132,7 +141,7 @@ export default function YouTubeDashboard() {
   const [detailLoaded, setDetailLoaded] = useState(false)
   const [detailLoading, setDetailLoading] = useState(false)
 
-  // Fetch overview aggregates on mount
+  // Fetch overview aggregates on mount (all server-side via GraphQL)
   useEffect(() => {
     graphqlClient
       .request<OverviewData>(OVERVIEW_QUERY)
@@ -159,14 +168,14 @@ export default function YouTubeDashboard() {
       .finally(() => setDetailLoading(false))
   }, [activeTab, detailLoaded, detailLoading, graphqlClient])
 
-  // ─── Overview computed values (counts from totalCount, sums from rows) ────
+  // ─── Overview computed values (all server-side via GraphQL aggregate) ────────
   const totalCreators = overview?.creatorsTotal.totalCount ?? 0
-  const totalVideos = overview?.videosTotal.totalCount ?? 0
-  const sumRows = useMemo(() => overview?.videoSums?.edges?.map((e) => e.node) ?? [], [overview])
-  const totalViews = useMemo(() => sumRows.reduce((s, r) => s + toNum(r.views), 0), [sumRows])
-  const totalLikes = useMemo(() => sumRows.reduce((s, r) => s + toNum(r.likes), 0), [sumRows])
-  const totalComments = useMemo(() => sumRows.reduce((s, r) => s + toNum(r.comments), 0), [sumRows])
-  const totalDuration = useMemo(() => sumRows.reduce((s, r) => s + toNum(r.duration), 0), [sumRows])
+  const totalVideos = overview?.youtubeVideosCollection.totalCount ?? 0
+  const sums = overview?.youtubeVideosCollection.aggregate?.sum
+  const totalViews = toNum(sums?.views)
+  const totalLikes = toNum(sums?.likes)
+  const totalComments = toNum(sums?.comments)
+  const totalDuration = toNum(sums?.duration)
   const shortVideos = overview?.shortsTotal.totalCount ?? 0
   const fullVideos = totalVideos - shortVideos
   const withTranscript = overview?.transcriptTotal.totalCount ?? 0
