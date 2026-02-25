@@ -98,15 +98,25 @@ const SERVER_SORT_FIELDS: Partial<Record<SortKey, string>> = {
   engagementRatePercent: "engagementRatePercent",
 }
 
+interface ServerFilters {
+  channelId?: string
+  workstream?: string
+  status?: string
+  durationType?: string
+}
+
 function buildVideosQuery(
-  channelId?: string,
+  filters: ServerFilters,
   limit: number = 1000,
   sortField?: string,
   sortDirection: SortDir = "desc",
 ): string {
-  const filter = channelId
-    ? `filter: { channelId: { eq: "${channelId}" } }, `
-    : ""
+  const conditions: string[] = []
+  if (filters.channelId) conditions.push(`channelId: { eq: "${filters.channelId}" }`)
+  if (filters.workstream) conditions.push(`workstream: { eq: "${filters.workstream}" }`)
+  if (filters.status) conditions.push(`status: { eq: "${filters.status}" }`)
+  if (filters.durationType) conditions.push(`durationType: { eq: "${filters.durationType}" }`)
+  const filter = conditions.length > 0 ? `filter: { ${conditions.join(", ")} }, ` : ""
   const dir = sortDirection === "asc" ? "AscNullsLast" : "DescNullsLast"
   const orderBy = sortField
     ? `{ ${sortField}: ${dir} }`
@@ -259,15 +269,25 @@ export default function VideosPage() {
       .catch((err) => console.error("Error loading creators:", err))
   }, [graphqlClient])
 
-  // Fetch videos — re-runs when creator filter, page size, or server-side sort changes
-  const creatorFilter = filters.creator
+  // Fetch videos — re-runs when any server-side filter, page size, or sort changes
+  const { creator: creatorFilter, workstream: wsFilter, status: statusFilter, durationType: dtFilter } = filters
   const serverSortField = sortKey ? SERVER_SORT_FIELDS[sortKey] : undefined
   useEffect(() => {
     let cancelled = false
     setLoading(true)
     graphqlClient
       .request<{ youtubeVideosCollection: { totalCount: number; edges: { node: Video }[] } }>(
-        buildVideosQuery(creatorFilter || undefined, pageSize, serverSortField, sortDir)
+        buildVideosQuery(
+          {
+            channelId: creatorFilter || undefined,
+            workstream: wsFilter || undefined,
+            status: statusFilter || undefined,
+            durationType: dtFilter || undefined,
+          },
+          pageSize,
+          serverSortField,
+          sortDir,
+        )
       )
       .then((data) => {
         if (!cancelled) {
@@ -282,7 +302,7 @@ export default function VideosPage() {
         if (!cancelled) setLoading(false)
       })
     return () => { cancelled = true }
-  }, [graphqlClient, creatorFilter, pageSize, serverSortField, sortDir])
+  }, [graphqlClient, creatorFilter, wsFilter, statusFilter, dtFilter, pageSize, serverSortField, sortDir])
 
   const creatorLookup = useMemo(() => {
     const map: Record<string, string> = {}
@@ -330,22 +350,16 @@ export default function VideosPage() {
   const hasFilters = Object.values(filters).some((v) => v !== "")
 
   const filtered = useMemo(() => {
-    let result = videos
-    if (filters.search) {
-      const q = filters.search.toLowerCase()
-      result = result.filter(
-        (v) =>
-          v.title.toLowerCase().includes(q) ||
-          (creatorLookup[v.channelId] || "").toLowerCase().includes(q) ||
-          v.tags?.some((t) => t.toLowerCase().includes(q)) ||
-          v.notes?.toLowerCase().includes(q)
-      )
-    }
-    if (filters.workstream) result = result.filter((v) => v.workstream === filters.workstream)
-    if (filters.status) result = result.filter((v) => v.status === filters.status)
-    if (filters.durationType) result = result.filter((v) => v.durationType === filters.durationType)
-    return result
-  }, [videos, filters, creatorLookup])
+    if (!filters.search) return videos
+    const q = filters.search.toLowerCase()
+    return videos.filter(
+      (v) =>
+        v.title.toLowerCase().includes(q) ||
+        (creatorLookup[v.channelId] || "").toLowerCase().includes(q) ||
+        v.tags?.some((t) => t.toLowerCase().includes(q)) ||
+        v.notes?.toLowerCase().includes(q)
+    )
+  }, [videos, filters.search, creatorLookup])
 
   const sorted = useMemo(() => {
     if (!sortKey) return filtered
