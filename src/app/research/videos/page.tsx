@@ -6,7 +6,8 @@ import { gql } from "graphql-request"
 import { extractNodes } from "@/lib/graphql"
 import { useGraphQLClient } from "@/hooks/use-graphql"
 import { PageHeader } from "@/components/page-header"
-import { ArrowUp, ArrowDown, ArrowUpDown, X, ChevronDown, ChevronRight, ChevronsDownUp, ChevronsUpDown } from "lucide-react"
+import { Switch } from "@/components/ui/switch"
+import { ArrowUp, ArrowDown, ArrowUpDown, X, ChevronDown, ChevronRight, ChevronsDownUp, ChevronsUpDown, LayoutGrid } from "lucide-react"
 import {
   WorkstreamBadge,
   VideoStatusBadge,
@@ -273,6 +274,7 @@ export default function VideosPage() {
   }))
   const [expanded, setExpanded] = useState<Set<string>>(new Set())
   const [allExpanded, setAllExpanded] = useState(false)
+  const [gridView, setGridView] = useState(false)
 
   // Fetch creators once
   useEffect(() => {
@@ -425,13 +427,15 @@ export default function VideosPage() {
             </button>
           )}
           <div className="ml-auto flex items-center gap-3">
-            <button
-              onClick={toggleAll}
-              className={`inline-flex items-center gap-1.5 rounded-md px-2 py-1 text-xs transition-colors ${allExpanded ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground hover:bg-accent"}`}
-            >
-              {allExpanded ? <ChevronsDownUp className="size-3" /> : <ChevronsUpDown className="size-3" />}
-              {allExpanded ? "Collapse" : "Expand"}
-            </button>
+            {!gridView && (
+              <button
+                onClick={toggleAll}
+                className={`inline-flex items-center gap-1.5 rounded-md px-2 py-1 text-xs transition-colors ${allExpanded ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground hover:bg-accent"}`}
+              >
+                {allExpanded ? <ChevronsDownUp className="size-3" /> : <ChevronsUpDown className="size-3" />}
+                {allExpanded ? "Collapse" : "Expand"}
+              </button>
+            )}
             <span className="text-xs text-muted-foreground">
               {sorted.length.toLocaleString()} of {totalCount.toLocaleString()} videos
             </span>
@@ -447,6 +451,11 @@ export default function VideosPage() {
                 ))}
               </select>
             </div>
+            <label className="inline-flex items-center gap-1.5 cursor-pointer">
+              <LayoutGrid className="size-3.5 text-muted-foreground" />
+              <span className="text-xs text-muted-foreground">Grid</span>
+              <Switch checked={gridView} onCheckedChange={setGridView} size="sm" />
+            </label>
           </div>
         </div>
 
@@ -454,6 +463,60 @@ export default function VideosPage() {
           <p className="text-muted-foreground">Loading...</p>
         ) : videos.length === 0 ? (
           <p className="text-muted-foreground">No videos found.</p>
+        ) : gridView ? (
+          <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+            {sorted.map((v) => {
+              const creatorName = creatorLookup[v.channelId] || v.channelId
+              return (
+                <a
+                  key={v.id}
+                  href={v.url || undefined}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="group rounded-lg border bg-card overflow-hidden hover:shadow-md transition-shadow"
+                >
+                  {/* Thumbnail */}
+                  {v.thumbnailUrl ? (
+                    <div className="aspect-video bg-muted overflow-hidden relative">
+                      <img src={v.thumbnailUrl} alt={v.title} className="w-full h-full object-cover" />
+                      {v.duration != null && (
+                        <span className="absolute bottom-1 right-1 rounded bg-black/80 px-1 py-0.5 text-[10px] font-medium text-white tabular-nums">
+                          {formatDuration(v.duration)}
+                        </span>
+                      )}
+                    </div>
+                  ) : (
+                    <div className="aspect-video bg-muted flex items-center justify-center text-muted-foreground text-xs">
+                      No thumbnail
+                    </div>
+                  )}
+                  <div className="p-3">
+                    {/* Title */}
+                    <h3 className="text-sm font-medium leading-snug line-clamp-2 group-hover:text-primary transition-colors">
+                      {v.title}
+                    </h3>
+                    {/* Creator + date */}
+                    <div className="flex items-center gap-2 mt-1.5">
+                      <CreatorBadge name={creatorName} channelId={v.channelId} />
+                      <span className="text-xs text-muted-foreground">{formatDate(v.publishedDate)}</span>
+                    </div>
+                    {/* Stats row */}
+                    <div className="flex items-center gap-3 mt-2 text-xs text-muted-foreground">
+                      <span>{formatViews(v.views)} views</span>
+                      <span>{formatCompact(v.likes)} likes</span>
+                      <span>{formatCompact(v.comments)} comments</span>
+                    </div>
+                    {/* Badges */}
+                    <div className="flex flex-wrap gap-1 mt-2">
+                      <DurationTypeBadge value={v.durationType} />
+                      <VideoStatusBadge value={v.status} />
+                      {v.workstream && <WorkstreamBadge value={v.workstream} />}
+                    </div>
+                  </div>
+                </a>
+              )
+            })}
+          </div>
         ) : (
           <div className="rounded-md border">
             <Table>

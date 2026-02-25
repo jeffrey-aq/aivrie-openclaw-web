@@ -6,7 +6,8 @@ import { gql } from "graphql-request"
 import { extractNodes } from "@/lib/graphql"
 import { useGraphQLClient } from "@/hooks/use-graphql"
 import { PageHeader } from "@/components/page-header"
-import { ArrowUp, ArrowDown, ArrowUpDown, X, ChevronDown, ChevronRight, ChevronsDownUp, ChevronsUpDown } from "lucide-react"
+import { Switch } from "@/components/ui/switch"
+import { ArrowUp, ArrowDown, ArrowUpDown, X, ChevronDown, ChevronRight, ChevronsDownUp, ChevronsUpDown, LayoutGrid } from "lucide-react"
 import {
   UploadFrequencyBadge,
   ContentTypeBadge,
@@ -31,6 +32,9 @@ interface Creator {
   id: string
   title: string
   channelId: string
+  channelUrl: string | null
+  subscribers: number | string | null
+  totalViews: number | string | null
   videoCount: number | null
   viewsToSubRatio: number | null
   avgViewsPerVideo: number | null
@@ -66,6 +70,9 @@ const CREATORS_QUERY = gql`
           id
           title
           channelId
+          channelUrl
+          subscribers
+          totalViews
           videoCount
           viewsToSubRatio
           avgViewsPerVideo
@@ -193,6 +200,7 @@ export default function CreatorsPage() {
   const [filters, setFilters] = useState<Filters>(emptyFilters)
   const [expanded, setExpanded] = useState<Set<string>>(new Set())
   const [allExpanded, setAllExpanded] = useState(false)
+  const [gridView, setGridView] = useState(false)
 
   useEffect(() => {
     async function load() {
@@ -301,16 +309,23 @@ export default function CreatorsPage() {
             </button>
           )}
           <div className="ml-auto flex items-center gap-3">
-            <button
-              onClick={toggleAll}
-              className={`inline-flex items-center gap-1.5 rounded-md px-2 py-1 text-xs transition-colors ${allExpanded ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground hover:bg-accent"}`}
-            >
-              {allExpanded ? <ChevronsDownUp className="size-3" /> : <ChevronsUpDown className="size-3" />}
-              {allExpanded ? "Collapse" : "Expand"}
-            </button>
+            {!gridView && (
+              <button
+                onClick={toggleAll}
+                className={`inline-flex items-center gap-1.5 rounded-md px-2 py-1 text-xs transition-colors ${allExpanded ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground hover:bg-accent"}`}
+              >
+                {allExpanded ? <ChevronsDownUp className="size-3" /> : <ChevronsUpDown className="size-3" />}
+                {allExpanded ? "Collapse" : "Expand"}
+              </button>
+            )}
             <span className="text-xs text-muted-foreground">
               {sorted.length} of {creators.length} creators
             </span>
+            <label className="inline-flex items-center gap-1.5 cursor-pointer">
+              <LayoutGrid className="size-3.5 text-muted-foreground" />
+              <span className="text-xs text-muted-foreground">Grid</span>
+              <Switch checked={gridView} onCheckedChange={setGridView} size="sm" />
+            </label>
           </div>
         </div>
 
@@ -318,6 +333,62 @@ export default function CreatorsPage() {
           <p className="text-muted-foreground">Loading...</p>
         ) : creators.length === 0 ? (
           <p className="text-muted-foreground">No creators found.</p>
+        ) : gridView ? (
+          <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+            {sorted.map((c) => (
+              <Link
+                key={c.id}
+                href={`/research/videos?creator=${encodeURIComponent(c.channelId)}`}
+                className="group rounded-lg border bg-card overflow-hidden hover:shadow-md transition-shadow"
+              >
+                {/* Banner / color strip */}
+                {c.bannerUrl ? (
+                  <div className="h-20 bg-muted overflow-hidden">
+                    <img src={c.bannerUrl} alt="" className="w-full h-full object-cover" />
+                  </div>
+                ) : (
+                  <div className="h-10 bg-gradient-to-r from-red-500/20 to-red-500/5" />
+                )}
+                <div className="p-4 -mt-6 relative">
+                  {/* Avatar */}
+                  {c.avatarUrl ? (
+                    <img src={c.avatarUrl} alt={c.title} className="size-12 rounded-full border-2 border-card bg-card" />
+                  ) : (
+                    <div className="size-12 rounded-full border-2 border-card bg-muted flex items-center justify-center text-lg font-bold text-muted-foreground">
+                      {c.title.charAt(0)}
+                    </div>
+                  )}
+                  {/* Name + meta */}
+                  <h3 className="text-sm font-semibold mt-2 truncate group-hover:text-primary transition-colors">{c.title}</h3>
+                  <div className="flex flex-wrap items-center gap-x-3 gap-y-0.5 mt-1 text-xs text-muted-foreground">
+                    {c.country && <span>{c.country}</span>}
+                    {c.uploadFrequency && <span>{c.uploadFrequency}</span>}
+                  </div>
+                  {/* Stats row */}
+                  <div className="grid grid-cols-3 gap-2 mt-3 pt-3 border-t text-center">
+                    <div>
+                      <div className="text-xs font-bold">{formatNumber(Number(c.subscribers) || null)}</div>
+                      <div className="text-[10px] text-muted-foreground">Subscribers</div>
+                    </div>
+                    <div>
+                      <div className="text-xs font-bold">{formatNumber(c.videoCount)}</div>
+                      <div className="text-[10px] text-muted-foreground">Videos</div>
+                    </div>
+                    <div>
+                      <div className="text-xs font-bold">{formatNumber(c.avgViewsPerVideo)}</div>
+                      <div className="text-[10px] text-muted-foreground">Avg Views</div>
+                    </div>
+                  </div>
+                  {/* Badges */}
+                  <div className="flex flex-wrap gap-1 mt-3">
+                    <StatusBadge value={c.status} />
+                    <CompetitiveThreatBadge value={c.competitiveThreat} />
+                    <WorkstreamBadge value={c.workstream} />
+                  </div>
+                </div>
+              </Link>
+            ))}
+          </div>
         ) : (
           <div className="rounded-md border">
             <Table>
