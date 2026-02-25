@@ -144,6 +144,28 @@ export function CreatorBadge({ name, channelId }: { name: string | null; channel
   )
 }
 
+// Subdued card hover backgrounds — one per CREATOR_PALETTE entry, same hash order
+const CREATOR_CARD_HOVER = [
+  "hover:bg-blue-100/60 dark:hover:bg-blue-900/30",
+  "hover:bg-rose-100/60 dark:hover:bg-rose-900/30",
+  "hover:bg-emerald-100/60 dark:hover:bg-emerald-900/30",
+  "hover:bg-violet-100/60 dark:hover:bg-violet-900/30",
+  "hover:bg-amber-100/60 dark:hover:bg-amber-900/30",
+  "hover:bg-cyan-100/60 dark:hover:bg-cyan-900/30",
+  "hover:bg-pink-100/60 dark:hover:bg-pink-900/30",
+  "hover:bg-orange-100/60 dark:hover:bg-orange-900/30",
+  "hover:bg-teal-100/60 dark:hover:bg-teal-900/30",
+  "hover:bg-indigo-100/60 dark:hover:bg-indigo-900/30",
+  "hover:bg-lime-100/60 dark:hover:bg-lime-900/30",
+  "hover:bg-purple-100/60 dark:hover:bg-purple-900/30",
+  "hover:bg-sky-100/60 dark:hover:bg-sky-900/30",
+  "hover:bg-red-100/60 dark:hover:bg-red-900/30",
+]
+
+export function getCreatorCardHover(channelId: string): string {
+  return CREATOR_CARD_HOVER[hashString(channelId) % CREATOR_CARD_HOVER.length]
+}
+
 // ===================== TAG & TOPIC BADGES (hash-based, separate palettes) ====
 
 const TAG_PALETTE = [

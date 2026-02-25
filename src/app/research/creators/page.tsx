@@ -16,6 +16,7 @@ import {
   StatusBadge,
   WorkstreamBadge,
   CreatorBadge,
+  getCreatorCardHover,
 } from "@/components/enum-badge"
 import {
   Table,
@@ -346,7 +347,7 @@ export default function CreatorsPage() {
               <Link
                 key={c.id}
                 href={`/research/videos?creator=${encodeURIComponent(c.channelId)}`}
-                className="group rounded-2xl p-2 -m-2 transition-colors hover:bg-accent/60"
+                className={`group rounded-2xl p-2 -m-2 transition-colors ${getCreatorCardHover(c.channelId)}`}
               >
                 {/* Banner */}
                 <div className="aspect-[16/5] bg-muted rounded-xl overflow-hidden">

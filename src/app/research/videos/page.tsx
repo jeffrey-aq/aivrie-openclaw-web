@@ -14,6 +14,7 @@ import {
   CreatorBadge,
   TagBadge,
   TopicBadge,
+  getCreatorCardHover,
 } from "@/components/enum-badge"
 import {
   Table,
@@ -507,7 +508,7 @@ export default function VideosPage() {
                   href={v.url || undefined}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="group rounded-2xl p-2 -m-2 transition-colors hover:bg-accent/60"
+                  className={`group rounded-2xl p-2 -m-2 transition-colors ${getCreatorCardHover(v.channelId)}`}
                 >
                   {/* Thumbnail */}
                   <div className="aspect-video bg-muted rounded-xl overflow-hidden relative">
@@ -536,7 +537,7 @@ export default function VideosPage() {
                       <h3 className="text-sm font-medium leading-snug line-clamp-2 group-hover:text-primary transition-colors">
                         {v.title}
                       </h3>
-                      <p className="text-xs text-muted-foreground mt-1 truncate">{creatorName}</p>
+                      <div className="mt-1"><CreatorBadge name={creatorName} channelId={v.channelId} /></div>
                       <p className="text-xs text-muted-foreground">
                         {formatViews(v.views)} views{v.publishedDate ? ` \u00b7 ${timeAgo(v.publishedDate)}` : ""}
                       </p>
