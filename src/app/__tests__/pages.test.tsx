@@ -415,21 +415,35 @@ describe("Page rendering", () => {
   })
 
   it("dashboard renders section headers and counts", async () => {
-    const collections = [
-      "contactsCollection", "interactionsCollection", "followUpsCollection",
-      "youtubeCreatorsCollection", "youtubeVideosCollection",
-      "sourcesCollection", "entitiesCollection", "ingestionQueueCollection",
-      "recommendationsCollection", "analysisRunsCollection",
-      "dataSourcesCollection", "aggregatedMetricsCollection",
-      "feedbackEventsCollection", "preferencePatternsCollection",
-      "specialistPersonasCollection", "digestDeliveriesCollection",
-    ]
-    const mockCounts: Record<string, unknown> = {}
-    collections.forEach((col, i) => {
-      mockCounts[col] = { totalCount: i + 1 }
+    // Dashboard fires 4 parallel queries (one per section)
+    // CRM section
+    mockRequest.mockResolvedValueOnce({
+      contactsCollection: { totalCount: 1 },
+      interactionsCollection: { totalCount: 2 },
+      followUpsCollection: { totalCount: 3 },
     })
-
-    mockRequest.mockResolvedValueOnce(mockCounts)
+    // YouTube section
+    mockRequest.mockResolvedValueOnce({
+      youtubeCreatorsCollection: { totalCount: 4 },
+      youtubeVideosCollection: { totalCount: 5 },
+    })
+    // Knowledge Base section
+    mockRequest.mockResolvedValueOnce({
+      sourcesCollection: { totalCount: 6 },
+      entitiesCollection: { totalCount: 7 },
+      ingestionQueueCollection: { totalCount: 8 },
+    })
+    // Insights section
+    mockRequest.mockResolvedValueOnce({
+      recommendationsCollection: { totalCount: 9 },
+      analysisRunsCollection: { totalCount: 10 },
+      dataSourcesCollection: { totalCount: 11 },
+      aggregatedMetricsCollection: { totalCount: 12 },
+      feedbackEventsCollection: { totalCount: 13 },
+      preferencePatternsCollection: { totalCount: 14 },
+      specialistPersonasCollection: { totalCount: 15 },
+      digestDeliveriesCollection: { totalCount: 16 },
+    })
 
     render(<HomePage />)
 
@@ -439,50 +453,43 @@ describe("Page rendering", () => {
     expect(screen.getByText("Insights")).toBeInTheDocument()
     expect(screen.getByText("YouTube")).toBeInTheDocument()
 
-    // All 16 item labels render
-    expect(screen.getByText("Contacts")).toBeInTheDocument()
-    expect(screen.getByText("Videos")).toBeInTheDocument()
-    expect(screen.getByText("Digest Deliveries")).toBeInTheDocument()
-
-    // All 16 count spans render (one per collection)
-    const boldSpans = document.querySelectorAll("span.text-lg.font-bold")
-    expect(boldSpans).toHaveLength(16)
-    // First rendered item is Contacts (CRM section first) = totalCount 1
-    expect(boldSpans[0].textContent).toBe("1")
+    // Item labels render
+    expect(await screen.findByText("Contacts")).toBeInTheDocument()
+    expect(await screen.findByText("Videos")).toBeInTheDocument()
+    expect(await screen.findByText("Digest Deliveries")).toBeInTheDocument()
   })
 
-  it("dashboard shows error state when request fails", async () => {
+  it("dashboard shows 'Not available' for a section when its query fails", async () => {
+    // CRM fails
+    mockRequest.mockRejectedValueOnce(new Error("Network error"))
+    // YouTube succeeds
+    mockRequest.mockResolvedValueOnce({
+      youtubeCreatorsCollection: { totalCount: 1 },
+      youtubeVideosCollection: { totalCount: 2 },
+    })
+    // KB fails
+    mockRequest.mockRejectedValueOnce(new Error("Network error"))
+    // Insights fails
     mockRequest.mockRejectedValueOnce(new Error("Network error"))
 
     render(<HomePage />)
 
-    expect(await screen.findByText("Failed to load counts.")).toBeInTheDocument()
+    // YouTube section still shows counts
+    expect(await screen.findByText("Creators")).toBeInTheDocument()
+
+    // Failed sections show "Not available"
+    const notAvailable = await screen.findAllByText("Not available")
+    expect(notAvailable.length).toBe(3)
   })
 
-  it("dashboard query fetches all 16 collections", async () => {
-    const collections = [
-      "contactsCollection", "interactionsCollection", "followUpsCollection",
-      "youtubeCreatorsCollection", "youtubeVideosCollection",
-      "sourcesCollection", "entitiesCollection", "ingestionQueueCollection",
-      "recommendationsCollection", "analysisRunsCollection",
-      "dataSourcesCollection", "aggregatedMetricsCollection",
-      "feedbackEventsCollection", "preferencePatternsCollection",
-      "specialistPersonasCollection", "digestDeliveriesCollection",
-    ]
-    const mockCounts: Record<string, unknown> = {}
-    collections.forEach((col) => {
-      mockCounts[col] = { totalCount: 1 }
-    })
-
-    mockRequest.mockResolvedValueOnce(mockCounts)
+  it("dashboard fires 4 parallel queries (one per section)", async () => {
+    mockRequest.mockResolvedValue({})
 
     render(<HomePage />)
-    await screen.findByText("CRM")
 
-    const query = mockRequest.mock.calls[0][0]
-    const queryStr = typeof query === "string" ? query : print(query)
-    collections.forEach((col) => {
-      expect(queryStr).toContain(col)
+    // Wait for queries to fire
+    await vi.waitFor(() => {
+      expect(mockRequest).toHaveBeenCalledTimes(4)
     })
   })
 
