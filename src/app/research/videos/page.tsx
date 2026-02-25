@@ -294,7 +294,16 @@ export default function VideosPage() {
   }))
   const [expanded, setExpanded] = useState<Set<string>>(new Set())
   const [allExpanded, setAllExpanded] = useState(false)
-  const [gridView, setGridView] = useState(() => searchParams.get("grid") === "1")
+  const [gridView, setGridView] = useState(() => {
+    try { return localStorage.getItem("yt-grid-view") === "1" } catch { return false }
+  })
+  function toggleGridView() {
+    setGridView((v) => {
+      const next = !v
+      try { localStorage.setItem("yt-grid-view", next ? "1" : "0") } catch {}
+      return next
+    })
+  }
 
   // Fetch creators once
   useEffect(() => {
@@ -434,7 +443,7 @@ export default function VideosPage() {
         <div className="flex items-center justify-between mb-4">
           <h1 className="text-2xl font-semibold">YouTube Videos</h1>
           <button
-            onClick={() => setGridView((v) => !v)}
+            onClick={toggleGridView}
             className={`inline-flex items-center gap-1.5 rounded-full px-3.5 py-1.5 text-xs font-medium transition-all ${
               gridView
                 ? "bg-blue-500 text-white shadow-sm hover:bg-blue-600"
