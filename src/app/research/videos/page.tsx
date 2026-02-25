@@ -71,12 +71,22 @@ const CREATORS_LOOKUP_QUERY = gql`
   }
 `
 
-function buildVideosQuery(channelId?: string): string {
+const PAGE_SIZE_OPTIONS = [
+  { value: 30, label: "30" },
+  { value: 100, label: "100" },
+  { value: 250, label: "250" },
+  { value: 1000, label: "All" },
+] as const
+
+type PageSize = (typeof PAGE_SIZE_OPTIONS)[number]["value"]
+
+function buildVideosQuery(channelId?: string, limit: number = 1000): string {
   const filter = channelId
     ? `filter: { channelId: { eq: "${channelId}" } }, `
     : ""
   return `{
-    youtubeVideosCollection(${filter}orderBy: [{ publishedDate: DescNullsLast }], first: 1000) {
+    youtubeVideosCollection(${filter}orderBy: [{ publishedDate: DescNullsLast }], first: ${limit}) {
+      totalCount
       edges {
         node {
           id title type channelId videoId url views likes comments
@@ -200,8 +210,10 @@ export default function VideosPage() {
   const graphqlClient = useGraphQLClient()
   const searchParams = useSearchParams()
   const [videos, setVideos] = useState<Video[]>([])
+  const [totalCount, setTotalCount] = useState(0)
   const [creators, setCreators] = useState<Creator[]>([])
   const [loading, setLoading] = useState(true)
+  const [pageSize, setPageSize] = useState<PageSize>(30)
   const [sortKey, setSortKey] = useState<SortKey | null>(() =>
     searchParams.get("creator") ? "publishedDate" : null
   )
@@ -223,17 +235,20 @@ export default function VideosPage() {
       .catch((err) => console.error("Error loading creators:", err))
   }, [graphqlClient])
 
-  // Fetch videos — re-runs when server-side creator filter changes
+  // Fetch videos — re-runs when server-side creator filter or page size changes
   const creatorFilter = filters.creator
   useEffect(() => {
     let cancelled = false
     setLoading(true)
     graphqlClient
-      .request<{ youtubeVideosCollection: { edges: { node: Video }[] } }>(
-        buildVideosQuery(creatorFilter || undefined)
+      .request<{ youtubeVideosCollection: { totalCount: number; edges: { node: Video }[] } }>(
+        buildVideosQuery(creatorFilter || undefined, pageSize)
       )
       .then((data) => {
-        if (!cancelled) setVideos(extractNodes(data.youtubeVideosCollection))
+        if (!cancelled) {
+          setVideos(extractNodes(data.youtubeVideosCollection))
+          setTotalCount(data.youtubeVideosCollection.totalCount)
+        }
       })
       .catch((err) => {
         if (!cancelled) console.error("Error loading videos:", err)
@@ -242,7 +257,7 @@ export default function VideosPage() {
         if (!cancelled) setLoading(false)
       })
     return () => { cancelled = true }
-  }, [graphqlClient, creatorFilter])
+  }, [graphqlClient, creatorFilter, pageSize])
 
   const creatorLookup = useMemo(() => {
     const map: Record<string, string> = {}
@@ -355,6 +370,18 @@ export default function VideosPage() {
             </button>
           )}
           <div className="ml-auto flex items-center gap-3">
+            <div className="flex items-center gap-1.5">
+              <span className="text-xs text-muted-foreground">Show</span>
+              <select
+                value={pageSize}
+                onChange={(e) => setPageSize(Number(e.target.value) as PageSize)}
+                className="h-8 rounded-md border border-input bg-background px-2 text-xs text-foreground"
+              >
+                {PAGE_SIZE_OPTIONS.map((o) => (
+                  <option key={o.value} value={o.value}>{o.label}</option>
+                ))}
+              </select>
+            </div>
             <button
               onClick={toggleAll}
               className={`inline-flex items-center gap-1.5 rounded-md px-2 py-1 text-xs transition-colors ${allExpanded ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground hover:bg-accent"}`}
@@ -363,7 +390,7 @@ export default function VideosPage() {
               {allExpanded ? "Collapse" : "Expand"}
             </button>
             <span className="text-xs text-muted-foreground">
-              {sorted.length} of {videos.length} videos
+              {sorted.length} of {totalCount} videos
             </span>
           </div>
         </div>

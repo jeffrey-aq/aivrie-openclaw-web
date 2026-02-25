@@ -166,6 +166,7 @@ const pageTests = [
       topicCategories: ["Education"],
       categoryId: 27,
     },
+    extraData: { __totalCount: 1 },
     preMock: {
       youtubeCreatorsCollection: { edges: [{ node: { channelId: "UC123", title: "TechChannel" } }] },
     },
@@ -363,9 +364,13 @@ describe("Page rendering", () => {
       if (preMock) {
         mockRequest.mockResolvedValueOnce(preMock)
       }
+      const { __totalCount, ...rest } = extraData || {}
+      const collectionData = __totalCount != null
+        ? { totalCount: __totalCount, edges: [{ node }] }
+        : { edges: [{ node }] }
       mockRequest.mockResolvedValueOnce({
-        [collection]: { edges: [{ node }] },
-        ...extraData,
+        [collection]: collectionData,
+        ...rest,
       })
 
       render(<Component />)
@@ -591,7 +596,7 @@ describe("Page rendering", () => {
     })
     // Videos query (second effect)
     mockRequest.mockResolvedValueOnce({
-      youtubeVideosCollection: { edges: [{ node: {
+      youtubeVideosCollection: { totalCount: 1, edges: [{ node: {
         id: "v1", title: "Test Video", videoId: "vid1", channelId: "UC123",
         type: null, views: 100, likes: 10, comments: 5,
         publishedDate: "2024-01-10", status: "Published", workstream: null,
@@ -643,7 +648,7 @@ describe("Page rendering", () => {
     })
     // Videos query (second effect)
     mockRequest.mockResolvedValueOnce({
-      youtubeVideosCollection: { edges: [{ node: {
+      youtubeVideosCollection: { totalCount: 1, edges: [{ node: {
         id: "v1", title: "MetaVideo", videoId: "vid_meta", channelId: "UC123",
         type: null, views: 100, likes: 10, comments: 5,
         publishedDate: "2024-01-10", status: "Published", workstream: null,
