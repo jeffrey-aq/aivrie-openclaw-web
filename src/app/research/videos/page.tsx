@@ -179,10 +179,24 @@ function formatPercent(n: number | null) {
   return `${(n * 100).toFixed(2)}%`
 }
 
-function formatNumber(n: number | null) {
+// Color classes for engagement percentages
+function percentColor(n: number | null, goodThreshold: number, okThreshold: number): string {
+  if (n == null) return "text-muted-foreground"
+  const pct = n * 100
+  if (pct >= goodThreshold) return "text-emerald-600 dark:text-emerald-400"
+  if (pct >= okThreshold) return "text-amber-600 dark:text-amber-400"
+  return "text-orange-600 dark:text-orange-400"
+}
+
+function formatViews(n: number | null) {
   if (n == null) return "\u2014"
-  if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M`
-  if (n >= 1_000) return `${(n / 1_000).toFixed(1)}K`
+  return n.toLocaleString()
+}
+
+function formatCompact(n: number | null) {
+  if (n == null) return "\u2014"
+  if (n >= 1_000_000) return `${Math.round(n / 1_000_000)} M`
+  if (n >= 1_000) return `${Math.round(n / 1_000)} K`
   return n.toLocaleString()
 }
 
@@ -477,11 +491,11 @@ export default function VideosPage() {
                           <span className="line-clamp-1">{v.title}</span>
                         </TableCell>
                         <TableCell className="whitespace-nowrap"><CreatorBadge name={creatorName} channelId={v.channelId} /></TableCell>
-                        <TableCell className="text-right">{formatNumber(v.views)}</TableCell>
-                        <TableCell className="text-right">{formatNumber(v.likes)}</TableCell>
-                        <TableCell className="text-right">{formatNumber(v.comments)}</TableCell>
-                        <TableCell className="text-right">{formatPercent(ratio(v.likes, v.views))}</TableCell>
-                        <TableCell className="text-right">{formatPercent(ratio(v.comments, v.views))}</TableCell>
+                        <TableCell className="text-right tabular-nums">{formatViews(v.views)}</TableCell>
+                        <TableCell className="text-right tabular-nums">{formatCompact(v.likes)}</TableCell>
+                        <TableCell className="text-right tabular-nums">{formatCompact(v.comments)}</TableCell>
+                        <TableCell className={`text-right tabular-nums font-medium ${percentColor(ratio(v.likes, v.views), 5, 2)}`}>{formatPercent(ratio(v.likes, v.views))}</TableCell>
+                        <TableCell className={`text-right tabular-nums font-medium ${percentColor(ratio(v.comments, v.views), 1, 0.3)}`}>{formatPercent(ratio(v.comments, v.views))}</TableCell>
                         <TableCell><DurationBar minutes={v.duration} durationType={v.durationType} /></TableCell>
                         <TableCell><DurationTypeBadge value={v.durationType} /></TableCell>
                         <TableCell className="whitespace-nowrap">{formatDate(v.publishedDate)}</TableCell>

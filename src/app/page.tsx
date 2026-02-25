@@ -27,51 +27,43 @@ import {
 } from "lucide-react"
 import type { LucideIcon } from "lucide-react"
 
-interface EdgeList {
-  edges: { node: { nodeId: string } }[]
-}
-
-interface TotalCount {
-  totalCount: number
-}
-
 interface CountsResponse {
-  contactsCollection: EdgeList
-  interactionsCollection: EdgeList
-  followUpsCollection: EdgeList
-  youtubeCreatorsCollection: TotalCount
-  youtubeVideosCollection: TotalCount
-  sourcesCollection: EdgeList
-  entitiesCollection: EdgeList
-  ingestionQueueCollection: EdgeList
-  recommendationsCollection: EdgeList
-  analysisRunsCollection: EdgeList
-  dataSourcesCollection: EdgeList
-  aggregatedMetricsCollection: EdgeList
-  feedbackEventsCollection: EdgeList
-  preferencePatternsCollection: EdgeList
-  specialistPersonasCollection: EdgeList
-  digestDeliveriesCollection: EdgeList
+  contactsCollection: { totalCount: number }
+  interactionsCollection: { totalCount: number }
+  followUpsCollection: { totalCount: number }
+  youtubeCreatorsCollection: { totalCount: number }
+  youtubeVideosCollection: { totalCount: number }
+  sourcesCollection: { totalCount: number }
+  entitiesCollection: { totalCount: number }
+  ingestionQueueCollection: { totalCount: number }
+  recommendationsCollection: { totalCount: number }
+  analysisRunsCollection: { totalCount: number }
+  dataSourcesCollection: { totalCount: number }
+  aggregatedMetricsCollection: { totalCount: number }
+  feedbackEventsCollection: { totalCount: number }
+  preferencePatternsCollection: { totalCount: number }
+  specialistPersonasCollection: { totalCount: number }
+  digestDeliveriesCollection: { totalCount: number }
 }
 
 const COUNTS_QUERY = gql`
   query {
-    contactsCollection(first: 1000) { edges { node { nodeId } } }
-    interactionsCollection(first: 1000) { edges { node { nodeId } } }
-    followUpsCollection(first: 1000) { edges { node { nodeId } } }
+    contactsCollection { totalCount }
+    interactionsCollection { totalCount }
+    followUpsCollection { totalCount }
     youtubeCreatorsCollection { totalCount }
     youtubeVideosCollection { totalCount }
-    sourcesCollection(first: 1000) { edges { node { nodeId } } }
-    entitiesCollection(first: 1000) { edges { node { nodeId } } }
-    ingestionQueueCollection(first: 1000) { edges { node { nodeId } } }
-    recommendationsCollection(first: 1000) { edges { node { nodeId } } }
-    analysisRunsCollection(first: 1000) { edges { node { nodeId } } }
-    dataSourcesCollection(first: 1000) { edges { node { nodeId } } }
-    aggregatedMetricsCollection(first: 1000) { edges { node { nodeId } } }
-    feedbackEventsCollection(first: 1000) { edges { node { nodeId } } }
-    preferencePatternsCollection(first: 1000) { edges { node { nodeId } } }
-    specialistPersonasCollection(first: 1000) { edges { node { nodeId } } }
-    digestDeliveriesCollection(first: 1000) { edges { node { nodeId } } }
+    sourcesCollection { totalCount }
+    entitiesCollection { totalCount }
+    ingestionQueueCollection { totalCount }
+    recommendationsCollection { totalCount }
+    analysisRunsCollection { totalCount }
+    dataSourcesCollection { totalCount }
+    aggregatedMetricsCollection { totalCount }
+    feedbackEventsCollection { totalCount }
+    preferencePatternsCollection { totalCount }
+    specialistPersonasCollection { totalCount }
+    digestDeliveriesCollection { totalCount }
   }
 `
 
@@ -178,10 +170,7 @@ export default function Home() {
                         <span className="text-sm">{item.label}</span>
                       </div>
                       <span className="text-lg font-bold">
-                        {("totalCount" in counts[item.key]
-                          ? (counts[item.key] as TotalCount).totalCount
-                          : (counts[item.key] as EdgeList).edges.length
-                        ).toLocaleString()}
+                        {counts[item.key].totalCount.toLocaleString()}
                       </span>
                     </Link>
                   ))}

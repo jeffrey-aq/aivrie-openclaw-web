@@ -415,9 +415,9 @@ describe("Page rendering", () => {
   })
 
   it("dashboard renders section headers and counts", async () => {
-    const ytCollections = ["youtubeCreatorsCollection", "youtubeVideosCollection"]
-    const edgeCollections = [
+    const collections = [
       "contactsCollection", "interactionsCollection", "followUpsCollection",
+      "youtubeCreatorsCollection", "youtubeVideosCollection",
       "sourcesCollection", "entitiesCollection", "ingestionQueueCollection",
       "recommendationsCollection", "analysisRunsCollection",
       "dataSourcesCollection", "aggregatedMetricsCollection",
@@ -425,14 +425,9 @@ describe("Page rendering", () => {
       "specialistPersonasCollection", "digestDeliveriesCollection",
     ]
     const mockCounts: Record<string, unknown> = {}
-    edgeCollections.forEach((col, i) => {
-      mockCounts[col] = {
-        edges: Array.from({ length: i + 1 }, (_, j) => ({ node: { nodeId: `${col}-${j}` } })),
-      }
+    collections.forEach((col, i) => {
+      mockCounts[col] = { totalCount: i + 1 }
     })
-    // YouTube collections use totalCount
-    mockCounts["youtubeCreatorsCollection"] = { totalCount: 4 }
-    mockCounts["youtubeVideosCollection"] = { totalCount: 5 }
 
     mockRequest.mockResolvedValueOnce(mockCounts)
 
@@ -452,7 +447,7 @@ describe("Page rendering", () => {
     // All 16 count spans render (one per collection)
     const boldSpans = document.querySelectorAll("span.text-lg.font-bold")
     expect(boldSpans).toHaveLength(16)
-    // First rendered item is Contacts (CRM section first) = 1 edge
+    // First rendered item is Contacts (CRM section first) = totalCount 1
     expect(boldSpans[0].textContent).toBe("1")
   })
 
@@ -476,9 +471,7 @@ describe("Page rendering", () => {
     ]
     const mockCounts: Record<string, unknown> = {}
     collections.forEach((col) => {
-      mockCounts[col] = col.startsWith("youtube")
-        ? { totalCount: 1 }
-        : { edges: [{ node: { nodeId: `${col}-0` } }] }
+      mockCounts[col] = { totalCount: 1 }
     })
 
     mockRequest.mockResolvedValueOnce(mockCounts)
