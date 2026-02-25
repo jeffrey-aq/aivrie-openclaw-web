@@ -1,5 +1,6 @@
 "use client"
 
+import Link from "next/link"
 import { usePathname } from "next/navigation"
 import { ChevronRight, type LucideIcon } from "lucide-react"
 
@@ -67,10 +68,10 @@ export function NavMain({
                 <DropdownMenuContent side="right" align="start" className="min-w-0">
                   {item.items?.map((subItem) => (
                     <DropdownMenuItem key={subItem.title} asChild>
-                      <a href={subItem.url} className="flex items-center gap-2">
+                      <Link href={subItem.url} className="flex items-center gap-2">
                         {subItem.icon && <subItem.icon className={`size-4 ${item.color || ""}`} />}
                         <span>{subItem.title}</span>
-                      </a>
+                      </Link>
                     </DropdownMenuItem>
                   ))}
                 </DropdownMenuContent>
@@ -96,10 +97,10 @@ export function NavMain({
                     {item.items?.map((subItem) => (
                       <SidebarMenuSubItem key={subItem.title}>
                         <SidebarMenuSubButton asChild>
-                          <a href={subItem.url}>
+                          <Link href={subItem.url}>
                             {subItem.icon && <subItem.icon className={`size-3.5 ${item.color || ""}`} />}
                             <span>{subItem.title}</span>
-                          </a>
+                          </Link>
                         </SidebarMenuSubButton>
                       </SidebarMenuSubItem>
                     ))}

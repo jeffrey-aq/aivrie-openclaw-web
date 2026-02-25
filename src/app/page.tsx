@@ -1,6 +1,7 @@
 "use client"
 
 import { useEffect, useState } from "react"
+import Link from "next/link"
 import { gql } from "graphql-request"
 import { useGraphQLClient } from "@/hooks/use-graphql"
 import { PageHeader } from "@/components/page-header"
@@ -163,7 +164,7 @@ export default function Home() {
                 <h2 className={`text-lg font-semibold mb-4 ${section.color}`}>{section.title}</h2>
                 <div className="space-y-2">
                   {section.items.map((item) => (
-                    <a
+                    <Link
                       key={item.key}
                       href={item.href}
                       className="flex items-center justify-between rounded-md px-3 py-2 hover:bg-white/60 dark:hover:bg-white/10 transition-colors"
@@ -175,7 +176,7 @@ export default function Home() {
                       <span className="text-lg font-bold">
                         {counts[item.key].edges.length.toLocaleString()}
                       </span>
-                    </a>
+                    </Link>
                   ))}
                 </div>
               </div>

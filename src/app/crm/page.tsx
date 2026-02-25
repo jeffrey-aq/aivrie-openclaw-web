@@ -1,6 +1,7 @@
 "use client"
 
 import { useEffect, useMemo, useState } from "react"
+import Link from "next/link"
 import { gql } from "graphql-request"
 import { extractNodes } from "@/lib/graphql"
 import { useGraphQLClient } from "@/hooks/use-graphql"
@@ -136,7 +137,7 @@ export default function CrmDashboard() {
             {/* Summary cards */}
             <div className="grid gap-4 md:grid-cols-3 mb-8">
               {summaryCards.map((card) => (
-                <a
+                <Link
                   key={card.label}
                   href={card.href}
                   className={`rounded-lg border p-5 ${card.bg} hover:shadow-md transition-shadow`}
@@ -148,7 +149,7 @@ export default function CrmDashboard() {
                     </div>
                     <span className="text-2xl font-bold">{card.count.toLocaleString()}</span>
                   </div>
-                </a>
+                </Link>
               ))}
             </div>
 

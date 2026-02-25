@@ -133,7 +133,7 @@ export function PageHeader({
         <Breadcrumb>
           <BreadcrumbList>
             <BreadcrumbItem className="hidden md:block">
-              <BreadcrumbLink href={sectionHref}>{section}</BreadcrumbLink>
+              <BreadcrumbLink asChild><Link href={sectionHref}>{section}</Link></BreadcrumbLink>
             </BreadcrumbItem>
             <BreadcrumbSeparator className="hidden md:block" />
             <BreadcrumbItem>

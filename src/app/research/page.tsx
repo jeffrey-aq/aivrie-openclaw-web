@@ -1,6 +1,7 @@
 "use client"
 
 import { useEffect, useMemo, useState } from "react"
+import Link from "next/link"
 import { gql } from "graphql-request"
 import { extractNodes } from "@/lib/graphql"
 import { useGraphQLClient } from "@/hooks/use-graphql"
@@ -441,7 +442,7 @@ export default function YouTubeDashboard() {
 }
 
 function CardWrapper({ href, children }: { href?: string; children: React.ReactNode }) {
-  if (href) return <a href={href}>{children}</a>
+  if (href) return <Link href={href}>{children}</Link>
   return <>{children}</>
 }
 

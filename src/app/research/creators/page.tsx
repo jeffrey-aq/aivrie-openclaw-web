@@ -1,6 +1,7 @@
 "use client"
 
 import React, { useEffect, useMemo, useState } from "react"
+import Link from "next/link"
 import { gql } from "graphql-request"
 import { extractNodes } from "@/lib/graphql"
 import { useGraphQLClient } from "@/hooks/use-graphql"
@@ -341,13 +342,13 @@ export default function CreatorsPage() {
                           {open ? <ChevronDown className="size-4 text-muted-foreground" /> : <ChevronRight className="size-4 text-muted-foreground" />}
                         </TableCell>
                         <TableCell className="font-medium">
-                          <a
+                          <Link
                             href={`/research/videos?creator=${encodeURIComponent(c.channelId)}`}
                             onClick={(e) => e.stopPropagation()}
                             className="text-blue-600 dark:text-blue-400 hover:underline"
                           >
                             {c.title}
-                          </a>
+                          </Link>
                         </TableCell>
                         <TableCell className="text-right">{formatNumber(c.videoCount)}</TableCell>
                         <TableCell className="text-right">{formatNumber(c.avgViewsPerVideo)}</TableCell>
