@@ -26,6 +26,7 @@ vi.mock("@/components/auth-provider", () => ({
 // Mock next/navigation for useSearchParams
 vi.mock("next/navigation", () => ({
   useSearchParams: () => new URLSearchParams(),
+  usePathname: () => "/",
 }))
 
 // Mock page-header to avoid sidebar context dependency
