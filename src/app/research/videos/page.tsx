@@ -188,16 +188,17 @@ function percentColor(n: number | null, goodThreshold: number, okThreshold: numb
   return "text-orange-600 dark:text-orange-400"
 }
 
-function formatViews(n: number | null) {
+function formatViews(n: number | string | null) {
   if (n == null) return "\u2014"
-  return n.toLocaleString()
+  return Number(n).toLocaleString()
 }
 
-function formatCompact(n: number | null) {
+function formatCompact(n: number | string | null) {
   if (n == null) return "\u2014"
-  if (n >= 1_000_000) return `${Math.round(n / 1_000_000)} M`
-  if (n >= 1_000) return `${Math.round(n / 1_000)} K`
-  return n.toLocaleString()
+  const v = Number(n)
+  if (v >= 1_000_000) return `${Math.round(v / 1_000_000)} M`
+  if (v >= 1_000) return `${Math.round(v / 1_000)} K`
+  return v.toLocaleString()
 }
 
 function formatDate(d: string | null) {
