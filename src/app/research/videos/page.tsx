@@ -294,7 +294,7 @@ export default function VideosPage() {
   }))
   const [expanded, setExpanded] = useState<Set<string>>(new Set())
   const [allExpanded, setAllExpanded] = useState(false)
-  const [gridView, setGridView] = useState(false)
+  const [gridView, setGridView] = useState(() => searchParams.get("grid") === "1")
 
   // Fetch creators once
   useEffect(() => {
