@@ -97,17 +97,19 @@ function formatDuration(totalMinutes: number): string {
   return `${minutes}m`
 }
 
-const COLORS = [
-  "#3b82f6", "#ef4444", "#10b981", "#f59e0b", "#8b5cf6",
-  "#ec4899", "#06b6d4", "#f97316", "#14b8a6", "#a855f7",
-  "#6366f1", "#e11d48", "#059669", "#d97706", "#7c3aed",
-  "#db2777", "#0891b2", "#ea580c", "#0d9488", "#9333ea",
-]
-
 const PIE_COLORS = {
   Short: "#ec4899",
   Full: "#0ea5e9",
 }
+
+const TABS = [
+  { key: "overview", label: "Overview" },
+  { key: "content", label: "Content" },
+  { key: "engagement", label: "Engagement" },
+  { key: "coverage", label: "Coverage" },
+] as const
+
+type TabKey = (typeof TABS)[number]["key"]
 
 export default function YouTubeDashboard() {
   const graphqlClient = useGraphQLClient()
@@ -115,6 +117,7 @@ export default function YouTubeDashboard() {
   const [videos, setVideos] = useState<VideoRow[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(false)
+  const [activeTab, setActiveTab] = useState<TabKey>("overview")
 
   useEffect(() => {
     async function load() {
@@ -142,12 +145,10 @@ export default function YouTubeDashboard() {
   const totalLikes = useMemo(() => videos.reduce((sum, v) => sum + (v.likes || 0), 0), [videos])
   const totalComments = useMemo(() => videos.reduce((sum, v) => sum + (v.comments || 0), 0), [videos])
   const withTranscript = useMemo(() => videos.filter((v) => v.transcript).length, [videos])
-  const withSummary = useMemo(() => videos.filter((v) => v.summary).length, [videos])
   const shortVideos = useMemo(() => videos.filter((v) => v.durationType === "Short").length, [videos])
   const fullVideos = useMemo(() => videos.filter((v) => v.durationType === "Full").length, [videos])
 
   const transcriptPct = totalVideos > 0 ? Math.round((withTranscript / totalVideos) * 100) : 0
-  const summaryPct = totalVideos > 0 ? Math.round((withSummary / totalVideos) * 100) : 0
   const shortPct = totalVideos > 0 ? Math.round((shortVideos / totalVideos) * 100) : 0
 
   // --- Creator lookup ---
@@ -179,16 +180,16 @@ export default function YouTubeDashboard() {
 
   // --- Engagement per creator ---
   const engagementPerCreator = useMemo(() => {
-    const data: Record<string, { likes: number; comments: number; views: number }> = {}
+    const agg: Record<string, { likes: number; comments: number; views: number }> = {}
     videos.forEach((v) => {
-      if (!data[v.channelId]) data[v.channelId] = { likes: 0, comments: 0, views: 0 }
-      data[v.channelId].likes += v.likes || 0
-      data[v.channelId].comments += v.comments || 0
-      data[v.channelId].views += v.views || 0
+      if (!agg[v.channelId]) agg[v.channelId] = { likes: 0, comments: 0, views: 0 }
+      agg[v.channelId].likes += v.likes || 0
+      agg[v.channelId].comments += v.comments || 0
+      agg[v.channelId].views += v.views || 0
     })
     return creators
       .map((c) => {
-        const d = data[c.channelId] || { likes: 0, comments: 0, views: 0 }
+        const d = agg[c.channelId] || { likes: 0, comments: 0, views: 0 }
         const engRate = d.views > 0 ? ((d.likes + d.comments) / d.views) * 100 : 0
         return { name: c.title, engagement: Math.round(engRate * 10) / 10 }
       })
@@ -196,17 +197,37 @@ export default function YouTubeDashboard() {
       .slice(0, 20)
   }, [creators, videos])
 
+  // --- Likes per creator ---
+  const likesPerCreator = useMemo(() => {
+    const sums: Record<string, number> = {}
+    videos.forEach((v) => { sums[v.channelId] = (sums[v.channelId] || 0) + (v.likes || 0) })
+    return creators
+      .map((c) => ({ name: c.title, likes: sums[c.channelId] || 0 }))
+      .sort((a, b) => b.likes - a.likes)
+      .slice(0, 20)
+  }, [creators, videos])
+
+  // --- Comments per creator ---
+  const commentsPerCreator = useMemo(() => {
+    const sums: Record<string, number> = {}
+    videos.forEach((v) => { sums[v.channelId] = (sums[v.channelId] || 0) + (v.comments || 0) })
+    return creators
+      .map((c) => ({ name: c.title, comments: sums[c.channelId] || 0 }))
+      .sort((a, b) => b.comments - a.comments)
+      .slice(0, 20)
+  }, [creators, videos])
+
   // --- Shorts vs Full per creator (stacked bar) ---
   const shortFullPerCreator = useMemo(() => {
-    const data: Record<string, { short: number; full: number }> = {}
+    const agg: Record<string, { short: number; full: number }> = {}
     videos.forEach((v) => {
-      if (!data[v.channelId]) data[v.channelId] = { short: 0, full: 0 }
-      if (v.durationType === "Short") data[v.channelId].short++
-      else data[v.channelId].full++
+      if (!agg[v.channelId]) agg[v.channelId] = { short: 0, full: 0 }
+      if (v.durationType === "Short") agg[v.channelId].short++
+      else agg[v.channelId].full++
     })
     return creators
       .map((c) => {
-        const d = data[c.channelId] || { short: 0, full: 0 }
+        const d = agg[c.channelId] || { short: 0, full: 0 }
         return { name: c.title, Short: d.short, Full: d.full, total: d.short + d.full }
       })
       .sort((a, b) => b.total - a.total)
@@ -225,15 +246,15 @@ export default function YouTubeDashboard() {
 
   // --- Transcript coverage per creator ---
   const transcriptPerCreator = useMemo(() => {
-    const data: Record<string, { total: number; withTranscript: number }> = {}
+    const agg: Record<string, { total: number; withTranscript: number }> = {}
     videos.forEach((v) => {
-      if (!data[v.channelId]) data[v.channelId] = { total: 0, withTranscript: 0 }
-      data[v.channelId].total++
-      if (v.transcript) data[v.channelId].withTranscript++
+      if (!agg[v.channelId]) agg[v.channelId] = { total: 0, withTranscript: 0 }
+      agg[v.channelId].total++
+      if (v.transcript) agg[v.channelId].withTranscript++
     })
     return creators
       .map((c) => {
-        const d = data[c.channelId] || { total: 0, withTranscript: 0 }
+        const d = agg[c.channelId] || { total: 0, withTranscript: 0 }
         const pct = d.total > 0 ? Math.round((d.withTranscript / d.total) * 100) : 0
         return { name: c.title, coverage: pct, withTranscript: d.withTranscript, total: d.total }
       })
@@ -241,13 +262,12 @@ export default function YouTubeDashboard() {
       .slice(0, 20)
   }, [creators, videos])
 
-  // --- Pie data: Shorts vs Full ---
+  // --- Pie data ---
   const shortFullPie = useMemo(() => [
     { name: "Short", value: shortVideos },
     { name: "Full", value: fullVideos },
   ], [shortVideos, fullVideos])
 
-  // --- Pie data: Transcript coverage ---
   const transcriptPie = useMemo(() => [
     { name: "With Transcript", value: withTranscript },
     { name: "No Transcript", value: totalVideos - withTranscript },
@@ -267,173 +287,229 @@ export default function YouTubeDashboard() {
   return (
     <>
       <PageHeader section="YouTube" sectionHref="/research" page="Dashboard" />
-      <div className="flex-1 p-6">
-        <h1 className="text-2xl font-semibold mb-6">YouTube Dashboard</h1>
 
+      {/* Sub-dashboard tabs */}
+      <div className="flex items-center gap-1 border-b px-6 pt-1">
+        {TABS.map((tab) => (
+          <button
+            key={tab.key}
+            onClick={() => setActiveTab(tab.key)}
+            className={`rounded-t-md px-4 py-2 text-sm font-medium transition-colors ${
+              activeTab === tab.key
+                ? "border-b-2 border-primary text-foreground"
+                : "text-muted-foreground hover:text-foreground hover:bg-accent"
+            }`}
+          >
+            {tab.label}
+          </button>
+        ))}
+      </div>
+
+      <div className="flex-1 p-6">
         {loading ? (
           <p className="text-muted-foreground">Loading...</p>
         ) : error ? (
           <p className="text-muted-foreground">Failed to load dashboard data.</p>
         ) : (
           <>
-            {/* Summary cards */}
-            <div className="grid gap-4 grid-cols-2 md:grid-cols-4 mb-8">
-              {summaryCards.map((card) => (
-                <CardWrapper key={card.label} href={card.href}>
-                  <div className={`rounded-lg border p-4 ${card.bg} hover:shadow-md transition-shadow h-full`}>
-                    <div className="flex items-center gap-2 mb-2">
-                      <card.icon className={`size-4 ${card.color}`} />
-                      <span className="text-xs font-medium text-muted-foreground">{card.label}</span>
-                    </div>
-                    <div className="text-2xl font-bold">{card.value}</div>
-                    {card.sub && <div className="text-xs text-muted-foreground mt-0.5">{card.sub}</div>}
+            {/* ── Overview ── */}
+            {activeTab === "overview" && (
+              <>
+                <div className="grid gap-4 grid-cols-2 md:grid-cols-4 mb-8">
+                  {summaryCards.map((card) => (
+                    <CardWrapper key={card.label} href={card.href}>
+                      <div className={`rounded-lg border p-4 ${card.bg} hover:shadow-md transition-shadow h-full`}>
+                        <div className="flex items-center gap-2 mb-2">
+                          <card.icon className={`size-4 ${card.color}`} />
+                          <span className="text-xs font-medium text-muted-foreground">{card.label}</span>
+                        </div>
+                        <div className="text-2xl font-bold">{card.value}</div>
+                        {card.sub && <div className="text-xs text-muted-foreground mt-0.5">{card.sub}</div>}
+                      </div>
+                    </CardWrapper>
+                  ))}
+                </div>
+
+                <div className="grid gap-6 md:grid-cols-2">
+                  <div className="rounded-lg border p-5">
+                    <h3 className="text-sm font-semibold mb-4">Shorts vs Full-Length Videos</h3>
+                    <ResponsiveContainer width="100%" height={250}>
+                      <PieChart>
+                        <Pie
+                          data={shortFullPie}
+                          cx="50%"
+                          cy="50%"
+                          innerRadius={55}
+                          outerRadius={90}
+                          paddingAngle={3}
+                          dataKey="value"
+                          label={({ name, value }) => `${name}: ${value}`}
+                        >
+                          {shortFullPie.map((entry) => (
+                            <Cell key={entry.name} fill={PIE_COLORS[entry.name as keyof typeof PIE_COLORS] || "#999"} />
+                          ))}
+                        </Pie>
+                        <ChartTooltip />
+                      </PieChart>
+                    </ResponsiveContainer>
                   </div>
-                </CardWrapper>
-              ))}
-            </div>
 
-            {/* Pie charts row */}
-            <div className="grid gap-6 md:grid-cols-2 mb-8">
-              <div className="rounded-lg border p-5">
-                <h3 className="text-sm font-semibold mb-4">Shorts vs Full-Length Videos</h3>
-                <ResponsiveContainer width="100%" height={220}>
-                  <PieChart>
-                    <Pie
-                      data={shortFullPie}
-                      cx="50%"
-                      cy="50%"
-                      innerRadius={50}
-                      outerRadius={80}
-                      paddingAngle={3}
-                      dataKey="value"
-                      label={({ name, value }) => `${name}: ${value}`}
-                    >
-                      {shortFullPie.map((entry) => (
-                        <Cell key={entry.name} fill={PIE_COLORS[entry.name as keyof typeof PIE_COLORS] || "#999"} />
-                      ))}
-                    </Pie>
-                    <Tooltip
-                      contentStyle={{
-                        backgroundColor: "var(--color-popover)",
-                        border: "1px solid var(--color-border)",
-                        borderRadius: "0.375rem",
-                        fontSize: "0.75rem",
-                      }}
-                    />
-                  </PieChart>
-                </ResponsiveContainer>
-              </div>
+                  <div className="rounded-lg border p-5">
+                    <h3 className="text-sm font-semibold mb-4">Transcript Coverage</h3>
+                    <ResponsiveContainer width="100%" height={250}>
+                      <PieChart>
+                        <Pie
+                          data={transcriptPie}
+                          cx="50%"
+                          cy="50%"
+                          innerRadius={55}
+                          outerRadius={90}
+                          paddingAngle={3}
+                          dataKey="value"
+                          label={({ name, value }) => `${name}: ${value}`}
+                        >
+                          <Cell fill="#14b8a6" />
+                          <Cell fill="#d4d4d8" />
+                        </Pie>
+                        <ChartTooltip />
+                      </PieChart>
+                    </ResponsiveContainer>
+                  </div>
+                </div>
+              </>
+            )}
 
-              <div className="rounded-lg border p-5">
-                <h3 className="text-sm font-semibold mb-4">Transcript Coverage</h3>
-                <ResponsiveContainer width="100%" height={220}>
-                  <PieChart>
-                    <Pie
-                      data={transcriptPie}
-                      cx="50%"
-                      cy="50%"
-                      innerRadius={50}
-                      outerRadius={80}
-                      paddingAngle={3}
-                      dataKey="value"
-                      label={({ name, value }) => `${name}: ${value}`}
-                    >
-                      <Cell fill="#14b8a6" />
-                      <Cell fill="#d4d4d8" />
-                    </Pie>
-                    <Tooltip
-                      contentStyle={{
-                        backgroundColor: "var(--color-popover)",
-                        border: "1px solid var(--color-border)",
-                        borderRadius: "0.375rem",
-                        fontSize: "0.75rem",
-                      }}
-                    />
-                  </PieChart>
-                </ResponsiveContainer>
-              </div>
-            </div>
-
-            {/* Bar charts */}
-            <div className="grid gap-6 lg:grid-cols-2 mb-8">
-              <HorizontalBarChart
-                title="Videos per Creator"
-                data={videosPerCreator}
-                dataKey="videos"
-                color="#3b82f6"
-                formatter={(v: number) => `${v} videos`}
-              />
-              <HorizontalBarChart
-                title="Total Views per Creator"
-                data={viewsPerCreator}
-                dataKey="views"
-                color="#10b981"
-                formatter={(v: number) => formatNumber(v)}
-              />
-            </div>
-
-            <div className="grid gap-6 lg:grid-cols-2 mb-8">
-              <HorizontalBarChart
-                title="Engagement Rate by Creator"
-                data={engagementPerCreator}
-                dataKey="engagement"
-                color="#f59e0b"
-                formatter={(v: number) => `${v}%`}
-                unit="%"
-              />
-              <HorizontalBarChart
-                title="Total Duration per Creator (min)"
-                data={durationPerCreator}
-                dataKey="duration"
-                color="#8b5cf6"
-                formatter={(v: number) => formatDuration(v)}
-              />
-            </div>
-
-            {/* Stacked bar: Shorts vs Full by creator */}
-            <div className="rounded-lg border p-5 mb-8">
-              <h3 className="text-sm font-semibold mb-4">Shorts vs Full-Length by Creator</h3>
-              <ResponsiveContainer width="100%" height={Math.max(shortFullPerCreator.length * 32 + 40, 200)}>
-                <BarChart data={shortFullPerCreator} layout="vertical" margin={{ left: 120, right: 20, top: 5, bottom: 5 }}>
-                  <CartesianGrid strokeDasharray="3 3" className="opacity-30" horizontal={false} />
-                  <XAxis type="number" allowDecimals={false} tick={{ fontSize: 11 }} />
-                  <YAxis type="category" dataKey="name" tick={{ fontSize: 11 }} width={115} />
-                  <Tooltip
-                    contentStyle={{
-                      backgroundColor: "var(--color-popover)",
-                      border: "1px solid var(--color-border)",
-                      borderRadius: "0.375rem",
-                      fontSize: "0.75rem",
-                    }}
+            {/* ── Content ── */}
+            {activeTab === "content" && (
+              <div className="space-y-6">
+                <div className="grid gap-6 lg:grid-cols-2">
+                  <HorizontalBarChart
+                    title="Videos per Creator"
+                    data={videosPerCreator}
+                    dataKey="videos"
+                    color="#3b82f6"
+                    formatter={(v: number) => `${v} videos`}
                   />
-                  <Legend wrapperStyle={{ fontSize: "0.75rem" }} />
-                  <Bar dataKey="Short" stackId="a" fill="#ec4899" radius={[0, 0, 0, 0]} />
-                  <Bar dataKey="Full" stackId="a" fill="#0ea5e9" radius={[0, 2, 2, 0]} />
-                </BarChart>
-              </ResponsiveContainer>
-            </div>
-
-            {/* Transcript coverage by creator */}
-            <div className="rounded-lg border p-5">
-              <h3 className="text-sm font-semibold mb-4">Transcript Coverage by Creator</h3>
-              <ResponsiveContainer width="100%" height={Math.max(transcriptPerCreator.length * 32 + 40, 200)}>
-                <BarChart data={transcriptPerCreator} layout="vertical" margin={{ left: 120, right: 20, top: 5, bottom: 5 }}>
-                  <CartesianGrid strokeDasharray="3 3" className="opacity-30" horizontal={false} />
-                  <XAxis type="number" domain={[0, 100]} tick={{ fontSize: 11 }} unit="%" />
-                  <YAxis type="category" dataKey="name" tick={{ fontSize: 11 }} width={115} />
-                  <Tooltip
-                    contentStyle={{
-                      backgroundColor: "var(--color-popover)",
-                      border: "1px solid var(--color-border)",
-                      borderRadius: "0.375rem",
-                      fontSize: "0.75rem",
-                    }}
-                    formatter={(v: unknown) => [`${v}%`, "Coverage"]}
+                  <HorizontalBarChart
+                    title="Total Duration per Creator (min)"
+                    data={durationPerCreator}
+                    dataKey="duration"
+                    color="#8b5cf6"
+                    formatter={(v: number) => formatDuration(v)}
                   />
-                  <Bar dataKey="coverage" fill="#14b8a6" radius={[0, 2, 2, 0]} />
-                </BarChart>
-              </ResponsiveContainer>
-            </div>
+                </div>
+
+                <div className="rounded-lg border p-5">
+                  <h3 className="text-sm font-semibold mb-4">Shorts vs Full-Length by Creator</h3>
+                  <ResponsiveContainer width="100%" height={Math.max(shortFullPerCreator.length * 32 + 40, 200)}>
+                    <BarChart data={shortFullPerCreator} layout="vertical" margin={{ left: 120, right: 20, top: 5, bottom: 5 }}>
+                      <CartesianGrid strokeDasharray="3 3" className="opacity-30" horizontal={false} />
+                      <XAxis type="number" allowDecimals={false} tick={{ fontSize: 11 }} />
+                      <YAxis type="category" dataKey="name" tick={{ fontSize: 11 }} width={115} />
+                      <ChartTooltip />
+                      <Legend wrapperStyle={{ fontSize: "0.75rem" }} />
+                      <Bar dataKey="Short" stackId="a" fill="#ec4899" radius={[0, 0, 0, 0]} />
+                      <Bar dataKey="Full" stackId="a" fill="#0ea5e9" radius={[0, 2, 2, 0]} />
+                    </BarChart>
+                  </ResponsiveContainer>
+                </div>
+              </div>
+            )}
+
+            {/* ── Engagement ── */}
+            {activeTab === "engagement" && (
+              <div className="grid gap-6 lg:grid-cols-2">
+                <HorizontalBarChart
+                  title="Total Views per Creator"
+                  data={viewsPerCreator}
+                  dataKey="views"
+                  color="#10b981"
+                  formatter={(v: number) => formatNumber(v)}
+                />
+                <HorizontalBarChart
+                  title="Total Likes per Creator"
+                  data={likesPerCreator}
+                  dataKey="likes"
+                  color="#ec4899"
+                  formatter={(v: number) => formatNumber(v)}
+                />
+                <HorizontalBarChart
+                  title="Total Comments per Creator"
+                  data={commentsPerCreator}
+                  dataKey="comments"
+                  color="#f59e0b"
+                  formatter={(v: number) => formatNumber(v)}
+                />
+                <HorizontalBarChart
+                  title="Engagement Rate by Creator"
+                  data={engagementPerCreator}
+                  dataKey="engagement"
+                  color="#6366f1"
+                  formatter={(v: number) => `${v}%`}
+                  unit="%"
+                />
+              </div>
+            )}
+
+            {/* ── Coverage ── */}
+            {activeTab === "coverage" && (
+              <div className="space-y-6">
+                <div className="rounded-lg border p-5">
+                  <h3 className="text-sm font-semibold mb-4">Transcript Coverage by Creator</h3>
+                  <ResponsiveContainer width="100%" height={Math.max(transcriptPerCreator.length * 32 + 40, 200)}>
+                    <BarChart data={transcriptPerCreator} layout="vertical" margin={{ left: 120, right: 20, top: 5, bottom: 5 }}>
+                      <CartesianGrid strokeDasharray="3 3" className="opacity-30" horizontal={false} />
+                      <XAxis type="number" domain={[0, 100]} tick={{ fontSize: 11 }} unit="%" />
+                      <YAxis type="category" dataKey="name" tick={{ fontSize: 11 }} width={115} />
+                      <Tooltip
+                        contentStyle={{
+                          backgroundColor: "var(--color-popover)",
+                          border: "1px solid var(--color-border)",
+                          borderRadius: "0.375rem",
+                          fontSize: "0.75rem",
+                        }}
+                        formatter={(v: unknown) => [`${v}%`, "Coverage"]}
+                      />
+                      <Bar dataKey="coverage" fill="#14b8a6" radius={[0, 2, 2, 0]} />
+                    </BarChart>
+                  </ResponsiveContainer>
+                </div>
+
+                <div className="grid gap-4 grid-cols-2 md:grid-cols-4">
+                  {creators.slice(0, 20).map((c) => {
+                    const cVideos = videos.filter((v) => v.channelId === c.channelId)
+                    const hasTranscript = cVideos.filter((v) => v.transcript).length
+                    const hasSummary = cVideos.filter((v) => v.summary).length
+                    const pct = cVideos.length > 0 ? Math.round((hasTranscript / cVideos.length) * 100) : 0
+                    const sumPct = cVideos.length > 0 ? Math.round((hasSummary / cVideos.length) * 100) : 0
+                    return (
+                      <div key={c.id} className="rounded-lg border p-4">
+                        <div className="text-sm font-medium truncate mb-2">{c.title}</div>
+                        <div className="space-y-1.5">
+                          <div className="flex items-center justify-between text-xs text-muted-foreground">
+                            <span>Transcripts</span>
+                            <span className="font-bold text-foreground">{pct}%</span>
+                          </div>
+                          <div className="h-1.5 rounded-full bg-muted overflow-hidden">
+                            <div className="h-full rounded-full bg-teal-500" style={{ width: `${pct}%` }} />
+                          </div>
+                          <div className="flex items-center justify-between text-xs text-muted-foreground">
+                            <span>Summaries</span>
+                            <span className="font-bold text-foreground">{sumPct}%</span>
+                          </div>
+                          <div className="h-1.5 rounded-full bg-muted overflow-hidden">
+                            <div className="h-full rounded-full bg-violet-500" style={{ width: `${sumPct}%` }} />
+                          </div>
+                          <div className="text-xs text-muted-foreground mt-1">
+                            {hasTranscript}/{cVideos.length} transcripts, {hasSummary}/{cVideos.length} summaries
+                          </div>
+                        </div>
+                      </div>
+                    )
+                  })}
+                </div>
+              </div>
+            )}
           </>
         )}
       </div>
@@ -444,6 +520,19 @@ export default function YouTubeDashboard() {
 function CardWrapper({ href, children }: { href?: string; children: React.ReactNode }) {
   if (href) return <Link href={href}>{children}</Link>
   return <>{children}</>
+}
+
+function ChartTooltip() {
+  return (
+    <Tooltip
+      contentStyle={{
+        backgroundColor: "var(--color-popover)",
+        border: "1px solid var(--color-border)",
+        borderRadius: "0.375rem",
+        fontSize: "0.75rem",
+      }}
+    />
+  )
 }
 
 function HorizontalBarChart({

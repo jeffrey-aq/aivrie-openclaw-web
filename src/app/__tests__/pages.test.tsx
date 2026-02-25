@@ -557,10 +557,14 @@ describe("Page rendering", () => {
 
     render(<YouTubeDashboardPage />)
 
-    expect(await screen.findByText("YouTube Dashboard")).toBeInTheDocument()
+    // Tab bar renders
+    expect(await screen.findByText("Overview")).toBeInTheDocument()
+    expect(screen.getByText("Content")).toBeInTheDocument()
+    expect(screen.getByText("Engagement")).toBeInTheDocument()
+    expect(screen.getByText("Coverage")).toBeInTheDocument()
+    // Overview tab shows summary cards and pie charts
     expect(screen.getByText("Creators")).toBeInTheDocument()
     expect(screen.getByText("Shorts vs Full-Length Videos")).toBeInTheDocument()
-    expect(screen.getByText("Videos per Creator")).toBeInTheDocument()
   })
 
   it("YouTube dashboard shows error when request fails", async () => {
