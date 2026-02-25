@@ -11,6 +11,7 @@ import {
   WorkstreamBadge,
   VideoStatusBadge,
   DurationTypeBadge,
+  CreatorBadge,
 } from "@/components/enum-badge"
 import {
   Table,
@@ -432,7 +433,7 @@ export default function VideosPage() {
                         <TableCell className="font-medium max-w-[300px]">
                           <span className="line-clamp-1">{v.title}</span>
                         </TableCell>
-                        <TableCell className="whitespace-nowrap text-sm">{creatorName}</TableCell>
+                        <TableCell className="whitespace-nowrap"><CreatorBadge name={creatorName} channelId={v.channelId} /></TableCell>
                         <TableCell className="text-right">{formatNumber(v.views)}</TableCell>
                         <TableCell className="text-right">{formatNumber(v.likes)}</TableCell>
                         <TableCell className="text-right">{formatNumber(v.comments)}</TableCell>
