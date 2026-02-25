@@ -264,12 +264,8 @@ export default function VideosPage() {
   const [creators, setCreators] = useState<Creator[]>([])
   const [loading, setLoading] = useState(true)
   const [pageSize, setPageSize] = useState<PageSize>(30)
-  const [sortKey, setSortKey] = useState<SortKey | null>(() =>
-    searchParams.get("creator") ? "publishedDate" : null
-  )
-  const [sortDir, setSortDir] = useState<SortDir>(() =>
-    searchParams.get("creator") ? "desc" : "asc"
-  )
+  const [sortKey, setSortKey] = useState<SortKey | null>("publishedDate")
+  const [sortDir, setSortDir] = useState<SortDir>("desc")
   const [filters, setFilters] = useState<Filters>(() => ({
     ...emptyFilters,
     creator: searchParams.get("creator") || "",
