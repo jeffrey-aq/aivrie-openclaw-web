@@ -370,6 +370,16 @@ export default function VideosPage() {
             </button>
           )}
           <div className="ml-auto flex items-center gap-3">
+            <button
+              onClick={toggleAll}
+              className={`inline-flex items-center gap-1.5 rounded-md px-2 py-1 text-xs transition-colors ${allExpanded ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground hover:bg-accent"}`}
+            >
+              {allExpanded ? <ChevronsDownUp className="size-3" /> : <ChevronsUpDown className="size-3" />}
+              {allExpanded ? "Collapse" : "Expand"}
+            </button>
+            <span className="text-xs text-muted-foreground">
+              {sorted.length.toLocaleString()} of {totalCount.toLocaleString()} videos
+            </span>
             <div className="flex items-center gap-1.5">
               <span className="text-xs text-muted-foreground">Show</span>
               <select
@@ -382,16 +392,6 @@ export default function VideosPage() {
                 ))}
               </select>
             </div>
-            <button
-              onClick={toggleAll}
-              className={`inline-flex items-center gap-1.5 rounded-md px-2 py-1 text-xs transition-colors ${allExpanded ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground hover:bg-accent"}`}
-            >
-              {allExpanded ? <ChevronsDownUp className="size-3" /> : <ChevronsUpDown className="size-3" />}
-              {allExpanded ? "Collapse" : "Expand"}
-            </button>
-            <span className="text-xs text-muted-foreground">
-              {sorted.length} of {totalCount} videos
-            </span>
           </div>
         </div>
 
