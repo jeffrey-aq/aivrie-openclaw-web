@@ -555,15 +555,19 @@ describe("Page rendering", () => {
   })
 
   it("YouTube dashboard renders summary cards and charts", async () => {
-    // OVERVIEW_QUERY: server-side aggregation via GraphQL aggregate
+    // DATA_QUERY: single query, client-side aggregation
     mockRequest.mockResolvedValueOnce({
-      creatorsTotal: { totalCount: 1 },
+      youtubeCreatorsCollection: {
+        totalCount: 1,
+        edges: [{ node: { id: "cr1", title: "TestCreator", channelId: "UC123" } }],
+      },
       youtubeVideosCollection: {
         totalCount: 2,
-        aggregate: { sum: { views: 700, likes: 70, comments: 15, duration: 16.5 } },
+        edges: [
+          { node: { id: "v1", channelId: "UC123", views: 500, likes: 50, comments: 10, duration: 12.5, durationType: "Full", transcript: "some text", summary: null } },
+          { node: { id: "v2", channelId: "UC123", views: 200, likes: 20, comments: 5, duration: 4.0, durationType: "Short", transcript: null, summary: null } },
+        ],
       },
-      shortsTotal: { totalCount: 1 },
-      transcriptTotal: { totalCount: 1 },
     })
 
     render(<YouTubeDashboardPage />)
@@ -576,6 +580,8 @@ describe("Page rendering", () => {
     // Overview tab shows summary cards and pie charts
     expect(screen.getByText("Creators")).toBeInTheDocument()
     expect(screen.getByText("Shorts vs Full-Length Videos")).toBeInTheDocument()
+    // Aggregated values render
+    expect(screen.getByText("700")).toBeInTheDocument() // total views 500+200
   })
 
   it("YouTube dashboard shows error when request fails", async () => {
@@ -584,6 +590,35 @@ describe("Page rendering", () => {
     render(<YouTubeDashboardPage />)
 
     expect(await screen.findByText("Failed to load dashboard data.")).toBeInTheDocument()
+  })
+
+  it("YouTube dashboard computes correct aggregates from video rows", async () => {
+    mockRequest.mockResolvedValueOnce({
+      youtubeCreatorsCollection: {
+        totalCount: 2,
+        edges: [
+          { node: { id: "cr1", title: "Creator A", channelId: "UCA" } },
+          { node: { id: "cr2", title: "Creator B", channelId: "UCB" } },
+        ],
+      },
+      youtubeVideosCollection: {
+        totalCount: 3,
+        edges: [
+          { node: { id: "v1", channelId: "UCA", views: 1000, likes: 100, comments: 20, duration: 10, durationType: "Full", transcript: "yes", summary: null } },
+          { node: { id: "v2", channelId: "UCA", views: 500, likes: 50, comments: 10, duration: 2, durationType: "Short", transcript: null, summary: null } },
+          { node: { id: "v3", channelId: "UCB", views: 2000, likes: 200, comments: 30, duration: 15, durationType: "Full", transcript: "yes", summary: "sum" } },
+        ],
+      },
+    })
+
+    render(<YouTubeDashboardPage />)
+
+    // Total views = 1000 + 500 + 2000 = 3,500 → "3.5K"
+    expect(await screen.findByText("3.5K")).toBeInTheDocument()
+    // Shorts: 1 of 3 = 33%
+    expect(screen.getByText("33%")).toBeInTheDocument()
+    // Transcripts: 2 of 3 = 67%
+    expect(screen.getByText("67%")).toBeInTheDocument()
   })
 
   it("videos page includes creator filter in query", async () => {

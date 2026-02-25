@@ -21,44 +21,7 @@ import {
   Cell,
 } from "recharts"
 
-// ─── Overview query: server-side aggregation via GraphQL ─────────────────────
-const OVERVIEW_QUERY = gql`
-  query {
-    creatorsTotal: youtubeCreatorsCollection { totalCount }
-    youtubeVideosCollection {
-      totalCount
-      aggregate {
-        sum {
-          views
-          likes
-          comments
-          duration
-        }
-      }
-    }
-    shortsTotal: youtubeVideosCollection(filter: { durationType: { eq: "Short" } }) { totalCount }
-    transcriptTotal: youtubeVideosCollection(filter: { transcript: { is: NOT_NULL } }) { totalCount }
-  }
-`
-
-interface OverviewData {
-  creatorsTotal: { totalCount: number }
-  youtubeVideosCollection: {
-    totalCount: number
-    aggregate: {
-      sum: {
-        views: number | string
-        likes: number | string
-        comments: number | string
-        duration: number | string
-      }
-    }
-  }
-  shortsTotal: { totalCount: number }
-  transcriptTotal: { totalCount: number }
-}
-
-// ─── Row-level query for per-creator charts (Content/Engagement/Coverage) ───
+// ─── Single query: fetch all rows, compute aggregates client-side ────────────
 interface Creator {
   id: string
   title: string
@@ -77,12 +40,14 @@ interface VideoRow {
   summary: string | null
 }
 
-const DETAIL_QUERY = gql`
+const DATA_QUERY = gql`
   query {
     youtubeCreatorsCollection(orderBy: [{ title: AscNullsLast }], first: 1000) {
+      totalCount
       edges { node { id title channelId } }
     }
     youtubeVideosCollection(first: 1000) {
+      totalCount
       edges {
         node {
           id channelId views likes comments duration
@@ -130,55 +95,37 @@ export default function YouTubeDashboard() {
   const graphqlClient = useGraphQLClient()
   const [activeTab, setActiveTab] = useState<TabKey>("overview")
 
-  // Overview state (server-side aggregates via GraphQL)
-  const [overview, setOverview] = useState<OverviewData | null>(null)
-  const [overviewLoading, setOverviewLoading] = useState(true)
-  const [overviewError, setOverviewError] = useState(false)
-
-  // Detail state (full rows — lazy-loaded for non-overview tabs)
   const [creators, setCreators] = useState<Creator[]>([])
   const [videos, setVideos] = useState<VideoRow[]>([])
-  const [detailLoaded, setDetailLoaded] = useState(false)
-  const [detailLoading, setDetailLoading] = useState(false)
+  const [totalCreators, setTotalCreators] = useState(0)
+  const [totalVideos, setTotalVideos] = useState(0)
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState(false)
 
-  // Fetch overview aggregates on mount (all server-side via GraphQL)
   useEffect(() => {
-    graphqlClient
-      .request<OverviewData>(OVERVIEW_QUERY)
-      .then((data) => setOverview(data))
-      .catch((err) => { console.error("Error loading overview:", err); setOverviewError(true) })
-      .finally(() => setOverviewLoading(false))
-  }, [graphqlClient])
-
-  // Lazy-load detail rows when switching to a non-overview tab
-  useEffect(() => {
-    if (activeTab === "overview" || detailLoaded || detailLoading) return
-    setDetailLoading(true)
     graphqlClient
       .request<{
-        youtubeCreatorsCollection: { edges: { node: Creator }[] }
-        youtubeVideosCollection: { edges: { node: VideoRow }[] }
-      }>(DETAIL_QUERY)
+        youtubeCreatorsCollection: { totalCount: number; edges: { node: Creator }[] }
+        youtubeVideosCollection: { totalCount: number; edges: { node: VideoRow }[] }
+      }>(DATA_QUERY)
       .then((data) => {
         setCreators(extractNodes(data.youtubeCreatorsCollection))
         setVideos(extractNodes(data.youtubeVideosCollection))
-        setDetailLoaded(true)
+        setTotalCreators(data.youtubeCreatorsCollection.totalCount)
+        setTotalVideos(data.youtubeVideosCollection.totalCount)
       })
-      .catch((err) => console.error("Error loading detail data:", err))
-      .finally(() => setDetailLoading(false))
-  }, [activeTab, detailLoaded, detailLoading, graphqlClient])
+      .catch((err) => { console.error("Error loading overview:", err); setError(true) })
+      .finally(() => setLoading(false))
+  }, [graphqlClient])
 
-  // ─── Overview computed values (all server-side via GraphQL aggregate) ────────
-  const totalCreators = overview?.creatorsTotal.totalCount ?? 0
-  const totalVideos = overview?.youtubeVideosCollection.totalCount ?? 0
-  const sums = overview?.youtubeVideosCollection.aggregate?.sum
-  const totalViews = toNum(sums?.views)
-  const totalLikes = toNum(sums?.likes)
-  const totalComments = toNum(sums?.comments)
-  const totalDuration = toNum(sums?.duration)
-  const shortVideos = overview?.shortsTotal.totalCount ?? 0
+  // ─── Overview computed values (client-side aggregation) ────────────────────
+  const totalViews = useMemo(() => videos.reduce((s, v) => s + toNum(v.views), 0), [videos])
+  const totalLikes = useMemo(() => videos.reduce((s, v) => s + toNum(v.likes), 0), [videos])
+  const totalComments = useMemo(() => videos.reduce((s, v) => s + toNum(v.comments), 0), [videos])
+  const totalDuration = useMemo(() => videos.reduce((s, v) => s + toNum(v.duration), 0), [videos])
+  const shortVideos = useMemo(() => videos.filter((v) => v.durationType === "Short").length, [videos])
   const fullVideos = totalVideos - shortVideos
-  const withTranscript = overview?.transcriptTotal.totalCount ?? 0
+  const withTranscript = useMemo(() => videos.filter((v) => v.transcript).length, [videos])
   const transcriptPct = totalVideos > 0 ? Math.round((withTranscript / totalVideos) * 100) : 0
   const shortPct = totalVideos > 0 ? Math.round((shortVideos / totalVideos) * 100) : 0
 
@@ -300,9 +247,6 @@ export default function YouTubeDashboard() {
   }, [creators, videos])
 
   // ─── Render ─────────────────────────────────────────────────────────────
-  const loading = activeTab === "overview" ? overviewLoading : detailLoading && !detailLoaded
-  const error = activeTab === "overview" ? overviewError : false
-
   return (
     <>
       <PageHeader section="YouTube" sectionHref="/research" page="Dashboard" />
