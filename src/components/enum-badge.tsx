@@ -144,6 +144,56 @@ export function CreatorBadge({ name, channelId }: { name: string | null; channel
   )
 }
 
+// ===================== TAG & TOPIC BADGES (hash-based, separate palettes) ====
+
+const TAG_PALETTE = [
+  "bg-sky-500/15 text-sky-700 dark:text-sky-400",
+  "bg-amber-500/15 text-amber-700 dark:text-amber-400",
+  "bg-teal-500/15 text-teal-700 dark:text-teal-400",
+  "bg-pink-500/15 text-pink-700 dark:text-pink-400",
+  "bg-indigo-500/15 text-indigo-700 dark:text-indigo-400",
+  "bg-lime-500/15 text-lime-700 dark:text-lime-400",
+  "bg-orange-500/15 text-orange-700 dark:text-orange-400",
+  "bg-cyan-500/15 text-cyan-700 dark:text-cyan-400",
+  "bg-violet-500/15 text-violet-700 dark:text-violet-400",
+  "bg-emerald-500/15 text-emerald-700 dark:text-emerald-400",
+  "bg-rose-500/15 text-rose-700 dark:text-rose-400",
+  "bg-blue-500/15 text-blue-700 dark:text-blue-400",
+]
+
+const TOPIC_PALETTE = [
+  "bg-purple-500/15 text-purple-700 dark:text-purple-400",
+  "bg-emerald-500/15 text-emerald-700 dark:text-emerald-400",
+  "bg-red-500/15 text-red-700 dark:text-red-400",
+  "bg-blue-500/15 text-blue-700 dark:text-blue-400",
+  "bg-amber-500/15 text-amber-700 dark:text-amber-400",
+  "bg-teal-500/15 text-teal-700 dark:text-teal-400",
+  "bg-pink-500/15 text-pink-700 dark:text-pink-400",
+  "bg-indigo-500/15 text-indigo-700 dark:text-indigo-400",
+  "bg-cyan-500/15 text-cyan-700 dark:text-cyan-400",
+  "bg-orange-500/15 text-orange-700 dark:text-orange-400",
+  "bg-lime-500/15 text-lime-700 dark:text-lime-400",
+  "bg-violet-500/15 text-violet-700 dark:text-violet-400",
+]
+
+export function TagBadge({ value }: { value: string }) {
+  const color = TAG_PALETTE[hashString(value) % TAG_PALETTE.length]
+  return (
+    <Badge variant="outline" className={`border-transparent ${color}`}>
+      {value}
+    </Badge>
+  )
+}
+
+export function TopicBadge({ value }: { value: string }) {
+  const color = TOPIC_PALETTE[hashString(value) % TOPIC_PALETTE.length]
+  return (
+    <Badge variant="outline" className={`border-transparent ${color}`}>
+      {value}
+    </Badge>
+  )
+}
+
 // ===================== SHARED ACROSS SCHEMAS =====================
 
 const statusColors: Record<string, string> = {

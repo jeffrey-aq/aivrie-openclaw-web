@@ -12,6 +12,8 @@ import {
   VideoStatusBadge,
   DurationTypeBadge,
   CreatorBadge,
+  TagBadge,
+  TopicBadge,
 } from "@/components/enum-badge"
 import {
   Table,
@@ -530,7 +532,7 @@ export default function VideosPage() {
                                     <span className="text-xs text-muted-foreground">Tags</span>
                                     <div className="flex flex-wrap gap-1 mt-1">
                                       {v.tags.map((t) => (
-                                        <span key={t} className="inline-block rounded-md bg-muted px-1.5 py-0.5 text-xs">{t}</span>
+                                        <TagBadge key={t} value={t} />
                                       ))}
                                     </div>
                                   </div>
@@ -540,7 +542,7 @@ export default function VideosPage() {
                                     <span className="text-xs text-muted-foreground">Topics</span>
                                     <div className="flex flex-wrap gap-1 mt-1">
                                       {v.topicCategories.map((t) => (
-                                        <span key={t} className="inline-block rounded-md bg-muted px-1.5 py-0.5 text-xs">{t}</span>
+                                        <TopicBadge key={t} value={t} />
                                       ))}
                                     </div>
                                   </div>
