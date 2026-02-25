@@ -476,12 +476,27 @@ export default function VideosPage() {
                         <TableRow className="bg-muted/30 hover:bg-muted/40">
                           <TableCell />
                           <TableCell colSpan={PRIMARY_COL_COUNT - 1}>
-                            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-x-6 gap-y-2 py-2 text-sm">
+                            {/* Full title + thumbnail header */}
+                            <div className="flex items-start gap-4 pt-2 pb-3 border-b border-border/50 mb-3">
                               {v.thumbnailUrl && (
-                                <Detail label="Thumbnail">
-                                  <img src={v.thumbnailUrl} alt={v.title} className="h-16 rounded" />
-                                </Detail>
+                                <img src={v.thumbnailUrl} alt={v.title} className="h-28 rounded-md shrink-0" />
                               )}
+                              <div className="min-w-0">
+                                <h3 className="text-sm font-semibold leading-snug mb-1">{v.title}</h3>
+                                <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+                                  <CreatorBadge name={creatorName} channelId={v.channelId} />
+                                  <span>{formatDate(v.publishedDate)}</span>
+                                  {v.url && (
+                                    <a href={v.url} target="_blank" rel="noopener noreferrer" className="text-blue-500 hover:underline" onClick={(e) => e.stopPropagation()}>
+                                      Watch on YouTube
+                                    </a>
+                                  )}
+                                </div>
+                              </div>
+                            </div>
+
+                            {/* Metadata grid */}
+                            <div className="grid grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-x-6 gap-y-3 text-sm">
                               <Detail label="Type" value={v.type || "\u2014"} />
                               <Detail label="Video ID" value={v.videoId} />
                               <Detail label="Engagement %" value={v.engagementRatePercent != null ? `${Number(v.engagementRatePercent).toFixed(1)}%` : "\u2014"} />
@@ -491,19 +506,45 @@ export default function VideosPage() {
                               <Detail label="Category ID" value={v.categoryId != null ? String(v.categoryId) : "\u2014"} />
                               <Detail label="Created" value={formatDate(v.createdAt)} />
                               <Detail label="Updated" value={formatDate(v.updatedAt)} />
-                              {v.url && (
-                                <Detail label="URL">
-                                  <a href={v.url} target="_blank" rel="noopener noreferrer" className="text-blue-500 hover:underline text-xs break-all">
-                                    {v.url}
-                                  </a>
-                                </Detail>
-                              )}
-                              <Detail label="Tags" value={v.tags && v.tags.length > 0 ? v.tags.join(", ") : "\u2014"} wide />
-                              <Detail label="Topics" value={v.topicCategories && v.topicCategories.length > 0 ? v.topicCategories.join(", ") : "\u2014"} wide />
-                              <Detail label="Notes" value={v.notes || "\u2014"} wide />
                             </div>
+
+                            {/* Tags & Topics */}
+                            {((v.tags && v.tags.length > 0) || (v.topicCategories && v.topicCategories.length > 0)) && (
+                              <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-2 mt-3 pt-3 border-t border-border/50 text-sm">
+                                {v.tags && v.tags.length > 0 && (
+                                  <div>
+                                    <span className="text-xs text-muted-foreground">Tags</span>
+                                    <div className="flex flex-wrap gap-1 mt-1">
+                                      {v.tags.map((t) => (
+                                        <span key={t} className="inline-block rounded-md bg-muted px-1.5 py-0.5 text-xs">{t}</span>
+                                      ))}
+                                    </div>
+                                  </div>
+                                )}
+                                {v.topicCategories && v.topicCategories.length > 0 && (
+                                  <div>
+                                    <span className="text-xs text-muted-foreground">Topics</span>
+                                    <div className="flex flex-wrap gap-1 mt-1">
+                                      {v.topicCategories.map((t) => (
+                                        <span key={t} className="inline-block rounded-md bg-muted px-1.5 py-0.5 text-xs">{t}</span>
+                                      ))}
+                                    </div>
+                                  </div>
+                                )}
+                              </div>
+                            )}
+
+                            {/* Notes */}
+                            {v.notes && (
+                              <div className="mt-3 pt-3 border-t border-border/50 text-sm">
+                                <span className="text-xs text-muted-foreground">Notes</span>
+                                <p className="text-xs mt-0.5">{v.notes}</p>
+                              </div>
+                            )}
+
+                            {/* Collapsible long text */}
                             {v.description && (
-                              <details className="mt-2">
+                              <details className="mt-3 pt-3 border-t border-border/50">
                                 <summary className="cursor-pointer text-xs font-medium text-muted-foreground hover:text-foreground transition-colors">
                                   Description
                                 </summary>
