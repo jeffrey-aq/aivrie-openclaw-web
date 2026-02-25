@@ -354,7 +354,7 @@ export default function CreatorsPage() {
                   {c.bannerUrl ? (
                     <img src={c.bannerUrl} alt="" className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105" />
                   ) : (
-                    <div className="w-full h-full bg-gradient-to-br from-red-500/20 via-red-500/10 to-transparent" />
+                    <div className="w-full h-full bg-gradient-to-br from-red-500/20 via-red-500/10 to-transparent transition-transform duration-300 group-hover:scale-105" />
                   )}
                 </div>
                 {/* Info row — avatar + text */}
@@ -367,7 +367,7 @@ export default function CreatorsPage() {
                     </div>
                   )}
                   <div className="min-w-0">
-                    <h3 className="text-sm font-medium leading-snug truncate group-hover:text-primary transition-colors">{c.title}</h3>
+                    <div className="mb-0.5"><CreatorBadge name={c.title} channelId={c.channelId} /></div>
                     <p className="text-xs text-muted-foreground mt-0.5">
                       {formatNumber(Number(c.subscribers) || null)} subscribers{c.videoCount ? ` \u00b7 ${formatNumber(c.videoCount)} videos` : ""}
                     </p>
