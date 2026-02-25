@@ -58,7 +58,7 @@ interface Creator {
 
 const CREATORS_QUERY = gql`
   query {
-    youtubeCreatorsCollection(orderBy: [{ title: AscNullsLast }]) {
+    youtubeCreatorsCollection(orderBy: [{ title: AscNullsLast }], first: 1000) {
       edges {
         node {
           id

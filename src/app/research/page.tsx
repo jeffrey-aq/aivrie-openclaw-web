@@ -48,7 +48,7 @@ interface VideoRow {
 
 const DASHBOARD_QUERY = gql`
   query {
-    youtubeCreatorsCollection(orderBy: [{ title: AscNullsLast }]) {
+    youtubeCreatorsCollection(orderBy: [{ title: AscNullsLast }], first: 1000) {
       edges {
         node {
           id
@@ -62,7 +62,7 @@ const DASHBOARD_QUERY = gql`
         }
       }
     }
-    youtubeVideosCollection {
+    youtubeVideosCollection(first: 1000) {
       edges {
         node {
           id

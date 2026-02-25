@@ -58,43 +58,9 @@ interface Creator {
   title: string
 }
 
-const VIDEOS_QUERY = gql`
+const CREATORS_LOOKUP_QUERY = gql`
   query {
-    youtubeVideosCollection(orderBy: [{ publishedDate: DescNullsLast }]) {
-      edges {
-        node {
-          id
-          title
-          type
-          channelId
-          videoId
-          url
-          views
-          likes
-          comments
-          engagementRatePercent
-          publishedDate
-          duration
-          tags
-          workstream
-          status
-          notes
-          transcript
-          summary
-          thumbnailUrl
-          description
-          captionAvailable
-          language
-          definition
-          topicCategories
-          categoryId
-          durationType
-          createdAt
-          updatedAt
-        }
-      }
-    }
-    youtubeCreatorsCollection(orderBy: [{ title: AscNullsLast }]) {
+    youtubeCreatorsCollection(orderBy: [{ title: AscNullsLast }], first: 1000) {
       edges {
         node {
           channelId
@@ -104,6 +70,25 @@ const VIDEOS_QUERY = gql`
     }
   }
 `
+
+function buildVideosQuery(channelId?: string): string {
+  const filter = channelId
+    ? `filter: { channelId: { eq: "${channelId}" } }, `
+    : ""
+  return `{
+    youtubeVideosCollection(${filter}orderBy: [{ publishedDate: DescNullsLast }], first: 1000) {
+      edges {
+        node {
+          id title type channelId videoId url views likes comments
+          engagementRatePercent publishedDate duration tags workstream
+          status notes transcript summary thumbnailUrl description
+          captionAvailable language definition topicCategories
+          categoryId durationType createdAt updatedAt
+        }
+      }
+    }
+  }`
+}
 
 const workstreamOptions = ["Research", "YouTube", "SaaS", "Newsletter", "Apps", "Courses"]
 const statusOptions = ["Published", "Draft", "Unlisted"]
@@ -217,41 +202,47 @@ export default function VideosPage() {
   const [videos, setVideos] = useState<Video[]>([])
   const [creators, setCreators] = useState<Creator[]>([])
   const [loading, setLoading] = useState(true)
-  const [sortKey, setSortKey] = useState<SortKey | null>(null)
-  const [sortDir, setSortDir] = useState<SortDir>("asc")
-  const [filters, setFilters] = useState<Filters>(emptyFilters)
+  const [sortKey, setSortKey] = useState<SortKey | null>(() =>
+    searchParams.get("creator") ? "publishedDate" : null
+  )
+  const [sortDir, setSortDir] = useState<SortDir>(() =>
+    searchParams.get("creator") ? "desc" : "asc"
+  )
+  const [filters, setFilters] = useState<Filters>(() => ({
+    ...emptyFilters,
+    creator: searchParams.get("creator") || "",
+  }))
   const [expanded, setExpanded] = useState<Set<string>>(new Set())
   const [allExpanded, setAllExpanded] = useState(false)
-  const [initialized, setInitialized] = useState(false)
 
+  // Fetch creators once
   useEffect(() => {
-    async function load() {
-      try {
-        const data = await graphqlClient.request<{
-          youtubeVideosCollection: { edges: { node: Video }[] }
-          youtubeCreatorsCollection: { edges: { node: Creator }[] }
-        }>(VIDEOS_QUERY)
-        setVideos(extractNodes(data.youtubeVideosCollection))
-        setCreators(extractNodes(data.youtubeCreatorsCollection))
-      } catch (error) {
-        console.error("Error loading videos:", error)
-      }
-      setLoading(false)
-    }
-    load()
+    graphqlClient
+      .request<{ youtubeCreatorsCollection: { edges: { node: Creator }[] } }>(CREATORS_LOOKUP_QUERY)
+      .then((data) => setCreators(extractNodes(data.youtubeCreatorsCollection)))
+      .catch((err) => console.error("Error loading creators:", err))
   }, [graphqlClient])
 
-  // Apply URL param filter once data is loaded
+  // Fetch videos — re-runs when server-side creator filter changes
+  const creatorFilter = filters.creator
   useEffect(() => {
-    if (initialized || loading) return
-    const creatorParam = searchParams.get("creator")
-    if (creatorParam) {
-      setFilters((f) => ({ ...f, creator: creatorParam }))
-      setSortKey("publishedDate")
-      setSortDir("desc")
-    }
-    setInitialized(true)
-  }, [loading, searchParams, initialized])
+    let cancelled = false
+    setLoading(true)
+    graphqlClient
+      .request<{ youtubeVideosCollection: { edges: { node: Video }[] } }>(
+        buildVideosQuery(creatorFilter || undefined)
+      )
+      .then((data) => {
+        if (!cancelled) setVideos(extractNodes(data.youtubeVideosCollection))
+      })
+      .catch((err) => {
+        if (!cancelled) console.error("Error loading videos:", err)
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false)
+      })
+    return () => { cancelled = true }
+  }, [graphqlClient, creatorFilter])
 
   const creatorLookup = useMemo(() => {
     const map: Record<string, string> = {}
@@ -310,7 +301,6 @@ export default function VideosPage() {
           v.notes?.toLowerCase().includes(q)
       )
     }
-    if (filters.creator) result = result.filter((v) => v.channelId === filters.creator)
     if (filters.workstream) result = result.filter((v) => v.workstream === filters.workstream)
     if (filters.status) result = result.filter((v) => v.status === filters.status)
     if (filters.durationType) result = result.filter((v) => v.durationType === filters.durationType)

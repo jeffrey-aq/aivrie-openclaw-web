@@ -51,22 +51,22 @@ interface CountsResponse {
 
 const COUNTS_QUERY = gql`
   query {
-    contactsCollection { edges { node { nodeId } } }
-    interactionsCollection { edges { node { nodeId } } }
-    followUpsCollection { edges { node { nodeId } } }
-    youtubeCreatorsCollection { edges { node { nodeId } } }
-    youtubeVideosCollection { edges { node { nodeId } } }
-    sourcesCollection { edges { node { nodeId } } }
-    entitiesCollection { edges { node { nodeId } } }
-    ingestionQueueCollection { edges { node { nodeId } } }
-    recommendationsCollection { edges { node { nodeId } } }
-    analysisRunsCollection { edges { node { nodeId } } }
-    dataSourcesCollection { edges { node { nodeId } } }
-    aggregatedMetricsCollection { edges { node { nodeId } } }
-    feedbackEventsCollection { edges { node { nodeId } } }
-    preferencePatternsCollection { edges { node { nodeId } } }
-    specialistPersonasCollection { edges { node { nodeId } } }
-    digestDeliveriesCollection { edges { node { nodeId } } }
+    contactsCollection(first: 1000) { edges { node { nodeId } } }
+    interactionsCollection(first: 1000) { edges { node { nodeId } } }
+    followUpsCollection(first: 1000) { edges { node { nodeId } } }
+    youtubeCreatorsCollection(first: 1000) { edges { node { nodeId } } }
+    youtubeVideosCollection(first: 1000) { edges { node { nodeId } } }
+    sourcesCollection(first: 1000) { edges { node { nodeId } } }
+    entitiesCollection(first: 1000) { edges { node { nodeId } } }
+    ingestionQueueCollection(first: 1000) { edges { node { nodeId } } }
+    recommendationsCollection(first: 1000) { edges { node { nodeId } } }
+    analysisRunsCollection(first: 1000) { edges { node { nodeId } } }
+    dataSourcesCollection(first: 1000) { edges { node { nodeId } } }
+    aggregatedMetricsCollection(first: 1000) { edges { node { nodeId } } }
+    feedbackEventsCollection(first: 1000) { edges { node { nodeId } } }
+    preferencePatternsCollection(first: 1000) { edges { node { nodeId } } }
+    specialistPersonasCollection(first: 1000) { edges { node { nodeId } } }
+    digestDeliveriesCollection(first: 1000) { edges { node { nodeId } } }
   }
 `
 

@@ -166,7 +166,7 @@ const pageTests = [
       topicCategories: ["Education"],
       categoryId: 27,
     },
-    extraData: {
+    preMock: {
       youtubeCreatorsCollection: { edges: [{ node: { channelId: "UC123", title: "TechChannel" } }] },
     },
     assertText: "How to Code",
@@ -359,7 +359,10 @@ describe("Page rendering", () => {
 
   it.each(pageTests)(
     "$name page renders table with data",
-    async ({ Component, collection, node, assertText, extraData }) => {
+    async ({ Component, collection, node, assertText, extraData, preMock }) => {
+      if (preMock) {
+        mockRequest.mockResolvedValueOnce(preMock)
+      }
       mockRequest.mockResolvedValueOnce({
         [collection]: { edges: [{ node }] },
         ...extraData,
@@ -569,14 +572,18 @@ describe("Page rendering", () => {
   })
 
   it("videos page includes creator filter in query", async () => {
+    // Creators query (first effect)
+    mockRequest.mockResolvedValueOnce({
+      youtubeCreatorsCollection: { edges: [{ node: {
+        channelId: "UC123", title: "TestCreator",
+      }}] },
+    })
+    // Videos query (second effect)
     mockRequest.mockResolvedValueOnce({
       youtubeVideosCollection: { edges: [{ node: {
         id: "v1", title: "Test Video", videoId: "vid1", channelId: "UC123",
         type: null, views: 100, likes: 10, comments: 5,
         publishedDate: "2024-01-10", status: "Published", workstream: null,
-      }}] },
-      youtubeCreatorsCollection: { edges: [{ node: {
-        channelId: "UC123", title: "TestCreator",
       }}] },
     })
 
@@ -617,6 +624,13 @@ describe("Page rendering", () => {
   })
 
   it("videos query includes YouTube metadata fields", async () => {
+    // Creators query (first effect)
+    mockRequest.mockResolvedValueOnce({
+      youtubeCreatorsCollection: { edges: [{ node: {
+        channelId: "UC123", title: "TestCreator",
+      }}] },
+    })
+    // Videos query (second effect)
     mockRequest.mockResolvedValueOnce({
       youtubeVideosCollection: { edges: [{ node: {
         id: "v1", title: "MetaVideo", videoId: "vid_meta", channelId: "UC123",
@@ -626,15 +640,13 @@ describe("Page rendering", () => {
         captionAvailable: true, language: "en", definition: "hd",
         topicCategories: ["Education"], categoryId: 27,
       }}] },
-      youtubeCreatorsCollection: { edges: [{ node: {
-        channelId: "UC123", title: "TestCreator",
-      }}] },
     })
 
     render(<VideosPage />)
     await screen.findByText("MetaVideo")
 
-    const query = mockRequest.mock.calls[0][0]
+    // Videos query is the second call (index 1) — creators query is first
+    const query = mockRequest.mock.calls[1][0]
     const queryStr = typeof query === "string" ? query : print(query)
     expect(queryStr).toContain("thumbnailUrl")
     expect(queryStr).toContain("captionAvailable")

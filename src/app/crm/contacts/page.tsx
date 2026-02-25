@@ -42,6 +42,7 @@ const CONTACTS_QUERY = gql`
     contactsCollection(
       filter: { isNoise: { eq: false } }
       orderBy: [{ lastInteractionAt: DescNullsLast }]
+      first: 1000
     ) {
       edges {
         node {

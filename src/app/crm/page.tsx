@@ -30,13 +30,13 @@ interface CrmDashboardData {
 
 const DASHBOARD_QUERY = gql`
   query {
-    contactsCollection {
+    contactsCollection(first: 1000) {
       edges { node { createdAt updatedAt } }
     }
-    interactionsCollection {
+    interactionsCollection(first: 1000) {
       edges { node { createdAt updatedAt } }
     }
-    followUpsCollection {
+    followUpsCollection(first: 1000) {
       edges { node { createdAt updatedAt } }
     }
   }

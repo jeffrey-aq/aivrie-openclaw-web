@@ -33,7 +33,7 @@ interface DataSource {
 
 const DATA_SOURCES_QUERY = gql`
   query {
-    dataSourcesCollection(orderBy: [{ category: AscNullsLast }]) {
+    dataSourcesCollection(orderBy: [{ category: AscNullsLast }], first: 1000) {
       edges {
         node {
           id

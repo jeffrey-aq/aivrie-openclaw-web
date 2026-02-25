@@ -31,7 +31,7 @@ interface FollowUp {
 
 const FOLLOW_UPS_QUERY = gql`
   query {
-    followUpsCollection(orderBy: [{ dueDate: AscNullsLast }]) {
+    followUpsCollection(orderBy: [{ dueDate: AscNullsLast }], first: 1000) {
       edges {
         node {
           id

@@ -31,6 +31,7 @@ const PREFERENCES_QUERY = gql`
   query {
     preferencePatternsCollection(
       orderBy: [{ updatedAt: DescNullsLast }]
+      first: 1000
     ) {
       edges {
         node {
