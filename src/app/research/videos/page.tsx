@@ -173,20 +173,18 @@ function formatPercent(n: number | null) {
 }
 
 // Color classes for engagement percentages
-function percentColor(n: number | null, tiers: [number, number, number, number]): string {
+function percentColor(n: number | null, tiers: [number, number]): string {
   if (n == null) return "text-muted-foreground"
   const pct = n * 100
-  const [great, good, ok, low] = tiers
-  if (pct >= great) return "text-emerald-600 dark:text-emerald-400"
-  if (pct >= good) return "text-green-600 dark:text-green-400"
-  if (pct >= ok) return "text-amber-600 dark:text-amber-400"
-  if (pct >= low) return "text-orange-600 dark:text-orange-400"
+  const [good, avg] = tiers
+  if (pct >= good) return "text-emerald-600 dark:text-emerald-400"
+  if (pct >= avg) return "text-blue-600 dark:text-blue-400"
   return "text-red-600 dark:text-red-400"
 }
 
-const LIKE_TIERS: [number, number, number, number] = [5, 3.5, 2, 1]
-const COMMENT_TIERS: [number, number, number, number] = [1, 0.4, 0.15, 0.05]
-const ENGAGE_TIERS: [number, number, number, number] = [8, 5, 3, 1]
+const LIKE_TIERS: [number, number] = [3.5, 2]
+const COMMENT_TIERS: [number, number] = [0.4, 0.15]
+const ENGAGE_TIERS: [number, number] = [3.5, 2.5]
 
 function formatViews(n: number | string | null) {
   if (n == null) return "\u2014"
