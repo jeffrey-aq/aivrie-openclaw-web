@@ -77,10 +77,6 @@ const CREATORS_LOOKUP_QUERY = gql`
 
 const PAGE_SIZE_OPTIONS = [
   { value: 30, label: "30" },
-  { value: 100, label: "100" },
-  { value: 250, label: "250" },
-  { value: 500, label: "500" },
-  { value: 1000, label: "1000" },
 ] as const
 
 type PageSize = (typeof PAGE_SIZE_OPTIONS)[number]["value"]
