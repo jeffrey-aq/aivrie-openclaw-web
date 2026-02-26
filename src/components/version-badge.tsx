@@ -8,7 +8,7 @@ const commitDate = process.env.NEXT_PUBLIC_COMMIT_DATE || ""
 const env = process.env.NEXT_PUBLIC_ENVIRONMENT || "develop"
 
 const envLabels: Record<string, string> = {
-  production: "Production",
+  production: "Main",
   develop: "Develop",
 }
 
