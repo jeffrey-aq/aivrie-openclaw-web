@@ -632,22 +632,30 @@ export default function VideosPage() {
                               {v.thumbnailUrl && (
                                 <img src={v.thumbnailUrl} alt={v.title} className="h-28 rounded-md shrink-0" />
                               )}
-                              <div className="min-w-0">
-                                <h3 className="text-sm font-semibold leading-snug mb-1">{v.title}</h3>
+                              <div className="min-w-0 flex-1">
+                                <h3 className="text-sm font-semibold leading-snug mb-1.5">{v.title}</h3>
                                 <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
                                   <CreatorBadge name={creatorName} channelId={v.channelId} />
-                                  <span>{formatDate(v.publishedDate)}</span>
+                                  <span>{ageShort(v.publishedDate)} ago</span>
                                   {v.url && (
                                     <a href={v.url} target="_blank" rel="noopener noreferrer" className="text-blue-500 hover:underline" onClick={(e) => e.stopPropagation()}>
                                       Watch on YouTube
                                     </a>
                                   )}
                                 </div>
+                                <div className="flex flex-wrap items-center gap-x-4 gap-y-1 mt-1.5 text-xs">
+                                  <span><span className="text-muted-foreground">Views</span> <span className="font-medium">{formatViews(v.views)}</span></span>
+                                  <span><span className="text-muted-foreground">Likes</span> <span className="font-medium">{formatNumber(v.likes)}</span></span>
+                                  <span><span className="text-muted-foreground">Like%</span> <span className={`font-medium ${percentColor(ratio(v.likes, v.views), 5, 2)}`}>{formatPercent(ratio(v.likes, v.views))}</span></span>
+                                  <span><span className="text-muted-foreground">Comment%</span> <span className={`font-medium ${percentColor(ratio(v.comments, v.views), 1, 0.3)}`}>{formatPercent(ratio(v.comments, v.views))}</span></span>
+                                  <span><span className="text-muted-foreground">Duration</span> <span className="font-medium">{formatDuration(v.duration)}</span></span>
+                                  {v.durationType && <DurationTypeBadge value={v.durationType} />}
+                                </div>
                               </div>
                             </div>
 
                             {/* Metadata grid */}
-                            <div className="grid grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-x-6 gap-y-3 text-sm">
+                            <div className="grid grid-cols-3 md:grid-cols-4 lg:grid-cols-7 gap-x-6 gap-y-3 text-sm">
                               <Detail label="Type" value={v.type || "\u2014"} />
                               <Detail label="Video ID" value={v.videoId} />
                               <Detail label="Engagement %" value={v.engagementRatePercent != null ? `${Number(v.engagementRatePercent).toFixed(1)}%` : "\u2014"} />
@@ -655,8 +663,6 @@ export default function VideosPage() {
                               <Detail label="Language" value={v.language || "\u2014"} />
                               <Detail label="Captions" value={v.captionAvailable ? "Yes" : "No"} />
                               <Detail label="Category ID" value={v.categoryId != null ? String(v.categoryId) : "\u2014"} />
-                              <Detail label="Created" value={formatDate(v.createdAt)} />
-                              <Detail label="Updated" value={formatDate(v.updatedAt)} />
                             </div>
 
                             {/* Tags & Topics */}
