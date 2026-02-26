@@ -173,13 +173,20 @@ function formatPercent(n: number | null) {
 }
 
 // Color classes for engagement percentages
-function percentColor(n: number | null, goodThreshold: number, okThreshold: number): string {
+function percentColor(n: number | null, tiers: [number, number, number, number]): string {
   if (n == null) return "text-muted-foreground"
   const pct = n * 100
-  if (pct >= goodThreshold) return "text-emerald-600 dark:text-emerald-400"
-  if (pct >= okThreshold) return "text-amber-600 dark:text-amber-400"
-  return "text-orange-600 dark:text-orange-400"
+  const [great, good, ok, low] = tiers
+  if (pct >= great) return "text-emerald-600 dark:text-emerald-400"
+  if (pct >= good) return "text-green-600 dark:text-green-400"
+  if (pct >= ok) return "text-amber-600 dark:text-amber-400"
+  if (pct >= low) return "text-orange-600 dark:text-orange-400"
+  return "text-red-600 dark:text-red-400"
 }
+
+const LIKE_TIERS: [number, number, number, number] = [5, 3.5, 2, 1]
+const COMMENT_TIERS: [number, number, number, number] = [1, 0.4, 0.15, 0.05]
+const ENGAGE_TIERS: [number, number, number, number] = [8, 5, 3, 1]
 
 function formatViews(n: number | string | null) {
   if (n == null) return "\u2014"
@@ -617,8 +624,8 @@ export default function VideosPage() {
                         <TableCell className="whitespace-nowrap"><CreatorBadge name={creatorName} channelId={v.channelId} /></TableCell>
                         <TableCell className="text-right tabular-nums">{formatViews(v.views)}</TableCell>
                         <TableCell className="text-right tabular-nums">{formatNumber(v.likes)}</TableCell>
-                        <TableCell className={`text-right tabular-nums font-medium ${percentColor(ratio(v.likes, v.views), 5, 2)}`}>{formatPercent(ratio(v.likes, v.views))}</TableCell>
-                        <TableCell className={`text-right tabular-nums font-medium ${percentColor(ratio(v.comments, v.views), 1, 0.3)}`}>{formatPercent(ratio(v.comments, v.views))}</TableCell>
+                        <TableCell className={`text-right tabular-nums font-medium ${percentColor(ratio(v.likes, v.views), LIKE_TIERS)}`}>{formatPercent(ratio(v.likes, v.views))}</TableCell>
+                        <TableCell className={`text-right tabular-nums font-medium ${percentColor(ratio(v.comments, v.views), COMMENT_TIERS)}`}>{formatPercent(ratio(v.comments, v.views))}</TableCell>
                         <TableCell><DurationBar minutes={v.duration} durationType={v.durationType} /></TableCell>
                         <TableCell><DurationTypeBadge value={v.durationType} /></TableCell>
                         <TableCell className="whitespace-nowrap text-muted-foreground">{ageShort(v.publishedDate)}</TableCell>
@@ -651,15 +658,15 @@ export default function VideosPage() {
                                   <span className="text-muted-foreground">Views</span>
                                   <span className="font-medium tabular-nums">{formatViews(v.views)}</span>
                                   <span className="text-muted-foreground">Engagement</span>
-                                  <span className={`font-medium tabular-nums ${percentColor(v.engagementRatePercent != null ? v.engagementRatePercent / 100 : null, 5, 2)}`}>{v.engagementRatePercent != null ? `${Number(v.engagementRatePercent).toFixed(1)}%` : "\u2014"}</span>
+                                  <span className={`font-medium tabular-nums ${percentColor(v.engagementRatePercent != null ? v.engagementRatePercent / 100 : null, ENGAGE_TIERS)}`}>{v.engagementRatePercent != null ? `${Number(v.engagementRatePercent).toFixed(1)}%` : "\u2014"}</span>
                                   <span className="text-muted-foreground">Likes</span>
                                   <span className="font-medium tabular-nums">{formatNumber(v.likes)}</span>
                                   <span className="text-muted-foreground">Like%</span>
-                                  <span className={`font-medium tabular-nums ${percentColor(ratio(v.likes, v.views), 5, 2)}`}>{formatPercent(ratio(v.likes, v.views))}</span>
+                                  <span className={`font-medium tabular-nums ${percentColor(ratio(v.likes, v.views), LIKE_TIERS)}`}>{formatPercent(ratio(v.likes, v.views))}</span>
                                   <span className="text-muted-foreground">Comments</span>
                                   <span className="font-medium tabular-nums">{formatNumber(v.comments)}</span>
                                   <span className="text-muted-foreground">Comment%</span>
-                                  <span className={`font-medium tabular-nums ${percentColor(ratio(v.comments, v.views), 1, 0.3)}`}>{formatPercent(ratio(v.comments, v.views))}</span>
+                                  <span className={`font-medium tabular-nums ${percentColor(ratio(v.comments, v.views), COMMENT_TIERS)}`}>{formatPercent(ratio(v.comments, v.views))}</span>
                                 </div>
                               </div>
                             </div>
