@@ -144,6 +144,7 @@ function percentColor(pct: number | null, tiers: [number, number]): string {
   return "text-red-600 dark:text-red-400"
 }
 
+const VIEWS_SUB_TIERS: [number, number] = [100, 50]
 const ENGAGE_TIERS: [number, number] = [3.5, 2.5]
 const LIKE_TIERS: [number, number] = [3.5, 2]
 const COMMENT_TIERS: [number, number] = [0.4, 0.15]
@@ -197,7 +198,7 @@ const revenueOrder: Record<string, number> = {
 }
 
 type SortDir = "asc" | "desc"
-type SortKey = keyof Creator | "dbVideoCount" | "avgViewsShort" | "avgViewsFull" | "avgEngagement" | "avgLikesPct" | "avgCommentsPct" | "freqShort" | "freqFull"
+type SortKey = keyof Creator | "dbVideoCount" | "avgViewsShort" | "avgViewsFull" | "viewRatio" | "avgEngagement" | "avgLikesPct" | "avgCommentsPct" | "freqShort" | "freqFull"
 
 interface Filters {
   search: string
@@ -253,7 +254,7 @@ function SortableHead({
 }
 
 // Number of primary columns (for colspan on detail row)
-const PRIMARY_COL_COUNT = 13
+const PRIMARY_COL_COUNT = 14
 
 export default function CreatorsPage() {
   const graphqlClient = useGraphQLClient()
@@ -381,6 +382,13 @@ export default function CreatorsPage() {
       } else if (sortKey === "freqFull") {
         av = videoStats[a.channelId]?.freqFull ?? null
         bv = videoStats[b.channelId]?.freqFull ?? null
+      } else if (sortKey === "viewRatio") {
+        const aShort = videoStats[a.channelId]?.avgViewsShort
+        const aFull = videoStats[a.channelId]?.avgViewsFull
+        av = (aShort != null && aFull != null && aShort > 0) ? aFull / aShort : null
+        const bShort = videoStats[b.channelId]?.avgViewsShort
+        const bFull = videoStats[b.channelId]?.avgViewsFull
+        bv = (bShort != null && bFull != null && bShort > 0) ? bFull / bShort : null
       } else {
         av = a[sortKey]
         bv = b[sortKey]
@@ -500,14 +508,15 @@ export default function CreatorsPage() {
                   <SortableHead label="Creator" sortKey="title" currentSort={sortKey} currentDir={sortDir} onSort={handleSort} />
                   <SortableHead label="Videos" sortKey="dbVideoCount" currentSort={sortKey} currentDir={sortDir} onSort={handleSort} className="text-right" />
                   <SortableHead label="Avg Views" sortKey="avgViewsPerVideo" currentSort={sortKey} currentDir={sortDir} onSort={handleSort} className="text-right" />
-                  <SortableHead label="Avg Short" sortKey="avgViewsShort" currentSort={sortKey} currentDir={sortDir} onSort={handleSort} className="text-right" />
-                  <SortableHead label="Avg Full" sortKey="avgViewsFull" currentSort={sortKey} currentDir={sortDir} onSort={handleSort} className="text-right" />
                   <SortableHead label="Views:Sub%" sortKey="viewsToSubRatio" currentSort={sortKey} currentDir={sortDir} onSort={handleSort} className="text-right" />
+                  <SortableHead label="Short Views" sortKey="avgViewsShort" currentSort={sortKey} currentDir={sortDir} onSort={handleSort} className="text-right" />
+                  <SortableHead label="Short Freq" sortKey="freqShort" currentSort={sortKey} currentDir={sortDir} onSort={handleSort} />
+                  <SortableHead label="Full Views" sortKey="avgViewsFull" currentSort={sortKey} currentDir={sortDir} onSort={handleSort} className="text-right" />
+                  <SortableHead label="Full Freq" sortKey="freqFull" currentSort={sortKey} currentDir={sortDir} onSort={handleSort} />
+                  <SortableHead label="View Ratio" sortKey="viewRatio" currentSort={sortKey} currentDir={sortDir} onSort={handleSort} className="text-right" />
                   <SortableHead label="Engage%" sortKey="avgEngagement" currentSort={sortKey} currentDir={sortDir} onSort={handleSort} className="text-right" />
                   <SortableHead label="Like%" sortKey="avgLikesPct" currentSort={sortKey} currentDir={sortDir} onSort={handleSort} className="text-right" />
                   <SortableHead label="Comment%" sortKey="avgCommentsPct" currentSort={sortKey} currentDir={sortDir} onSort={handleSort} className="text-right" />
-                  <SortableHead label="Short Freq" sortKey="freqShort" currentSort={sortKey} currentDir={sortDir} onSort={handleSort} />
-                  <SortableHead label="Full Freq" sortKey="freqFull" currentSort={sortKey} currentDir={sortDir} onSort={handleSort} />
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -529,14 +538,15 @@ export default function CreatorsPage() {
                         </TableCell>
                         <TableCell className="text-right tabular-nums">{formatNumber(videoStats[c.channelId]?.videoCount ?? null)}</TableCell>
                         <TableCell className="text-right tabular-nums">{formatComma(c.avgViewsPerVideo)}</TableCell>
+                        <TableCell className={`text-right tabular-nums font-medium ${percentColor(c.viewsToSubRatio, VIEWS_SUB_TIERS)}`}>{formatPercent(c.viewsToSubRatio)}</TableCell>
                         <TableCell className="text-right tabular-nums">{formatComma(videoStats[c.channelId]?.avgViewsShort ?? null)}</TableCell>
+                        <TableCell><FreqPill value={videoStats[c.channelId]?.freqShort ?? null} /></TableCell>
                         <TableCell className="text-right tabular-nums">{formatComma(videoStats[c.channelId]?.avgViewsFull ?? null)}</TableCell>
-                        <TableCell className="text-right tabular-nums">{formatPercent(c.viewsToSubRatio)}</TableCell>
+                        <TableCell><FreqPill value={videoStats[c.channelId]?.freqFull ?? null} /></TableCell>
+                        <TableCell className="text-right tabular-nums">{(() => { const s = videoStats[c.channelId]?.avgViewsShort; const f = videoStats[c.channelId]?.avgViewsFull; return (s != null && f != null && s > 0) ? `${(f / s).toFixed(2)}x` : "\u2014" })()}</TableCell>
                         <TableCell className={`text-right tabular-nums font-medium ${percentColor(videoStats[c.channelId]?.avgEngagement ?? null, ENGAGE_TIERS)}`}>{videoStats[c.channelId]?.avgEngagement != null ? `${videoStats[c.channelId].avgEngagement!.toFixed(1)}%` : "\u2014"}</TableCell>
                         <TableCell className={`text-right tabular-nums font-medium ${percentColor(videoStats[c.channelId]?.avgLikesPct ?? null, LIKE_TIERS)}`}>{videoStats[c.channelId]?.avgLikesPct != null ? `${videoStats[c.channelId].avgLikesPct!.toFixed(1)}%` : "\u2014"}</TableCell>
                         <TableCell className={`text-right tabular-nums font-medium ${percentColor(videoStats[c.channelId]?.avgCommentsPct ?? null, COMMENT_TIERS)}`}>{videoStats[c.channelId]?.avgCommentsPct != null ? `${videoStats[c.channelId].avgCommentsPct!.toFixed(2)}%` : "\u2014"}</TableCell>
-                        <TableCell><FreqPill value={videoStats[c.channelId]?.freqShort ?? null} /></TableCell>
-                        <TableCell><FreqPill value={videoStats[c.channelId]?.freqFull ?? null} /></TableCell>
                       </TableRow>
                       {open && (
                         <TableRow className="bg-muted/30 hover:bg-muted/40">
