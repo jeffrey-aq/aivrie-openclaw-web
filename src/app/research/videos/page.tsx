@@ -8,8 +8,6 @@ import { useGraphQLClient } from "@/hooks/use-graphql"
 import { PageHeader } from "@/components/page-header"
 import { ArrowUp, ArrowDown, ArrowUpDown, X, ChevronDown, ChevronLeft, ChevronRight, ChevronsDownUp, ChevronsUpDown, LayoutGrid } from "lucide-react"
 import {
-  WorkstreamBadge,
-  VideoStatusBadge,
   DurationTypeBadge,
   CreatorBadge,
   TagBadge,
@@ -98,15 +96,11 @@ const SERVER_SORT_FIELDS: Partial<Record<SortKey, string>> = {
   duration: "duration",
   durationType: "durationType",
   publishedDate: "publishedDate",
-  status: "status",
-  workstream: "workstream",
   engagementRatePercent: "engagementRatePercent",
 }
 
 interface ServerFilters {
   channelId?: string
-  workstream?: string
-  status?: string
   durationType?: string
 }
 
@@ -118,8 +112,6 @@ function buildVideosQuery(
 ): string {
   const conditions: string[] = []
   if (filters.channelId) conditions.push(`channelId: { eq: "${filters.channelId}" }`)
-  if (filters.workstream) conditions.push(`workstream: { eq: "${filters.workstream}" }`)
-  if (filters.status) conditions.push(`status: { eq: "${filters.status}" }`)
   if (filters.durationType) conditions.push(`durationType: { eq: "${filters.durationType}" }`)
   const filter = conditions.length > 0 ? `filter: { ${conditions.join(", ")} }, ` : ""
   const dir = sortDirection === "asc" ? "AscNullsLast" : "DescNullsLast"
@@ -142,8 +134,6 @@ function buildVideosQuery(
   }`
 }
 
-const workstreamOptions = ["Research", "YouTube", "SaaS", "Newsletter", "Apps", "Courses"]
-const statusOptions = ["Published", "Draft", "Unlisted"]
 const durationTypeOptions = ["Short", "Full"]
 
 function formatDuration(minutes: number | null): string {
@@ -196,12 +186,27 @@ function formatViews(n: number | string | null) {
   return Number(n).toLocaleString()
 }
 
-function formatCompact(n: number | string | null) {
+function formatNumber(n: number | string | null) {
   if (n == null) return "\u2014"
-  const v = Number(n)
-  if (v >= 1_000_000) return `${Math.round(v / 1_000_000)} M`
-  if (v >= 1_000) return `${Math.round(v / 1_000)} K`
-  return v.toLocaleString()
+  return Number(n).toLocaleString()
+}
+
+function ageShort(d: string | null): string {
+  if (!d) return "\u2014"
+  const seconds = Math.floor((Date.now() - new Date(d).getTime()) / 1000)
+  if (seconds < 60) return "now"
+  const minutes = Math.floor(seconds / 60)
+  if (minutes < 60) return `${minutes}m`
+  const hours = Math.floor(minutes / 60)
+  if (hours < 24) return `${hours}h`
+  const days = Math.floor(hours / 24)
+  if (days < 7) return `${days}d`
+  const weeks = Math.floor(days / 7)
+  if (weeks < 5) return `${weeks}w`
+  const months = Math.floor(days / 30)
+  if (months < 12) return `${months}mo`
+  const years = Math.floor(months / 12)
+  return `${years}y`
 }
 
 function formatDate(d: string | null) {
@@ -230,16 +235,12 @@ function timeAgo(d: string | null): string {
 interface Filters {
   search: string
   creator: string
-  workstream: string
-  status: string
   durationType: string
 }
 
 const emptyFilters: Filters = {
   search: "",
   creator: "",
-  workstream: "",
-  status: "",
   durationType: "",
 }
 
@@ -276,7 +277,7 @@ function SortableHead({
   )
 }
 
-const PRIMARY_COL_COUNT = 13
+const PRIMARY_COL_COUNT = 11
 
 export default function VideosPage() {
   const graphqlClient = useGraphQLClient()
@@ -314,7 +315,7 @@ export default function VideosPage() {
   }, [graphqlClient])
 
   // Fetch videos — re-runs when any server-side filter, page size, or sort changes
-  const { creator: creatorFilter, workstream: wsFilter, status: statusFilter, durationType: dtFilter } = filters
+  const { creator: creatorFilter, durationType: dtFilter } = filters
   const serverSortField = sortKey ? SERVER_SORT_FIELDS[sortKey] : undefined
   useEffect(() => {
     let cancelled = false
@@ -324,8 +325,6 @@ export default function VideosPage() {
         buildVideosQuery(
           {
             channelId: creatorFilter || undefined,
-            workstream: wsFilter || undefined,
-            status: statusFilter || undefined,
             durationType: dtFilter || undefined,
           },
           pageSize,
@@ -346,7 +345,7 @@ export default function VideosPage() {
         if (!cancelled) setLoading(false)
       })
     return () => { cancelled = true }
-  }, [graphqlClient, creatorFilter, wsFilter, statusFilter, dtFilter, pageSize, serverSortField, sortDir])
+  }, [graphqlClient, creatorFilter, dtFilter, pageSize, serverSortField, sortDir])
 
   const creatorLookup = useMemo(() => {
     const map: Record<string, string> = {}
@@ -491,8 +490,6 @@ export default function VideosPage() {
               <ChevronRight className="size-3.5" />
             </button>
           </div>
-          <FilterSelect label="Workstream" value={filters.workstream} options={workstreamOptions} onChange={(v) => setFilter("workstream", v)} />
-          <FilterSelect label="Status" value={filters.status} options={statusOptions} onChange={(v) => setFilter("status", v)} />
           <FilterSelect label="Type" value={filters.durationType} options={durationTypeOptions} onChange={(v) => setFilter("durationType", v)} />
           {hasFilters && (
             <button
@@ -597,14 +594,11 @@ export default function VideosPage() {
                   <SortableHead label="Creator" sortKey="creatorName" currentSort={sortKey} currentDir={sortDir} onSort={handleSort} />
                   <SortableHead label="Views" sortKey="views" currentSort={sortKey} currentDir={sortDir} onSort={handleSort} className="text-right" />
                   <SortableHead label="Likes" sortKey="likes" currentSort={sortKey} currentDir={sortDir} onSort={handleSort} className="text-right" />
-                  <SortableHead label="Comments" sortKey="comments" currentSort={sortKey} currentDir={sortDir} onSort={handleSort} className="text-right" />
-                  <SortableHead label="Likes/View" sortKey="likesPerView" currentSort={sortKey} currentDir={sortDir} onSort={handleSort} className="text-right" />
-                  <SortableHead label="Comments/View" sortKey="commentsPerView" currentSort={sortKey} currentDir={sortDir} onSort={handleSort} className="text-right" />
+                  <SortableHead label="Like%" sortKey="likesPerView" currentSort={sortKey} currentDir={sortDir} onSort={handleSort} className="text-right" />
+                  <SortableHead label="Comm%" sortKey="commentsPerView" currentSort={sortKey} currentDir={sortDir} onSort={handleSort} className="text-right" />
                   <SortableHead label="Duration" sortKey="duration" currentSort={sortKey} currentDir={sortDir} onSort={handleSort} />
                   <SortableHead label="Type" sortKey="durationType" currentSort={sortKey} currentDir={sortDir} onSort={handleSort} />
-                  <SortableHead label="Published" sortKey="publishedDate" currentSort={sortKey} currentDir={sortDir} onSort={handleSort} />
-                  <SortableHead label="Status" sortKey="status" currentSort={sortKey} currentDir={sortDir} onSort={handleSort} />
-                  <SortableHead label="Workstream" sortKey="workstream" currentSort={sortKey} currentDir={sortDir} onSort={handleSort} />
+                  <SortableHead label="Age" sortKey="publishedDate" currentSort={sortKey} currentDir={sortDir} onSort={handleSort} />
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -622,15 +616,12 @@ export default function VideosPage() {
                         </TableCell>
                         <TableCell className="whitespace-nowrap"><CreatorBadge name={creatorName} channelId={v.channelId} /></TableCell>
                         <TableCell className="text-right tabular-nums">{formatViews(v.views)}</TableCell>
-                        <TableCell className="text-right tabular-nums">{formatCompact(v.likes)}</TableCell>
-                        <TableCell className="text-right tabular-nums">{formatCompact(v.comments)}</TableCell>
+                        <TableCell className="text-right tabular-nums">{formatNumber(v.likes)}</TableCell>
                         <TableCell className={`text-right tabular-nums font-medium ${percentColor(ratio(v.likes, v.views), 5, 2)}`}>{formatPercent(ratio(v.likes, v.views))}</TableCell>
                         <TableCell className={`text-right tabular-nums font-medium ${percentColor(ratio(v.comments, v.views), 1, 0.3)}`}>{formatPercent(ratio(v.comments, v.views))}</TableCell>
                         <TableCell><DurationBar minutes={v.duration} durationType={v.durationType} /></TableCell>
                         <TableCell><DurationTypeBadge value={v.durationType} /></TableCell>
-                        <TableCell className="whitespace-nowrap">{formatDate(v.publishedDate)}</TableCell>
-                        <TableCell><VideoStatusBadge value={v.status} /></TableCell>
-                        <TableCell><WorkstreamBadge value={v.workstream} /></TableCell>
+                        <TableCell className="whitespace-nowrap text-muted-foreground">{ageShort(v.publishedDate)}</TableCell>
                       </TableRow>
                       {open && (
                         <TableRow className="bg-muted/30 hover:bg-muted/40">
