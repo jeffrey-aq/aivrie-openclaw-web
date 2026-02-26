@@ -175,7 +175,7 @@ function percentColor(n: number | null, tiers: [number, number]): string {
   const pct = n * 100
   const [good, avg] = tiers
   if (pct >= good) return "text-emerald-600 dark:text-emerald-400"
-  if (pct >= avg) return "text-blue-600 dark:text-blue-400"
+  if (pct >= avg) return "text-amber-600 dark:text-amber-400"
   return "text-red-600 dark:text-red-400"
 }
 
