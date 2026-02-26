@@ -215,7 +215,11 @@ function compareValues(a: unknown, b: unknown, key: SortKey): number {
   if (b == null) return -1
   if (key === "estRevenueRange") return (revenueOrder[a as string] ?? -1) - (revenueOrder[b as string] ?? -1)
   if (typeof a === "number" && typeof b === "number") return a - b
-  if (typeof a === "string" && typeof b === "string") return a.localeCompare(b)
+  if (typeof a === "string" && typeof b === "string") {
+    const na = Number(a), nb = Number(b)
+    if (!isNaN(na) && !isNaN(nb)) return na - nb
+    return a.localeCompare(b)
+  }
   return 0
 }
 
