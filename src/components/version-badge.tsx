@@ -9,13 +9,11 @@ const env = process.env.NEXT_PUBLIC_ENVIRONMENT || "develop"
 
 const envLabels: Record<string, string> = {
   production: "Production",
-  staging: "Staging",
   develop: "Develop",
 }
 
 const envColors: Record<string, string> = {
   production: "bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-300",
-  staging: "bg-orange-100 text-orange-700 dark:bg-orange-900 dark:text-orange-300",
   develop: "bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-300",
 }
 
@@ -63,7 +61,6 @@ function CommitDate({ date }: { date: string }) {
 
 const envUrls: Record<string, string> = {
   develop: "http://localhost:3000/",
-  staging: "https://aivrie-openclaw-web-git-staging-jeffrey-shmigelskys-projects.vercel.app/",
   production: "https://aivrie-openclaw-web.vercel.app/",
 }
 
