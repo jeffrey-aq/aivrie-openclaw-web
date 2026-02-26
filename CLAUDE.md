@@ -16,14 +16,16 @@ Next.js website for Aivrie/OpenClaw, deployed on Vercel. Uses Supabase as the ba
 
 | Branch      | Environment | Supabase Target                  | Vercel Target        |
 |-------------|-------------|----------------------------------|----------------------|
-| `develop`   | Local dev   | Local Supabase via Docker        | N/A (localhost)      |
-| `staging`   | Staging     | Staging Supabase (hosted)        | Vercel staging       |
-| `main`      | Production  | Production Supabase (hosted)     | Vercel production    |
+| `develop`   | Local dev   | Hosted Supabase staging project  | N/A (localhost)      |
+| `staging`   | Staging     | Hosted Supabase staging project  | Vercel staging       |
+| `main`      | Production  | Hosted Supabase production project | Vercel production  |
+
+`develop` and `staging` share the same hosted Supabase instance (staging project). There is no local Docker Supabase — all environments use hosted Supabase.
 
 ### Workflow
 
-1. **Develop & test locally** on `develop`, running against a local Supabase instance in Docker.
-2. **Push to `staging`** to verify everything works in a live Vercel environment against the hosted staging Supabase.
+1. **Develop & test locally** on `develop`, running `npm run dev` against the hosted Supabase staging project.
+2. **Push to `staging`** to verify everything works in a live Vercel environment.
 3. **Merge to `main`** when staging is verified and ready for production.
 
 ## Related Repos
