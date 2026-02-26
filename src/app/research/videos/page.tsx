@@ -615,11 +615,11 @@ export default function VideosPage() {
                   <SortableHead label="Title" sortKey="title" currentSort={sortKey} currentDir={sortDir} onSort={handleSort} />
                   <SortableHead label="Creator" sortKey="creatorName" currentSort={sortKey} currentDir={sortDir} onSort={handleSort} />
                   <SortableHead label="Views" sortKey="views" currentSort={sortKey} currentDir={sortDir} onSort={handleSort} className="text-right" />
+                  <SortableHead label="Engage%" sortKey="engagementRatePercent" currentSort={sortKey} currentDir={sortDir} onSort={handleSort} className="text-right" />
                   <SortableHead label="Likes" sortKey="likes" currentSort={sortKey} currentDir={sortDir} onSort={handleSort} className="text-right" />
                   <SortableHead label="Like%" sortKey="likesPerView" currentSort={sortKey} currentDir={sortDir} onSort={handleSort} className="text-right" />
                   <SortableHead label="Comments" sortKey="comments" currentSort={sortKey} currentDir={sortDir} onSort={handleSort} className="text-right" />
                   <SortableHead label="Comment%" sortKey="commentsPerView" currentSort={sortKey} currentDir={sortDir} onSort={handleSort} className="text-right" />
-                  <SortableHead label="Engage%" sortKey="engagementRatePercent" currentSort={sortKey} currentDir={sortDir} onSort={handleSort} className="text-right" />
                   <SortableHead label="Tags" sortKey="tags" currentSort={sortKey} currentDir={sortDir} onSort={handleSort} className="text-right" />
                   <SortableHead label="Duration" sortKey="duration" currentSort={sortKey} currentDir={sortDir} onSort={handleSort} />
                   <SortableHead label="Type" sortKey="durationType" currentSort={sortKey} currentDir={sortDir} onSort={handleSort} />
@@ -641,11 +641,11 @@ export default function VideosPage() {
                         </TableCell>
                         <TableCell className="whitespace-nowrap"><CreatorBadge name={creatorName} channelId={v.channelId} /></TableCell>
                         <TableCell className="text-right tabular-nums">{formatViews(v.views)}</TableCell>
+                        <TableCell className={`text-right tabular-nums font-medium ${percentColor(v.engagementRatePercent != null ? v.engagementRatePercent / 100 : null, ENGAGE_TIERS)}`}>{v.engagementRatePercent != null ? `${Number(v.engagementRatePercent).toFixed(1)}%` : "\u2014"}</TableCell>
                         <TableCell className="text-right tabular-nums">{formatNumber(v.likes)}</TableCell>
                         <TableCell className={`text-right tabular-nums font-medium ${percentColor(ratio(v.likes, v.views), LIKE_TIERS)}`}>{formatPercent(ratio(v.likes, v.views))}</TableCell>
                         <TableCell className="text-right tabular-nums">{formatNumber(v.comments)}</TableCell>
                         <TableCell className={`text-right tabular-nums font-medium ${percentColor(ratio(v.comments, v.views), COMMENT_TIERS)}`}>{formatPercent(ratio(v.comments, v.views))}</TableCell>
-                        <TableCell className={`text-right tabular-nums font-medium ${percentColor(v.engagementRatePercent != null ? v.engagementRatePercent / 100 : null, ENGAGE_TIERS)}`}>{v.engagementRatePercent != null ? `${Number(v.engagementRatePercent).toFixed(1)}%` : "\u2014"}</TableCell>
                         <TableCell className="text-right tabular-nums text-muted-foreground">{v.tags?.length ?? 0}</TableCell>
                         <TableCell><DurationBar minutes={v.duration} durationType={v.durationType} /></TableCell>
                         <TableCell><DurationTypeBadge value={v.durationType} /></TableCell>
