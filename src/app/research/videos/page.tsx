@@ -647,19 +647,19 @@ export default function VideosPage() {
                                     </a>
                                   )}
                                 </div>
-                                <div className="flex flex-col gap-0.5 mt-1.5 text-xs">
-                                  <div className="flex items-center gap-x-3">
-                                    <span><span className="text-muted-foreground">Views</span> <span className="font-medium">{formatViews(v.views)}</span></span>
-                                    <span><span className="text-muted-foreground">Engagement</span> <span className="font-medium">{v.engagementRatePercent != null ? `${Number(v.engagementRatePercent).toFixed(1)}%` : "\u2014"}</span></span>
-                                  </div>
-                                  <div className="flex items-center gap-x-3">
-                                    <span><span className="text-muted-foreground">Likes</span> <span className="font-medium">{formatNumber(v.likes)}</span></span>
-                                    <span><span className="text-muted-foreground">Like%</span> <span className={`font-medium ${percentColor(ratio(v.likes, v.views), 5, 2)}`}>{formatPercent(ratio(v.likes, v.views))}</span></span>
-                                  </div>
-                                  <div className="flex items-center gap-x-3">
-                                    <span><span className="text-muted-foreground">Comments</span> <span className="font-medium">{formatNumber(v.comments)}</span></span>
-                                    <span><span className="text-muted-foreground">Comment%</span> <span className={`font-medium ${percentColor(ratio(v.comments, v.views), 1, 0.3)}`}>{formatPercent(ratio(v.comments, v.views))}</span></span>
-                                  </div>
+                                <div className="grid grid-cols-[5rem_6rem_6rem_6rem] gap-y-0.5 mt-1.5 text-xs">
+                                  <span className="text-muted-foreground">Views</span>
+                                  <span className="font-medium tabular-nums">{formatViews(v.views)}</span>
+                                  <span className="text-muted-foreground">Engagement</span>
+                                  <span className={`font-medium tabular-nums ${percentColor(v.engagementRatePercent != null ? v.engagementRatePercent / 100 : null, 5, 2)}`}>{v.engagementRatePercent != null ? `${Number(v.engagementRatePercent).toFixed(1)}%` : "\u2014"}</span>
+                                  <span className="text-muted-foreground">Likes</span>
+                                  <span className="font-medium tabular-nums">{formatNumber(v.likes)}</span>
+                                  <span className="text-muted-foreground">Like%</span>
+                                  <span className={`font-medium tabular-nums ${percentColor(ratio(v.likes, v.views), 5, 2)}`}>{formatPercent(ratio(v.likes, v.views))}</span>
+                                  <span className="text-muted-foreground">Comments</span>
+                                  <span className="font-medium tabular-nums">{formatNumber(v.comments)}</span>
+                                  <span className="text-muted-foreground">Comment%</span>
+                                  <span className={`font-medium tabular-nums ${percentColor(ratio(v.comments, v.views), 1, 0.3)}`}>{formatPercent(ratio(v.comments, v.views))}</span>
                                 </div>
                               </div>
                             </div>
