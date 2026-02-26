@@ -126,6 +126,12 @@ const CREATOR_PALETTE = [
   "bg-purple-500/15 text-purple-700 dark:text-purple-400",
   "bg-sky-500/15 text-sky-700 dark:text-sky-400",
   "bg-red-500/15 text-red-700 dark:text-red-400",
+  "bg-fuchsia-500/15 text-fuchsia-700 dark:text-fuchsia-400",
+  "bg-yellow-500/15 text-yellow-700 dark:text-yellow-400",
+  "bg-green-500/15 text-green-700 dark:text-green-400",
+  "bg-slate-500/15 text-slate-700 dark:text-slate-400",
+  "bg-stone-500/15 text-stone-700 dark:text-stone-400",
+  "bg-zinc-500/15 text-zinc-700 dark:text-zinc-400",
 ]
 
 function hashString(s: string): number {
@@ -160,6 +166,12 @@ const CREATOR_CARD_HOVER = [
   "hover:bg-purple-200/70 dark:hover:bg-purple-900/50",
   "hover:bg-sky-200/70 dark:hover:bg-sky-900/50",
   "hover:bg-red-200/70 dark:hover:bg-red-900/50",
+  "hover:bg-fuchsia-200/70 dark:hover:bg-fuchsia-900/50",
+  "hover:bg-yellow-200/70 dark:hover:bg-yellow-900/50",
+  "hover:bg-green-200/70 dark:hover:bg-green-900/50",
+  "hover:bg-slate-200/70 dark:hover:bg-slate-900/50",
+  "hover:bg-stone-200/70 dark:hover:bg-stone-900/50",
+  "hover:bg-zinc-200/70 dark:hover:bg-zinc-900/50",
 ]
 
 export function getCreatorCardHover(channelId: string): string {
