@@ -482,6 +482,7 @@ export default function VideosPage() {
             onChange={(e) => setFilter("search", e.target.value)}
             className="h-8 w-[200px] text-xs"
           />
+          <FilterSelect label="Creator" value={filters.creator} options={creatorOptions} onChange={(v) => setFilter("creator", v)} />
           <div className="inline-flex items-center">
             <button
               onClick={() => {
@@ -495,7 +496,6 @@ export default function VideosPage() {
             >
               <ChevronLeft className="size-3.5" />
             </button>
-            <FilterSelect label="Creator" value={filters.creator} options={creatorOptions} onChange={(v) => setFilter("creator", v)} className="rounded-none border-x-0" />
             <button
               onClick={() => {
                 const idx = creatorOptions.findIndex((o) => o.value === filters.creator)
