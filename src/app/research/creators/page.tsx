@@ -12,9 +12,6 @@ import {
   ContentTypeBadge,
   RevenueRangeBadge,
   MonetizationBadges,
-  CompetitiveThreatBadge,
-  StatusBadge,
-  WorkstreamBadge,
   CreatorBadge,
   getCreatorCardHover,
 } from "@/components/enum-badge"
@@ -104,10 +101,63 @@ const CREATORS_QUERY = gql`
   }
 `
 
+interface VideoStats {
+  videoCount: number
+  avgViewsShort: number | null
+  avgViewsFull: number | null
+  avgEngagement: number | null
+  avgLikesPct: number | null
+  avgCommentsPct: number | null
+  freqShort: string | null
+  freqFull: string | null
+}
+
+function buildVideoStatsQuery(channelIds: string[]): string {
+  const parts = channelIds.map((id, i) => {
+    const safe = id.replace(/"/g, '\\"')
+    return `
+    all_${i}: youtubeVideosCollection(filter: { channelId: { eq: "${safe}" } }) {
+      totalCount
+      aggregate { avg { engagementRatePercent } sum { views likes comments } }
+    }
+    short_${i}: youtubeVideosCollection(filter: { channelId: { eq: "${safe}" }, durationType: { eq: "Short" } }) {
+      totalCount
+      aggregate { avg { views } min { publishedDate } max { publishedDate } }
+    }
+    full_${i}: youtubeVideosCollection(filter: { channelId: { eq: "${safe}" }, durationType: { eq: "Full" } }) {
+      totalCount
+      aggregate { avg { views } min { publishedDate } max { publishedDate } }
+    }`
+  })
+  return `{ ${parts.join("\n")} }`
+}
+
+function percentColor(pct: number | null, tiers: [number, number]): string {
+  if (pct == null) return "text-muted-foreground"
+  const [good, avg] = tiers
+  if (pct >= good) return "text-emerald-600 dark:text-emerald-400"
+  if (pct >= avg) return "text-amber-600 dark:text-amber-400"
+  return "text-red-600 dark:text-red-400"
+}
+
+const ENGAGE_TIERS: [number, number] = [3.5, 2.5]
+const LIKE_TIERS: [number, number] = [3.5, 2]
+const COMMENT_TIERS: [number, number] = [0.4, 0.15]
+
+function computeFrequency(count: number, minDate: string | null, maxDate: string | null): string | null {
+  if (count < 2 || !minDate || !maxDate) return null
+  const days = (new Date(maxDate).getTime() - new Date(minDate).getTime()) / (1000 * 60 * 60 * 24)
+  if (days <= 0) return null
+  const perWeek = (count / days) * 7
+  if (perWeek >= 5) return "Daily"
+  if (perWeek >= 3) return "3-4x/wk"
+  if (perWeek >= 1.5) return "2x/wk"
+  if (perWeek >= 0.8) return "Weekly"
+  if (perWeek >= 0.4) return "Bi-Weekly"
+  return "Monthly"
+}
+
 const uploadFrequencyOptions = ["Daily", "3-4x/week", "Weekly", "Bi-Weekly", "Monthly", "Irregular"]
-const competitiveThreatOptions = ["Low", "Medium", "High"]
-const statusOptions = ["Active", "Rising", "Monitoring", "Inactive"]
-const workstreamOptions = ["Research", "YouTube", "SaaS", "Newsletter", "Apps", "Courses"]
 
 function formatNumber(n: number | null) {
   if (n == null) return "\u2014"
@@ -131,22 +181,16 @@ const revenueOrder: Record<string, number> = {
 }
 
 type SortDir = "asc" | "desc"
-type SortKey = keyof Creator
+type SortKey = keyof Creator | "dbVideoCount" | "avgViewsShort" | "avgViewsFull" | "avgEngagement" | "avgLikesPct" | "avgCommentsPct" | "freqShort" | "freqFull"
 
 interface Filters {
   search: string
   uploadFrequency: string
-  competitiveThreat: string
-  status: string
-  workstream: string
 }
 
 const emptyFilters: Filters = {
   search: "",
   uploadFrequency: "",
-  competitiveThreat: "",
-  status: "",
-  workstream: "",
 }
 
 function compareValues(a: unknown, b: unknown, key: SortKey): number {
@@ -189,7 +233,7 @@ function SortableHead({
 }
 
 // Number of primary columns (for colspan on detail row)
-const PRIMARY_COL_COUNT = 8
+const PRIMARY_COL_COUNT = 12
 
 export default function CreatorsPage() {
   const graphqlClient = useGraphQLClient()
@@ -200,6 +244,7 @@ export default function CreatorsPage() {
   const [filters, setFilters] = useState<Filters>(emptyFilters)
   const [expanded, setExpanded] = useState<Set<string>>(new Set())
   const [allExpanded, setAllExpanded] = useState(false)
+  const [videoStats, setVideoStats] = useState<Record<string, VideoStats>>({})
   const [gridView, setGridView] = useState(() => {
     try { return localStorage.getItem("yt-grid-view") === "1" } catch { return false }
   })
@@ -225,6 +270,39 @@ export default function CreatorsPage() {
     }
     load()
   }, [graphqlClient])
+
+  // Fetch video stats (count + avg views by type) per creator
+  useEffect(() => {
+    if (creators.length === 0) return
+    const channelIds = creators.map((c) => c.channelId)
+    graphqlClient
+      .request<Record<string, { totalCount?: number; aggregate?: { avg: { views: number | null; engagementRatePercent: number | null }; sum: { views: number | null; likes: number | null; comments: number | null }; min: { publishedDate: string | null }; max: { publishedDate: string | null } } }>>(
+        buildVideoStatsQuery(channelIds)
+      )
+      .then((data) => {
+        const stats: Record<string, VideoStats> = {}
+        channelIds.forEach((id, i) => {
+          const allAgg = data[`all_${i}`]?.aggregate
+          const shortData = data[`short_${i}`]
+          const fullData = data[`full_${i}`]
+          const totalViews = allAgg?.sum?.views ?? 0
+          const totalLikes = allAgg?.sum?.likes ?? 0
+          const totalComments = allAgg?.sum?.comments ?? 0
+          stats[id] = {
+            videoCount: data[`all_${i}`]?.totalCount ?? 0,
+            avgViewsShort: shortData?.aggregate?.avg?.views ?? null,
+            avgViewsFull: fullData?.aggregate?.avg?.views ?? null,
+            avgEngagement: allAgg?.avg?.engagementRatePercent ?? null,
+            avgLikesPct: totalViews > 0 ? (totalLikes / totalViews) * 100 : null,
+            avgCommentsPct: totalViews > 0 ? (totalComments / totalViews) * 100 : null,
+            freqShort: computeFrequency(shortData?.totalCount ?? 0, shortData?.aggregate?.min?.publishedDate ?? null, shortData?.aggregate?.max?.publishedDate ?? null),
+            freqFull: computeFrequency(fullData?.totalCount ?? 0, fullData?.aggregate?.min?.publishedDate ?? null, fullData?.aggregate?.max?.publishedDate ?? null),
+          }
+        })
+        setVideoStats(stats)
+      })
+      .catch((err) => console.error("Error loading video stats:", err))
+  }, [graphqlClient, creators])
 
   function handleSort(key: SortKey) {
     if (sortKey === key) setSortDir((d) => (d === "asc" ? "desc" : "asc"))
@@ -270,19 +348,45 @@ export default function CreatorsPage() {
       )
     }
     if (filters.uploadFrequency) result = result.filter((c) => c.uploadFrequency === filters.uploadFrequency)
-    if (filters.competitiveThreat) result = result.filter((c) => c.competitiveThreat === filters.competitiveThreat)
-    if (filters.status) result = result.filter((c) => c.status === filters.status)
-    if (filters.workstream) result = result.filter((c) => c.workstream === filters.workstream)
     return result
   }, [creators, filters])
 
   const sorted = useMemo(() => {
     if (!sortKey) return filtered
     return [...filtered].sort((a, b) => {
-      const cmp = compareValues(a[sortKey], b[sortKey], sortKey)
+      let av: unknown, bv: unknown
+      if (sortKey === "dbVideoCount") {
+        av = videoStats[a.channelId]?.videoCount ?? null
+        bv = videoStats[b.channelId]?.videoCount ?? null
+      } else if (sortKey === "avgViewsShort") {
+        av = videoStats[a.channelId]?.avgViewsShort ?? null
+        bv = videoStats[b.channelId]?.avgViewsShort ?? null
+      } else if (sortKey === "avgViewsFull") {
+        av = videoStats[a.channelId]?.avgViewsFull ?? null
+        bv = videoStats[b.channelId]?.avgViewsFull ?? null
+      } else if (sortKey === "avgEngagement") {
+        av = videoStats[a.channelId]?.avgEngagement ?? null
+        bv = videoStats[b.channelId]?.avgEngagement ?? null
+      } else if (sortKey === "avgLikesPct") {
+        av = videoStats[a.channelId]?.avgLikesPct ?? null
+        bv = videoStats[b.channelId]?.avgLikesPct ?? null
+      } else if (sortKey === "avgCommentsPct") {
+        av = videoStats[a.channelId]?.avgCommentsPct ?? null
+        bv = videoStats[b.channelId]?.avgCommentsPct ?? null
+      } else if (sortKey === "freqShort") {
+        av = videoStats[a.channelId]?.freqShort ?? null
+        bv = videoStats[b.channelId]?.freqShort ?? null
+      } else if (sortKey === "freqFull") {
+        av = videoStats[a.channelId]?.freqFull ?? null
+        bv = videoStats[b.channelId]?.freqFull ?? null
+      } else {
+        av = a[sortKey]
+        bv = b[sortKey]
+      }
+      const cmp = compareValues(av, bv, sortKey)
       return sortDir === "asc" ? cmp : -cmp
     })
-  }, [filtered, sortKey, sortDir])
+  }, [filtered, sortKey, sortDir, videoStats])
 
   function isExpanded(id: string) {
     return allExpanded ? !expanded.has(id) : expanded.has(id)
@@ -318,10 +422,7 @@ export default function CreatorsPage() {
             onChange={(e) => setFilter("search", e.target.value)}
             className="h-8 w-[200px] text-xs"
           />
-          <FilterSelect label="Frequency" value={filters.uploadFrequency} options={uploadFrequencyOptions} onChange={(v) => setFilter("uploadFrequency", v)} />
-          <FilterSelect label="Threat" value={filters.competitiveThreat} options={competitiveThreatOptions} onChange={(v) => setFilter("competitiveThreat", v)} />
-          <FilterSelect label="Status" value={filters.status} options={statusOptions} onChange={(v) => setFilter("status", v)} />
-          <FilterSelect label="Workstream" value={filters.workstream} options={workstreamOptions} onChange={(v) => setFilter("workstream", v)} />
+          {/* Filters can be extended here */}
           {hasFilters && (
             <button
               onClick={() => setFilters(emptyFilters)}
@@ -395,12 +496,15 @@ export default function CreatorsPage() {
                 <TableRow>
                   <TableHead className="w-8" />
                   <SortableHead label="Creator" sortKey="title" currentSort={sortKey} currentDir={sortDir} onSort={handleSort} />
-                  <SortableHead label="# Videos" sortKey="videoCount" currentSort={sortKey} currentDir={sortDir} onSort={handleSort} className="text-right" />
+                  <SortableHead label="Videos" sortKey="dbVideoCount" currentSort={sortKey} currentDir={sortDir} onSort={handleSort} className="text-right" />
                   <SortableHead label="Avg Views" sortKey="avgViewsPerVideo" currentSort={sortKey} currentDir={sortDir} onSort={handleSort} className="text-right" />
-                  <SortableHead label="Frequency" sortKey="uploadFrequency" currentSort={sortKey} currentDir={sortDir} onSort={handleSort} />
-                  <SortableHead label="Threat" sortKey="competitiveThreat" currentSort={sortKey} currentDir={sortDir} onSort={handleSort} />
-                  <SortableHead label="Status" sortKey="status" currentSort={sortKey} currentDir={sortDir} onSort={handleSort} />
-                  <SortableHead label="Workstream" sortKey="workstream" currentSort={sortKey} currentDir={sortDir} onSort={handleSort} />
+                  <SortableHead label="Avg Short" sortKey="avgViewsShort" currentSort={sortKey} currentDir={sortDir} onSort={handleSort} className="text-right" />
+                  <SortableHead label="Avg Full" sortKey="avgViewsFull" currentSort={sortKey} currentDir={sortDir} onSort={handleSort} className="text-right" />
+                  <SortableHead label="Engage%" sortKey="avgEngagement" currentSort={sortKey} currentDir={sortDir} onSort={handleSort} className="text-right" />
+                  <SortableHead label="Like%" sortKey="avgLikesPct" currentSort={sortKey} currentDir={sortDir} onSort={handleSort} className="text-right" />
+                  <SortableHead label="Comment%" sortKey="avgCommentsPct" currentSort={sortKey} currentDir={sortDir} onSort={handleSort} className="text-right" />
+                  <SortableHead label="Short Freq" sortKey="freqShort" currentSort={sortKey} currentDir={sortDir} onSort={handleSort} />
+                  <SortableHead label="Full Freq" sortKey="freqFull" currentSort={sortKey} currentDir={sortDir} onSort={handleSort} />
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -420,12 +524,15 @@ export default function CreatorsPage() {
                             <CreatorBadge name={c.title} channelId={c.channelId} />
                           </Link>
                         </TableCell>
-                        <TableCell className="text-right">{formatNumber(c.videoCount)}</TableCell>
-                        <TableCell className="text-right">{formatNumber(c.avgViewsPerVideo)}</TableCell>
-                        <TableCell><UploadFrequencyBadge value={c.uploadFrequency} /></TableCell>
-                        <TableCell><CompetitiveThreatBadge value={c.competitiveThreat} /></TableCell>
-                        <TableCell><StatusBadge value={c.status} /></TableCell>
-                        <TableCell><WorkstreamBadge value={c.workstream} /></TableCell>
+                        <TableCell className="text-right tabular-nums">{formatNumber(videoStats[c.channelId]?.videoCount ?? null)}</TableCell>
+                        <TableCell className="text-right tabular-nums">{formatNumber(c.avgViewsPerVideo)}</TableCell>
+                        <TableCell className="text-right tabular-nums">{formatNumber(videoStats[c.channelId]?.avgViewsShort != null ? Math.round(videoStats[c.channelId].avgViewsShort!) : null)}</TableCell>
+                        <TableCell className="text-right tabular-nums">{formatNumber(videoStats[c.channelId]?.avgViewsFull != null ? Math.round(videoStats[c.channelId].avgViewsFull!) : null)}</TableCell>
+                        <TableCell className={`text-right tabular-nums font-medium ${percentColor(videoStats[c.channelId]?.avgEngagement ?? null, ENGAGE_TIERS)}`}>{videoStats[c.channelId]?.avgEngagement != null ? `${videoStats[c.channelId].avgEngagement!.toFixed(1)}%` : "\u2014"}</TableCell>
+                        <TableCell className={`text-right tabular-nums font-medium ${percentColor(videoStats[c.channelId]?.avgLikesPct ?? null, LIKE_TIERS)}`}>{videoStats[c.channelId]?.avgLikesPct != null ? `${videoStats[c.channelId].avgLikesPct!.toFixed(1)}%` : "\u2014"}</TableCell>
+                        <TableCell className={`text-right tabular-nums font-medium ${percentColor(videoStats[c.channelId]?.avgCommentsPct ?? null, COMMENT_TIERS)}`}>{videoStats[c.channelId]?.avgCommentsPct != null ? `${videoStats[c.channelId].avgCommentsPct!.toFixed(2)}%` : "\u2014"}</TableCell>
+                        <TableCell className="text-muted-foreground">{videoStats[c.channelId]?.freqShort ?? "\u2014"}</TableCell>
+                        <TableCell className="text-muted-foreground">{videoStats[c.channelId]?.freqFull ?? "\u2014"}</TableCell>
                       </TableRow>
                       {open && (
                         <TableRow className="bg-muted/30 hover:bg-muted/40">
