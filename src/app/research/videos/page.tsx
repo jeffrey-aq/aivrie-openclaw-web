@@ -633,32 +633,41 @@ export default function VideosPage() {
                                 <img src={v.thumbnailUrl} alt={v.title} className="h-28 rounded-md shrink-0" />
                               )}
                               <div className="min-w-0 flex-1">
-                                <h3 className="text-sm font-semibold leading-snug mb-1.5">{v.title}</h3>
-                                <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+                                <div className="flex items-start justify-between gap-3">
+                                  <h3 className="text-sm font-semibold leading-snug">{v.title}</h3>
+                                  <span className="shrink-0 text-sm font-medium tabular-nums">{formatDuration(v.duration)}</span>
+                                </div>
+                                <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground mt-1">
                                   <CreatorBadge name={creatorName} channelId={v.channelId} />
                                   <span>{ageShort(v.publishedDate)} ago</span>
+                                  {v.durationType && <DurationTypeBadge value={v.durationType} />}
                                   {v.url && (
                                     <a href={v.url} target="_blank" rel="noopener noreferrer" className="text-blue-500 hover:underline" onClick={(e) => e.stopPropagation()}>
                                       Watch on YouTube
                                     </a>
                                   )}
                                 </div>
-                                <div className="flex flex-wrap items-center gap-x-4 gap-y-1 mt-1.5 text-xs">
-                                  <span><span className="text-muted-foreground">Views</span> <span className="font-medium">{formatViews(v.views)}</span></span>
-                                  <span><span className="text-muted-foreground">Likes</span> <span className="font-medium">{formatNumber(v.likes)}</span></span>
-                                  <span><span className="text-muted-foreground">Like%</span> <span className={`font-medium ${percentColor(ratio(v.likes, v.views), 5, 2)}`}>{formatPercent(ratio(v.likes, v.views))}</span></span>
-                                  <span><span className="text-muted-foreground">Comment%</span> <span className={`font-medium ${percentColor(ratio(v.comments, v.views), 1, 0.3)}`}>{formatPercent(ratio(v.comments, v.views))}</span></span>
-                                  <span><span className="text-muted-foreground">Duration</span> <span className="font-medium">{formatDuration(v.duration)}</span></span>
-                                  {v.durationType && <DurationTypeBadge value={v.durationType} />}
+                                <div className="flex flex-col gap-0.5 mt-1.5 text-xs">
+                                  <div className="flex items-center gap-x-3">
+                                    <span><span className="text-muted-foreground">Views</span> <span className="font-medium">{formatViews(v.views)}</span></span>
+                                    <span><span className="text-muted-foreground">Engagement</span> <span className="font-medium">{v.engagementRatePercent != null ? `${Number(v.engagementRatePercent).toFixed(1)}%` : "\u2014"}</span></span>
+                                  </div>
+                                  <div className="flex items-center gap-x-3">
+                                    <span><span className="text-muted-foreground">Likes</span> <span className="font-medium">{formatNumber(v.likes)}</span></span>
+                                    <span><span className="text-muted-foreground">Like%</span> <span className={`font-medium ${percentColor(ratio(v.likes, v.views), 5, 2)}`}>{formatPercent(ratio(v.likes, v.views))}</span></span>
+                                  </div>
+                                  <div className="flex items-center gap-x-3">
+                                    <span><span className="text-muted-foreground">Comments</span> <span className="font-medium">{formatNumber(v.comments)}</span></span>
+                                    <span><span className="text-muted-foreground">Comment%</span> <span className={`font-medium ${percentColor(ratio(v.comments, v.views), 1, 0.3)}`}>{formatPercent(ratio(v.comments, v.views))}</span></span>
+                                  </div>
                                 </div>
                               </div>
                             </div>
 
                             {/* Metadata grid */}
-                            <div className="grid grid-cols-3 md:grid-cols-4 lg:grid-cols-7 gap-x-6 gap-y-3 text-sm">
+                            <div className="grid grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-x-6 gap-y-3 text-sm">
                               <Detail label="Type" value={v.type || "\u2014"} />
                               <Detail label="Video ID" value={v.videoId} />
-                              <Detail label="Engagement %" value={v.engagementRatePercent != null ? `${Number(v.engagementRatePercent).toFixed(1)}%` : "\u2014"} />
                               <Detail label="Definition" value={v.definition?.toUpperCase() || "\u2014"} />
                               <Detail label="Language" value={v.language || "\u2014"} />
                               <Detail label="Captions" value={v.captionAvailable ? "Yes" : "No"} />
