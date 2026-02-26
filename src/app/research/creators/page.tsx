@@ -5,6 +5,7 @@ import Link from "next/link"
 import { gql } from "graphql-request"
 import { extractNodes } from "@/lib/graphql"
 import { useGraphQLClient } from "@/hooks/use-graphql"
+import { supabase } from "@/lib/supabase-client"
 import { PageHeader } from "@/components/page-header"
 import { ArrowUp, ArrowDown, ArrowUpDown, X, ChevronDown, ChevronRight, ChevronsDownUp, ChevronsUpDown, LayoutGrid } from "lucide-react"
 import {
@@ -14,6 +15,8 @@ import {
   MonetizationBadges,
   CreatorBadge,
   getCreatorCardHover,
+  TagBadge,
+  TopicBadge,
 } from "@/components/enum-badge"
 import {
   Table,
@@ -110,26 +113,27 @@ interface VideoStats {
   avgCommentsPct: number | null
   freqShort: string | null
   freqFull: string | null
+  avgDurationShort: number | null
+  avgDurationFull: number | null
 }
 
-function buildVideoStatsQuery(channelIds: string[]): string {
-  const parts = channelIds.map((id, i) => {
-    const safe = id.replace(/"/g, '\\"')
-    return `
-    all_${i}: youtubeVideosCollection(filter: { channelId: { eq: "${safe}" } }) {
-      totalCount
-      aggregate { avg { engagementRatePercent } sum { views likes comments } }
-    }
-    short_${i}: youtubeVideosCollection(filter: { channelId: { eq: "${safe}" }, durationType: { eq: "Short" } }) {
-      totalCount
-      aggregate { avg { views } min { publishedDate } max { publishedDate } }
-    }
-    full_${i}: youtubeVideosCollection(filter: { channelId: { eq: "${safe}" }, durationType: { eq: "Full" } }) {
-      totalCount
-      aggregate { avg { views } min { publishedDate } max { publishedDate } }
-    }`
-  })
-  return `{ ${parts.join("\n")} }`
+interface RpcVideoStats {
+  channel_id: string
+  video_count: number
+  avg_views_short: number | null
+  avg_views_full: number | null
+  avg_engagement: number | null
+  total_views: number
+  total_likes: number
+  total_comments: number
+  short_count: number
+  full_count: number
+  short_min_date: string | null
+  short_max_date: string | null
+  full_min_date: string | null
+  full_max_date: string | null
+  avg_duration_short: number | null
+  avg_duration_full: number | null
 }
 
 function percentColor(pct: number | null, tiers: [number, number]): string {
@@ -164,6 +168,18 @@ function formatNumber(n: number | null) {
   if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M`
   if (n >= 1_000) return `${(n / 1_000).toFixed(0)}K`
   return n.toLocaleString()
+}
+
+function formatComma(n: number | null) {
+  if (n == null) return "\u2014"
+  return Math.round(n).toLocaleString()
+}
+
+function formatDuration(mins: number | null) {
+  if (mins == null) return "\u2014"
+  const m = Math.floor(mins)
+  const s = Math.round((mins - m) * 60)
+  return `${m}:${s.toString().padStart(2, "0")}`
 }
 
 function formatPercent(n: number | null) {
@@ -233,7 +249,7 @@ function SortableHead({
 }
 
 // Number of primary columns (for colspan on detail row)
-const PRIMARY_COL_COUNT = 12
+const PRIMARY_COL_COUNT = 13
 
 export default function CreatorsPage() {
   const graphqlClient = useGraphQLClient()
@@ -256,53 +272,40 @@ export default function CreatorsPage() {
     })
   }
 
+  // Fire both requests in parallel — each renders independently as it arrives
   useEffect(() => {
-    async function load() {
-      try {
-        const data = await graphqlClient.request<{
-          youtubeCreatorsCollection: { edges: { node: Creator }[] }
-        }>(CREATORS_QUERY)
-        setCreators(extractNodes(data.youtubeCreatorsCollection))
-      } catch (error) {
-        console.error("Error loading creators:", error)
-      }
-      setLoading(false)
-    }
-    load()
-  }, [graphqlClient])
+    graphqlClient.request<{
+      youtubeCreatorsCollection: { edges: { node: Creator }[] }
+    }>(CREATORS_QUERY)
+      .then((data) => setCreators(extractNodes(data.youtubeCreatorsCollection)))
+      .catch((error) => console.error("Error loading creators:", error))
+      .finally(() => setLoading(false))
 
-  // Fetch video stats (count + avg views by type) per creator
-  useEffect(() => {
-    if (creators.length === 0) return
-    const channelIds = creators.map((c) => c.channelId)
-    graphqlClient
-      .request<Record<string, { totalCount?: number; aggregate?: { avg: { views: number | null; engagementRatePercent: number | null }; sum: { views: number | null; likes: number | null; comments: number | null }; min: { publishedDate: string | null }; max: { publishedDate: string | null } } }>>(
-        buildVideoStatsQuery(channelIds)
-      )
-      .then((data) => {
+    supabase
+      .schema("research")
+      .rpc("get_creator_video_stats")
+      .then(({ data, error }) => {
+        if (error) { console.error("Error loading video stats:", error); return }
+        const rows = data as RpcVideoStats[]
         const stats: Record<string, VideoStats> = {}
-        channelIds.forEach((id, i) => {
-          const allAgg = data[`all_${i}`]?.aggregate
-          const shortData = data[`short_${i}`]
-          const fullData = data[`full_${i}`]
-          const totalViews = allAgg?.sum?.views ?? 0
-          const totalLikes = allAgg?.sum?.likes ?? 0
-          const totalComments = allAgg?.sum?.comments ?? 0
-          stats[id] = {
-            videoCount: data[`all_${i}`]?.totalCount ?? 0,
-            avgViewsShort: shortData?.aggregate?.avg?.views ?? null,
-            avgViewsFull: fullData?.aggregate?.avg?.views ?? null,
-            avgEngagement: allAgg?.avg?.engagementRatePercent ?? null,
-            avgLikesPct: totalViews > 0 ? (totalLikes / totalViews) * 100 : null,
-            avgCommentsPct: totalViews > 0 ? (totalComments / totalViews) * 100 : null,
-            freqShort: computeFrequency(shortData?.totalCount ?? 0, shortData?.aggregate?.min?.publishedDate ?? null, shortData?.aggregate?.max?.publishedDate ?? null),
-            freqFull: computeFrequency(fullData?.totalCount ?? 0, fullData?.aggregate?.min?.publishedDate ?? null, fullData?.aggregate?.max?.publishedDate ?? null),
+        for (const r of rows) {
+          stats[r.channel_id] = {
+            videoCount: r.video_count,
+            avgViewsShort: r.avg_views_short,
+            avgViewsFull: r.avg_views_full,
+            avgEngagement: r.avg_engagement,
+            avgLikesPct: r.total_views > 0 ? (r.total_likes / r.total_views) * 100 : null,
+            avgCommentsPct: r.total_views > 0 ? (r.total_comments / r.total_views) * 100 : null,
+            freqShort: computeFrequency(r.short_count, r.short_min_date, r.short_max_date),
+            freqFull: computeFrequency(r.full_count, r.full_min_date, r.full_max_date),
+            avgDurationShort: r.avg_duration_short,
+            avgDurationFull: r.avg_duration_full,
           }
-        })
+        }
         setVideoStats(stats)
       })
-      .catch((err) => console.error("Error loading video stats:", err))
-  }, [graphqlClient, creators])
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [graphqlClient])
 
   function handleSort(key: SortKey) {
     if (sortKey === key) setSortDir((d) => (d === "asc" ? "desc" : "asc"))
@@ -323,13 +326,8 @@ export default function CreatorsPage() {
   }
 
   function toggleAll() {
-    if (allExpanded) {
-      setExpanded(new Set())
-      setAllExpanded(false)
-    } else {
-      setExpanded(new Set(sorted.map((c) => c.id)))
-      setAllExpanded(true)
-    }
+    setExpanded(new Set())
+    setAllExpanded((v) => !v)
   }
 
   const hasFilters = Object.values(filters).some((v) => v !== "")
@@ -500,6 +498,7 @@ export default function CreatorsPage() {
                   <SortableHead label="Avg Views" sortKey="avgViewsPerVideo" currentSort={sortKey} currentDir={sortDir} onSort={handleSort} className="text-right" />
                   <SortableHead label="Avg Short" sortKey="avgViewsShort" currentSort={sortKey} currentDir={sortDir} onSort={handleSort} className="text-right" />
                   <SortableHead label="Avg Full" sortKey="avgViewsFull" currentSort={sortKey} currentDir={sortDir} onSort={handleSort} className="text-right" />
+                  <SortableHead label="Views:Sub%" sortKey="viewsToSubRatio" currentSort={sortKey} currentDir={sortDir} onSort={handleSort} className="text-right" />
                   <SortableHead label="Engage%" sortKey="avgEngagement" currentSort={sortKey} currentDir={sortDir} onSort={handleSort} className="text-right" />
                   <SortableHead label="Like%" sortKey="avgLikesPct" currentSort={sortKey} currentDir={sortDir} onSort={handleSort} className="text-right" />
                   <SortableHead label="Comment%" sortKey="avgCommentsPct" currentSort={sortKey} currentDir={sortDir} onSort={handleSort} className="text-right" />
@@ -525,14 +524,15 @@ export default function CreatorsPage() {
                           </Link>
                         </TableCell>
                         <TableCell className="text-right tabular-nums">{formatNumber(videoStats[c.channelId]?.videoCount ?? null)}</TableCell>
-                        <TableCell className="text-right tabular-nums">{formatNumber(c.avgViewsPerVideo)}</TableCell>
-                        <TableCell className="text-right tabular-nums">{formatNumber(videoStats[c.channelId]?.avgViewsShort != null ? Math.round(videoStats[c.channelId].avgViewsShort!) : null)}</TableCell>
-                        <TableCell className="text-right tabular-nums">{formatNumber(videoStats[c.channelId]?.avgViewsFull != null ? Math.round(videoStats[c.channelId].avgViewsFull!) : null)}</TableCell>
+                        <TableCell className="text-right tabular-nums">{formatComma(c.avgViewsPerVideo)}</TableCell>
+                        <TableCell className="text-right tabular-nums">{formatComma(videoStats[c.channelId]?.avgViewsShort ?? null)}</TableCell>
+                        <TableCell className="text-right tabular-nums">{formatComma(videoStats[c.channelId]?.avgViewsFull ?? null)}</TableCell>
+                        <TableCell className="text-right tabular-nums">{formatPercent(c.viewsToSubRatio)}</TableCell>
                         <TableCell className={`text-right tabular-nums font-medium ${percentColor(videoStats[c.channelId]?.avgEngagement ?? null, ENGAGE_TIERS)}`}>{videoStats[c.channelId]?.avgEngagement != null ? `${videoStats[c.channelId].avgEngagement!.toFixed(1)}%` : "\u2014"}</TableCell>
                         <TableCell className={`text-right tabular-nums font-medium ${percentColor(videoStats[c.channelId]?.avgLikesPct ?? null, LIKE_TIERS)}`}>{videoStats[c.channelId]?.avgLikesPct != null ? `${videoStats[c.channelId].avgLikesPct!.toFixed(1)}%` : "\u2014"}</TableCell>
                         <TableCell className={`text-right tabular-nums font-medium ${percentColor(videoStats[c.channelId]?.avgCommentsPct ?? null, COMMENT_TIERS)}`}>{videoStats[c.channelId]?.avgCommentsPct != null ? `${videoStats[c.channelId].avgCommentsPct!.toFixed(2)}%` : "\u2014"}</TableCell>
-                        <TableCell className="text-muted-foreground">{videoStats[c.channelId]?.freqShort ?? "\u2014"}</TableCell>
-                        <TableCell className="text-muted-foreground">{videoStats[c.channelId]?.freqFull ?? "\u2014"}</TableCell>
+                        <TableCell><FreqPill value={videoStats[c.channelId]?.freqShort ?? null} /></TableCell>
+                        <TableCell><FreqPill value={videoStats[c.channelId]?.freqFull ?? null} /></TableCell>
                       </TableRow>
                       {open && (
                         <TableRow className="bg-muted/30 hover:bg-muted/40">
@@ -541,20 +541,28 @@ export default function CreatorsPage() {
                             <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-x-6 gap-y-2 py-2 text-sm">
                               {c.avatarUrl && (
                                 <Detail label="Avatar">
-                                  <img src={c.avatarUrl} alt={c.title} className="size-10 rounded-full" />
+                                  <img src={c.avatarUrl} alt={c.title} className="size-16 rounded-full" />
                                 </Detail>
                               )}
                               <Detail label="Country" value={c.country || "\u2014"} />
-                              <Detail label="Views:Sub %" value={formatPercent(c.viewsToSubRatio)} />
-                              <Detail label="Video Length" value={c.typicalVideoLength != null ? `${c.typicalVideoLength}m` : "\u2014"} />
+                              <Detail label="Avg Short Length" value={formatDuration(videoStats[c.channelId]?.avgDurationShort ?? null)} />
+                              <Detail label="Avg Full Length" value={formatDuration(videoStats[c.channelId]?.avgDurationFull ?? null)} />
                               <Detail label="Content Type"><ContentTypeBadge value={c.contentTypes} /></Detail>
                               <Detail label="Top Content Type" value={c.topContentType || "\u2014"} />
                               <Detail label="Est. Revenue"><RevenueRangeBadge value={c.estRevenueRange} /></Detail>
                               <Detail label="Monetization"><MonetizationBadges values={c.monetization} /></Detail>
                               <Detail label="Last Analyzed" value={formatDate(c.lastAnalyzedDate)} />
                               <Detail label="Other Ventures" value={c.otherVentures || "\u2014"} />
-                              <Detail label="Keywords" value={c.keywords && c.keywords.length > 0 ? c.keywords.join(", ") : "\u2014"} wide />
-                              <Detail label="Topics" value={c.topicCategories && c.topicCategories.length > 0 ? c.topicCategories.join(", ") : "\u2014"} wide />
+                              <Detail label="Keywords" wide>
+                                {c.keywords && c.keywords.length > 0 ? (
+                                  <div className="flex flex-wrap gap-1">{c.keywords.map((k) => <TagBadge key={k} value={k} />)}</div>
+                                ) : <span className="text-xs text-muted-foreground">{"\u2014"}</span>}
+                              </Detail>
+                              <Detail label="Topics" wide>
+                                {c.topicCategories && c.topicCategories.length > 0 ? (
+                                  <div className="flex flex-wrap gap-1">{c.topicCategories.map((t) => <TopicBadge key={t} value={t} />)}</div>
+                                ) : <span className="text-xs text-muted-foreground">{"\u2014"}</span>}
+                              </Detail>
                               <Detail label="Description" value={c.description || "\u2014"} wide />
                               <Detail label="Strengths" value={c.strengths || "\u2014"} wide />
                               <Detail label="Opportunities" value={c.opportunities || "\u2014"} wide />
@@ -576,11 +584,26 @@ export default function CreatorsPage() {
   )
 }
 
+const FREQ_COLORS: Record<string, string> = {
+  Daily: "bg-emerald-100 text-emerald-700 dark:bg-emerald-900 dark:text-emerald-300",
+  "3-4x/wk": "bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-300",
+  "2x/wk": "bg-sky-100 text-sky-700 dark:bg-sky-900 dark:text-sky-300",
+  Weekly: "bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-300",
+  "Bi-Weekly": "bg-amber-100 text-amber-700 dark:bg-amber-900 dark:text-amber-300",
+  Monthly: "bg-orange-100 text-orange-700 dark:bg-orange-900 dark:text-orange-300",
+}
+
+function FreqPill({ value }: { value: string | null }) {
+  if (!value) return <span className="text-muted-foreground">{"\u2014"}</span>
+  const color = FREQ_COLORS[value] ?? "bg-muted text-muted-foreground"
+  return <span className={`inline-block rounded-full px-2 py-0.5 text-xs font-medium ${color}`}>{value}</span>
+}
+
 function Detail({ label, value, children, wide }: { label: string; value?: string; children?: React.ReactNode; wide?: boolean }) {
   return (
-    <div className={wide ? "col-span-2" : ""}>
+    <div className={`min-w-0 overflow-hidden ${wide ? "col-span-2" : ""}`}>
       <span className="text-xs text-muted-foreground">{label}</span>
-      <div className="mt-0.5">{children || <span className="text-xs">{value}</span>}</div>
+      <div className="mt-0.5 break-words whitespace-pre-wrap">{children || <span className="text-xs">{value}</span>}</div>
     </div>
   )
 }
