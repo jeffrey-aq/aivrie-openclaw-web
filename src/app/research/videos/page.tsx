@@ -302,6 +302,8 @@ export default function VideosPage() {
   }))
   const [expanded, setExpanded] = useState<Set<string>>(new Set())
   const [allExpanded, setAllExpanded] = useState(false)
+  // Track individual overrides when allExpanded is active
+  const [collapsed, setCollapsed] = useState<Set<string>>(new Set())
   const [gridView, setGridView] = useState(() => {
     try { return localStorage.getItem("yt-grid-view") === "1" } catch { return false }
   })
@@ -381,26 +383,38 @@ export default function VideosPage() {
   }
 
   function toggleRow(id: string) {
-    setExpanded((prev) => {
-      const next = new Set(prev)
-      if (next.has(id)) next.delete(id)
-      else next.add(id)
-      return next
-    })
+    if (allExpanded) {
+      setCollapsed((prev) => {
+        const next = new Set(prev)
+        if (next.has(id)) next.delete(id)
+        else next.add(id)
+        return next
+      })
+    } else {
+      setExpanded((prev) => {
+        const next = new Set(prev)
+        if (next.has(id)) next.delete(id)
+        else next.add(id)
+        return next
+      })
+    }
   }
 
   function toggleAll() {
     if (allExpanded) {
-      setExpanded(new Set())
       setAllExpanded(false)
+      setExpanded(new Set())
+      setCollapsed(new Set())
     } else {
-      setExpanded(new Set(sorted.map((v) => v.id)))
       setAllExpanded(true)
+      setExpanded(new Set())
+      setCollapsed(new Set())
     }
   }
 
   function isExpanded(id: string) {
-    return allExpanded ? !expanded.has(id) : expanded.has(id)
+    if (allExpanded) return !collapsed.has(id)
+    return expanded.has(id)
   }
 
   const hasFilters = Object.values(filters).some((v) => v !== "")
