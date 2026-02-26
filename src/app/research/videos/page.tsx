@@ -252,13 +252,13 @@ const emptyFilters: Filters = {
 }
 
 function FilterSelect({
-  label, value, options, onChange,
-}: { label: string; value: string; options: { value: string; label: string }[] | string[]; onChange: (v: string) => void }) {
+  label, value, options, onChange, className,
+}: { label: string; value: string; options: { value: string; label: string }[] | string[]; onChange: (v: string) => void; className?: string }) {
   return (
     <select
       value={value}
       onChange={(e) => onChange(e.target.value)}
-      className="h-8 rounded-md border border-input bg-background px-2 text-xs text-foreground min-w-[100px]"
+      className={`h-8 rounded-md border border-input bg-background px-2 text-xs text-foreground min-w-[100px] ${className ?? ""}`}
     >
       <option value="">{label}</option>
       {options.map((o) => {
@@ -468,30 +468,28 @@ export default function VideosPage() {
             onChange={(e) => setFilter("search", e.target.value)}
             className="h-8 w-[200px] text-xs"
           />
-          <div className="inline-flex items-center gap-0.5">
+          <div className="inline-flex items-center">
             <button
               onClick={() => {
                 const idx = creatorOptions.findIndex((o) => o.value === filters.creator)
-                // If no creator selected or at first, wrap to last
                 const prev = idx <= 0 ? creatorOptions.length - 1 : idx - 1
                 setFilter("creator", creatorOptions[prev]?.value ?? "")
               }}
               disabled={creatorOptions.length === 0}
-              className="inline-flex items-center justify-center size-8 rounded-md border border-input bg-background text-muted-foreground hover:text-foreground hover:bg-accent transition-colors disabled:opacity-40"
+              className="inline-flex items-center justify-center size-8 rounded-l-md border border-r-0 border-input bg-background text-muted-foreground hover:text-foreground hover:bg-accent transition-colors disabled:opacity-40"
               aria-label="Previous creator"
             >
               <ChevronLeft className="size-3.5" />
             </button>
-            <FilterSelect label="Creator" value={filters.creator} options={creatorOptions} onChange={(v) => setFilter("creator", v)} />
+            <FilterSelect label="Creator" value={filters.creator} options={creatorOptions} onChange={(v) => setFilter("creator", v)} className="rounded-none border-x-0" />
             <button
               onClick={() => {
                 const idx = creatorOptions.findIndex((o) => o.value === filters.creator)
-                // If no creator selected or at last, wrap to first
                 const next = idx < 0 || idx >= creatorOptions.length - 1 ? 0 : idx + 1
                 setFilter("creator", creatorOptions[next]?.value ?? "")
               }}
               disabled={creatorOptions.length === 0}
-              className="inline-flex items-center justify-center size-8 rounded-md border border-input bg-background text-muted-foreground hover:text-foreground hover:bg-accent transition-colors disabled:opacity-40"
+              className="inline-flex items-center justify-center size-8 rounded-r-md border border-l-0 border-input bg-background text-muted-foreground hover:text-foreground hover:bg-accent transition-colors disabled:opacity-40"
               aria-label="Next creator"
             >
               <ChevronRight className="size-3.5" />
