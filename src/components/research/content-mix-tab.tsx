@@ -55,11 +55,13 @@ function useD3AxisBold<Domain extends import("d3-axis").AxisDomain>(
 
 function ViewsHistogramChart({
   title,
+  xLabel,
   data,
   color,
   trendColor,
 }: {
   title: string
+  xLabel?: string
   data: HistogramRow[]
   color: string
   trendColor: string
@@ -149,7 +151,12 @@ function ViewsHistogramChart({
   return (
     <div className="rounded-lg border p-5">
       <div className="flex items-center justify-between mb-4">
-        <h3 className="text-sm font-semibold">{title}</h3>
+        <div>
+          <h3 className="text-sm font-semibold">{title}</h3>
+          {xLabel && (
+            <p className="text-xs text-muted-foreground mt-0.5">{xLabel}</p>
+          )}
+        </div>
         <button
           onClick={() => setShowBars((prev) => !prev)}
           className="flex items-center gap-1 rounded-md border px-2 py-1 text-xs text-muted-foreground hover:text-foreground hover:bg-accent transition-colors"
@@ -276,25 +283,29 @@ export function ContentMixTab({ data }: { data: DashboardData }) {
       {/* Histograms */}
       <div className="grid gap-6 md:grid-cols-2">
         <ViewsHistogramChart
-          title="Short Videos — Views (thousands)"
+          title="Short Videos — Views"
+          xLabel="X axis is thousands"
           data={histograms.shortViews}
           color="#f472b6"
           trendColor="#a3e635"
         />
         <ViewsHistogramChart
-          title="Full-Length Videos — Views (thousands)"
+          title="Full-Length Videos — Views"
+          xLabel="X axis is thousands"
           data={histograms.fullViews}
           color="#38bdf8"
           trendColor="#c084fc"
         />
         <ViewsHistogramChart
-          title="Short Videos — Duration (seconds)"
+          title="Short Videos — Duration"
+          xLabel="X axis is seconds"
           data={histograms.shortDuration}
           color="#ec4899"
           trendColor="#facc15"
         />
         <ViewsHistogramChart
-          title="Full-Length Videos — Duration (minutes)"
+          title="Full-Length Videos — Duration"
+          xLabel="X axis is minutes"
           data={histograms.fullDuration}
           color="#0ea5e9"
           trendColor="#f97316"
