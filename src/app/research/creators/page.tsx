@@ -512,9 +512,10 @@ export default function CreatorsPage() {
                       <span>{formatComma(Number(c.subscribers) || null)} subscribers</span>
                       {c.videoCount ? <span>{formatNumber(c.videoCount)} videos</span> : null}
                     </div>
-                    <p className="text-xs text-muted-foreground">
-                      {c.uploadFrequency || ""}{c.uploadFrequency && c.country ? ` \u00b7 ` : ""}{c.country || ""}
-                    </p>
+                    <div className="flex items-center justify-between text-xs text-muted-foreground">
+                      <span>{c.uploadFrequency || ""}{c.uploadFrequency && c.country ? ` \u00b7 ` : ""}{c.country || ""}</span>
+                      {videoStats[c.channelId]?.avgEngagement != null ? <span className={`font-medium ${percentColor(videoStats[c.channelId]?.avgEngagement ?? null, ENGAGE_TIERS)}`}>{videoStats[c.channelId].avgEngagement!.toFixed(1)}%</span> : null}
+                    </div>
                   </div>
                 </div>
               </Link>
