@@ -107,10 +107,18 @@ const AVG_VIEWS_SERIES = [
   { key: "avgViewsFull" as const, label: "Full-Length", color: "#38bdf8" },
 ]
 
+type ScaleMode = "linear" | "log2" | "log10"
+const SCALE_OPTIONS: { value: ScaleMode; label: string }[] = [
+  { value: "linear", label: "Linear" },
+  { value: "log2", label: "Log₂" },
+  { value: "log10", label: "Log₁₀" },
+]
+
 function AvgViewsChart({ data }: { data: AvgViewsRow[] }) {
   const margin = { top: 10, right: 20, bottom: 100, left: 70 }
   const HEIGHT = 400
   const [ref, dims] = useChartDimensions(margin)
+  const [scaleMode, setScaleMode] = useState<ScaleMode>("linear")
   const [tooltip, setTooltip] = useState<{
     x: number
     y: number
@@ -141,14 +149,21 @@ function AvgViewsChart({ data }: { data: AvgViewsRow[] }) {
     [data],
   )
 
-  const yScale = useMemo(
-    () =>
-      scaleLinear()
+  const yScale = useMemo(() => {
+    if (scaleMode === "linear") {
+      return scaleLinear()
         .domain([0, maxVal])
         .nice()
-        .range([dims.innerHeight, 0]),
-    [maxVal, dims.innerHeight],
-  )
+        .range([dims.innerHeight, 0])
+    }
+    const base = scaleMode === "log2" ? 2 : 10
+    return scaleLog()
+      .base(base)
+      .domain([1, Math.max(maxVal, 2)])
+      .nice()
+      .range([dims.innerHeight, 0])
+      .clamp(true)
+  }, [scaleMode, maxVal, dims.innerHeight])
 
   const yAxis = useMemo(
     () =>
@@ -171,8 +186,26 @@ function AvgViewsChart({ data }: { data: AvgViewsRow[] }) {
     })
   }
 
+  // For log scales, clamp values below 1 to 1 so bars start from the bottom
+  const yPos = (val: number) => yScale(scaleMode === "linear" ? val : Math.max(val, 1))
+  const barBase = scaleMode === "linear" ? dims.innerHeight : yScale(1)
+
   return (
     <div ref={ref} className="relative w-full" style={{ height: HEIGHT }}>
+      {/* Scale mode dropdown */}
+      <div className="absolute top-0 right-0 z-10">
+        <select
+          value={scaleMode}
+          onChange={(e) => setScaleMode(e.target.value as ScaleMode)}
+          className="rounded border bg-background px-2 py-1 text-xs text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring"
+        >
+          {SCALE_OPTIONS.map((o) => (
+            <option key={o.value} value={o.value}>
+              {o.label}
+            </option>
+          ))}
+        </select>
+      </div>
       {dims.width > 0 && (
         <>
           <svg width={dims.width} height={HEIGHT}>
@@ -190,13 +223,15 @@ function AvgViewsChart({ data }: { data: AvgViewsRow[] }) {
                 >
                   {AVG_VIEWS_SERIES.map((s) => {
                     const val = d[s.key]
+                    const top = yPos(val)
+                    const h = Math.max(0, barBase - top)
                     return (
                       <rect
                         key={s.key}
                         x={xInner(s.key) ?? 0}
-                        y={yScale(val)}
+                        y={top}
                         width={xInner.bandwidth()}
-                        height={Math.max(0, dims.innerHeight - yScale(val))}
+                        height={h}
                         fill={s.color}
                         rx={2}
                         onMouseMove={(e) => handleMouse(e, d)}
