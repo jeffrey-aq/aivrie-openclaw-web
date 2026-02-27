@@ -482,17 +482,14 @@ export default function CreatorsPage() {
                 className={`group rounded-2xl p-2 -m-2 transition-colors ${getCreatorCardHover(c.channelId)}`}
               >
                 {/* Banner */}
-                <div className="aspect-[16/5] bg-muted rounded-xl overflow-hidden relative">
+                <div className="aspect-[16/5] bg-muted rounded-xl overflow-hidden">
                   {c.bannerUrl ? (
                     <img src={c.bannerUrl} alt="" className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-110" />
                   ) : (
                     <div className="w-full h-full bg-gradient-to-br from-red-500/20 via-red-500/10 to-transparent transition-transform duration-300 group-hover:scale-110" />
                   )}
-                  {c.isStarred && (
-                    <Star className="absolute top-1.5 right-1.5 size-4 fill-yellow-400 text-yellow-400 drop-shadow" />
-                  )}
                 </div>
-                {/* Info row — avatar + text */}
+                {/* Info row — avatar + star + text */}
                 <div className="flex gap-3 mt-3">
                   {c.avatarUrl ? (
                     <img src={c.avatarUrl} alt={c.title} className="size-9 rounded-full shrink-0 mt-0.5" />
@@ -501,7 +498,7 @@ export default function CreatorsPage() {
                       {c.title.charAt(0)}
                     </div>
                   )}
-                  <div className="min-w-0">
+                  <div className="min-w-0 flex-1">
                     <div className="mb-0.5"><CreatorBadge name={c.title} channelId={c.channelId} /></div>
                     <p className="text-xs text-muted-foreground mt-0.5">
                       {formatNumber(Number(c.subscribers) || null)} subscribers{c.videoCount ? ` \u00b7 ${formatNumber(c.videoCount)} videos` : ""}
@@ -510,6 +507,12 @@ export default function CreatorsPage() {
                       {c.uploadFrequency || ""}{c.uploadFrequency && c.country ? ` \u00b7 ` : ""}{c.country || ""}
                     </p>
                   </div>
+                  <button
+                    onClick={(e) => { e.preventDefault(); e.stopPropagation(); toggleStar(c.id, c.isStarred) }}
+                    className="shrink-0 mt-0.5 hover:scale-110 transition-transform"
+                  >
+                    <Star className={`size-4 ${c.isStarred ? "fill-yellow-400 text-yellow-400" : "text-muted-foreground/40 hover:text-yellow-400"}`} />
+                  </button>
                 </div>
               </Link>
             ))}

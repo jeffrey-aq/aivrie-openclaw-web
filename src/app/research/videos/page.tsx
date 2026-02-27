@@ -580,16 +580,13 @@ export default function VideosPage() {
                     ) : (
                       <div className="w-full h-full flex items-center justify-center text-muted-foreground text-xs">No thumbnail</div>
                     )}
-                    {v.isStarred && (
-                      <Star className="absolute top-1.5 right-1.5 size-4 fill-yellow-400 text-yellow-400 drop-shadow" />
-                    )}
                     {v.duration != null && (
                       <span className="absolute bottom-1.5 right-1.5 rounded-md bg-black/80 px-1.5 py-0.5 text-[11px] font-medium text-white tabular-nums">
                         {formatDuration(v.duration)}
                       </span>
                     )}
                   </div>
-                  {/* Info row — avatar + text */}
+                  {/* Info row — avatar + text + star */}
                   <div className="flex gap-3 mt-3">
                     {/* Channel avatar */}
                     {avatar ? (
@@ -599,7 +596,7 @@ export default function VideosPage() {
                         {creatorName.charAt(0)}
                       </div>
                     )}
-                    <div className="min-w-0">
+                    <div className="min-w-0 flex-1">
                       <h3 className="text-sm font-medium leading-snug line-clamp-2 group-hover:text-primary transition-colors">
                         {v.title}
                       </h3>
@@ -611,6 +608,12 @@ export default function VideosPage() {
                         <DurationTypeBadge value={v.durationType} />
                       </div>
                     </div>
+                    <button
+                      onClick={(e) => { e.preventDefault(); e.stopPropagation(); toggleStar(v.id, v.isStarred) }}
+                      className="shrink-0 mt-0.5 hover:scale-110 transition-transform"
+                    >
+                      <Star className={`size-4 ${v.isStarred ? "fill-yellow-400 text-yellow-400" : "text-muted-foreground/40 hover:text-yellow-400"}`} />
+                    </button>
                   </div>
                 </a>
               )
