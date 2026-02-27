@@ -289,20 +289,23 @@ export function SuccessDriversTab({ data }: { data: DashboardData }) {
               tick={((props: any) => (
                 <text
                   x={props.x}
-                  y={props.y}
+                  y={props.y + 4}
                   textAnchor="end"
                   fontSize={10}
                   fill="currentColor"
                   className="text-muted-foreground"
-                  transform={`rotate(-45, ${props.x}, ${props.y})`}
+                  transform={`rotate(-90, ${props.x}, ${props.y + 4})`}
                 >
                   {props.payload.value}
                 </text>
               )) as any}
               interval={0}
-              height={70}
+              height={100}
             />
             <YAxis
+              scale="log"
+              domain={["auto", "auto"]}
+              allowDataOverflow
               tick={{ fontSize: 11 }}
               tickFormatter={(v: number) => formatNumber(v)}
             />
