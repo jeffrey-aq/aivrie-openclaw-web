@@ -349,8 +349,8 @@ export default function YouTubeDashboard() {
 
                 <div className="grid gap-6 md:grid-cols-2">
                   <ViewsHistogramChart title="Short Videos — Duration" data={shortDurationHist} color="#ec4899" labelSuffix="" />
-                  <ViewsHistogramChart title="Short Videos — Views" data={shortViewsHist} color="#f472b6" labelSuffix=" views" />
                   <ViewsHistogramChart title="Full-Length Videos — Duration" data={fullDurationHist} color="#0ea5e9" labelSuffix="" />
+                  <ViewsHistogramChart title="Short Videos — Views" data={shortViewsHist} color="#f472b6" labelSuffix=" views" />
                   <ViewsHistogramChart title="Full-Length Videos — Views" data={fullViewsHist} color="#38bdf8" labelSuffix=" views" />
                 </div>
               </>
@@ -480,7 +480,7 @@ function ViewsHistogramChart({
           <CartesianGrid strokeDasharray="3 3" className="opacity-30" vertical={false} />
           <XAxis
             dataKey="bucket_label"
-            tick={{ fontSize: 9 }}
+            tick={{ fontSize: 11, fontWeight: 600 }}
             interval={0}
             height={30}
           />
