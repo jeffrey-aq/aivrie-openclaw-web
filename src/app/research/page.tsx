@@ -17,9 +17,6 @@ import {
   Tooltip,
   ResponsiveContainer,
   Legend,
-  PieChart,
-  Pie,
-  Cell,
 } from "recharts"
 
 // ─── Single query: fetch all rows, compute aggregates client-side ────────────
@@ -86,8 +83,6 @@ function formatDuration(totalMinutes: number): string {
   return `${minutes}m`
 }
 
-const PIE_COLORS = { Short: "#ec4899", Full: "#0ea5e9" }
-
 const TABS = [
   { key: "overview", label: "Overview" },
   { key: "content", label: "Content" },
@@ -113,8 +108,10 @@ export default function YouTubeDashboard() {
     total_duration: number; short_count: number; full_count: number
     with_transcript: number; total_videos: number
   } | null>(null)
-  const [durationHistogram, setDurationHistogram] = useState<{ minute_bucket: number; video_count: number }[]>([])
-  const [viewsHistogram, setViewsHistogram] = useState<{ bucket_label: string; video_count: number }[]>([])
+  const [shortDurationHist, setShortDurationHist] = useState<{ bucket_label: string; video_count: number }[]>([])
+  const [fullDurationHist, setFullDurationHist] = useState<{ bucket_label: string; video_count: number }[]>([])
+  const [shortViewsHist, setShortViewsHist] = useState<{ bucket_label: string; video_count: number }[]>([])
+  const [fullViewsHist, setFullViewsHist] = useState<{ bucket_label: string; video_count: number }[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(false)
 
@@ -147,29 +144,34 @@ export default function YouTubeDashboard() {
 
     supabase
       .schema("research")
-      .rpc("get_video_duration_histogram")
+      .rpc("get_short_duration_histogram")
       .then(({ data, error }) => {
-        if (error) { console.error("Error loading duration histogram:", error); return }
-        if (data) {
-          // Fill in missing buckets with 0
-          const map = new Map<number, number>()
-          for (const row of data as { minute_bucket: number; video_count: number }[]) {
-            map.set(row.minute_bucket, Number(row.video_count))
-          }
-          const full: { minute_bucket: number; video_count: number }[] = []
-          for (let i = 1; i <= 21; i++) {
-            full.push({ minute_bucket: i, video_count: map.get(i) || 0 })
-          }
-          setDurationHistogram(full)
-        }
+        if (error) { console.error("Error loading short duration histogram:", error); return }
+        if (data) setShortDurationHist((data as { bucket_label: string; video_count: number }[]).map((r) => ({ bucket_label: r.bucket_label, video_count: Number(r.video_count) })))
       })
 
     supabase
       .schema("research")
-      .rpc("get_video_views_histogram")
+      .rpc("get_full_duration_histogram")
       .then(({ data, error }) => {
-        if (error) { console.error("Error loading views histogram:", error); return }
-        if (data) setViewsHistogram((data as { bucket_label: string; video_count: number }[]).map((r) => ({ bucket_label: r.bucket_label, video_count: Number(r.video_count) })))
+        if (error) { console.error("Error loading full duration histogram:", error); return }
+        if (data) setFullDurationHist((data as { bucket_label: string; video_count: number }[]).map((r) => ({ bucket_label: r.bucket_label, video_count: Number(r.video_count) })))
+      })
+
+    supabase
+      .schema("research")
+      .rpc("get_video_views_histogram_by_type", { p_type: "Short" })
+      .then(({ data, error }) => {
+        if (error) { console.error("Error loading short views histogram:", error); return }
+        if (data) setShortViewsHist((data as { bucket_label: string; video_count: number }[]).map((r) => ({ bucket_label: r.bucket_label, video_count: Number(r.video_count) })))
+      })
+
+    supabase
+      .schema("research")
+      .rpc("get_video_views_histogram_by_type", { p_type: "Full" })
+      .then(({ data, error }) => {
+        if (error) { console.error("Error loading full views histogram:", error); return }
+        if (data) setFullViewsHist((data as { bucket_label: string; video_count: number }[]).map((r) => ({ bucket_label: r.bucket_label, video_count: Number(r.video_count) })))
       })
   }, [graphqlClient])
 
@@ -184,11 +186,6 @@ export default function YouTubeDashboard() {
   const videoCount = dbStats?.total_videos ?? totalVideos
   const transcriptPct = videoCount > 0 ? Math.round((withTranscript / videoCount) * 100) : 0
   const shortPct = videoCount > 0 ? Math.round((shortVideos / videoCount) * 100) : 0
-
-  const shortFullPie = [
-    { name: "Short", value: shortVideos },
-    { name: "Full", value: fullVideos },
-  ]
 
   const summaryCards = [
     { label: "Creators", value: totalCreators.toLocaleString(), sub: `${starredCreators} starred`, icon: Youtube, color: "text-red-500", bg: "bg-red-50 dark:bg-red-950", href: "/research/creators" },
@@ -351,65 +348,10 @@ export default function YouTubeDashboard() {
                 </div>
 
                 <div className="grid gap-6 md:grid-cols-2">
-                  <div className="rounded-lg border p-5">
-                    <h3 className="text-sm font-semibold mb-4">Shorts vs Full-Length Videos</h3>
-                    <ResponsiveContainer width="100%" height={250}>
-                      <PieChart>
-                        <Pie data={shortFullPie} cx="50%" cy="50%" innerRadius={55} outerRadius={90} paddingAngle={3} dataKey="value" label={({ name, value }) => `${name}: ${value}`}>
-                          {shortFullPie.map((entry) => (
-                            <Cell key={entry.name} fill={PIE_COLORS[entry.name as keyof typeof PIE_COLORS] || "#999"} />
-                          ))}
-                        </Pie>
-                        <ChartTooltip />
-                      </PieChart>
-                    </ResponsiveContainer>
-                  </div>
-
-                  <div className="rounded-lg border p-5">
-                    <h3 className="text-sm font-semibold mb-4">Video Duration Distribution</h3>
-                    <ResponsiveContainer width="100%" height={250}>
-                      <BarChart data={durationHistogram} margin={{ top: 5, right: 20, bottom: 5, left: 0 }}>
-                        <CartesianGrid strokeDasharray="3 3" className="opacity-30" vertical={false} />
-                        <XAxis
-                          dataKey="minute_bucket"
-                          tick={{ fontSize: 11 }}
-                          tickFormatter={(v) => v === 21 ? "20+" : `${v}`}
-                          label={{ value: "Minutes", position: "insideBottom", offset: -2, fontSize: 11 }}
-                        />
-                        <YAxis tick={{ fontSize: 11 }} allowDecimals={false} />
-                        <Tooltip
-                          contentStyle={{ backgroundColor: "var(--color-popover)", border: "1px solid var(--color-border)", borderRadius: "0.375rem", fontSize: "0.75rem" }}
-                          formatter={(v: unknown) => [Number(v).toLocaleString(), "Videos"]}
-                          labelFormatter={(v) => v === 21 ? "20+ min" : `${v} min`}
-                        />
-                        <Bar dataKey="video_count" fill="#8b5cf6" radius={[2, 2, 0, 0]} />
-                      </BarChart>
-                    </ResponsiveContainer>
-                  </div>
-                </div>
-
-                <div className="rounded-lg border p-5 mt-6">
-                  <h3 className="text-sm font-semibold mb-4">Videos by View Count</h3>
-                  <ResponsiveContainer width="100%" height={300}>
-                    <BarChart data={viewsHistogram} margin={{ top: 5, right: 20, bottom: 25, left: 0 }}>
-                      <CartesianGrid strokeDasharray="3 3" className="opacity-30" vertical={false} />
-                      <XAxis
-                        dataKey="bucket_label"
-                        tick={{ fontSize: 10 }}
-                        angle={-45}
-                        textAnchor="end"
-                        interval={0}
-                        height={60}
-                      />
-                      <YAxis tick={{ fontSize: 11 }} allowDecimals={false} />
-                      <Tooltip
-                        contentStyle={{ backgroundColor: "var(--color-popover)", border: "1px solid var(--color-border)", borderRadius: "0.375rem", fontSize: "0.75rem" }}
-                        formatter={(v: unknown) => [Number(v).toLocaleString(), "Videos"]}
-                        labelFormatter={(v) => `${v} views`}
-                      />
-                      <Bar dataKey="video_count" fill="#10b981" radius={[2, 2, 0, 0]} />
-                    </BarChart>
-                  </ResponsiveContainer>
+                  <ViewsHistogramChart title="Short Videos — Duration" data={shortDurationHist} color="#ec4899" labelSuffix="" />
+                  <ViewsHistogramChart title="Short Videos — Views" data={shortViewsHist} color="#f472b6" labelSuffix=" views" />
+                  <ViewsHistogramChart title="Full-Length Videos — Duration" data={fullDurationHist} color="#0ea5e9" labelSuffix="" />
+                  <ViewsHistogramChart title="Full-Length Videos — Views" data={fullViewsHist} color="#38bdf8" labelSuffix=" views" />
                 </div>
               </>
             )}
@@ -519,6 +461,41 @@ function ChartTooltip() {
     <Tooltip
       contentStyle={{ backgroundColor: "var(--color-popover)", border: "1px solid var(--color-border)", borderRadius: "0.375rem", fontSize: "0.75rem" }}
     />
+  )
+}
+
+function ViewsHistogramChart({
+  title, data, color, labelSuffix,
+}: {
+  title: string
+  data: { bucket_label: string; video_count: number }[]
+  color: string
+  labelSuffix: string
+}) {
+  return (
+    <div className="rounded-lg border p-5">
+      <h3 className="text-sm font-semibold mb-4">{title}</h3>
+      <ResponsiveContainer width="100%" height={280}>
+        <BarChart data={data} margin={{ top: 5, right: 20, bottom: 25, left: 0 }}>
+          <CartesianGrid strokeDasharray="3 3" className="opacity-30" vertical={false} />
+          <XAxis
+            dataKey="bucket_label"
+            tick={{ fontSize: 10 }}
+            angle={-45}
+            textAnchor="end"
+            interval={0}
+            height={60}
+          />
+          <YAxis tick={{ fontSize: 11 }} allowDecimals={false} />
+          <Tooltip
+            contentStyle={{ backgroundColor: "var(--color-popover)", border: "1px solid var(--color-border)", borderRadius: "0.375rem", fontSize: "0.75rem" }}
+            formatter={(v: unknown) => [Number(v).toLocaleString(), "Videos"]}
+            labelFormatter={(v) => `${v}${labelSuffix}`}
+          />
+          <Bar dataKey="video_count" fill={color} radius={[2, 2, 0, 0]} />
+        </BarChart>
+      </ResponsiveContainer>
+    </div>
   )
 }
 
