@@ -96,6 +96,7 @@ interface TooltipPayloadEntry<T> {
 
 interface AvgViewsRow {
   name: string
+  avatarUrl: string | null
   avgViewsShort: number
   avgViewsFull: number
   engagementPct: number | null
@@ -225,9 +226,9 @@ function AvgViewsChart({ data }: { data: AvgViewsRow[] }) {
   const barBase = scaleMode === "linear" ? dims.innerHeight : yScale(1)
 
   return (
-    <div ref={ref} className="relative w-full" style={{ height: HEIGHT }}>
-      {/* Scale mode dropdown */}
-      <div className="absolute top-0 right-0 z-10">
+    <div>
+      {/* Scale mode dropdown — above chart */}
+      <div className="flex justify-end mb-2">
         <select
           value={scaleMode}
           onChange={(e) => setScaleMode(e.target.value as ScaleMode)}
@@ -240,112 +241,123 @@ function AvgViewsChart({ data }: { data: AvgViewsRow[] }) {
           ))}
         </select>
       </div>
-      {dims.width > 0 && (
-        <>
-          <svg width={dims.width} height={HEIGHT}>
-            <g transform={`translate(${margin.left},${margin.top})`}>
-              <ChartGrid
-                innerWidth={dims.innerWidth}
-                innerHeight={dims.innerHeight}
-                yTicks={yScale.ticks().map((t) => yScale(t))}
-                vertical={false}
-              />
-              {/* Bars */}
-              {data.map((d) => (
-                <g
-                  key={d.name}
-                  transform={`translate(${xScale(d.name) ?? 0},0)`}
-                >
-                  {AVG_VIEWS_SERIES.map((s) => {
-                    const val = d[s.key]
-                    const top = yPos(val)
-                    const h = Math.max(0, barBase - top)
-                    return (
-                      <rect
-                        key={s.key}
-                        x={xInner(s.key) ?? 0}
-                        y={top}
-                        width={xInner.bandwidth()}
-                        height={h}
-                        fill={s.color}
-                        rx={2}
-                        onMouseMove={(e) => handleMouse(e, d)}
-                        onMouseLeave={() => setTooltip(null)}
-                      />
-                    )
-                  })}
-                </g>
-              ))}
-              {/* Engagement % line overlay */}
-              <path
-                d={engagementLine}
-                fill="none"
-                stroke={ENGAGEMENT_COLOR}
-                strokeWidth={2}
-                strokeLinejoin="round"
-              />
-              {/* Engagement dots */}
-              {data.map((d) =>
-                d.engagementPct != null ? (
-                  <circle
-                    key={`eng-${d.name}`}
-                    cx={(xScale(d.name) ?? 0) + xScale.bandwidth() / 2}
-                    cy={yRightScale(d.engagementPct)}
-                    r={3.5}
-                    fill={ENGAGEMENT_COLOR}
-                    stroke="var(--color-background)"
-                    strokeWidth={1.5}
-                    onMouseMove={(e) => handleMouse(e, d)}
-                    onMouseLeave={() => setTooltip(null)}
-                  />
-                ) : null,
-              )}
-              {/* Custom rotated X axis tick labels */}
-              {data.map((d) => (
-                <text
-                  key={d.name}
-                  x={xScale(d.name)! + xScale.bandwidth() / 2}
-                  y={dims.innerHeight + 4}
-                  textAnchor="end"
-                  fontSize={10}
-                  fill="var(--color-muted-foreground)"
-                  transform={`rotate(-90, ${xScale(d.name)! + xScale.bandwidth() / 2}, ${dims.innerHeight + 4})`}
-                >
-                  {d.name}
-                </text>
-              ))}
-              <g ref={yAxisRef} />
-              <g ref={yRightAxisRef} transform={`translate(${dims.innerWidth},0)`} />
-            </g>
-          </svg>
-          <ChartTooltip
-            x={tooltip?.x ?? 0}
-            y={tooltip?.y ?? 0}
-            visible={tooltip !== null}
-            containerWidth={dims.width}
-            containerHeight={HEIGHT}
-          >
-            {tooltip && (
-              <>
-                <p className="font-medium text-xs mb-1">
-                  {tooltip.row.name}
-                </p>
-                <p className="text-xs">
-                  Avg Short: {formatNumber(tooltip.row.avgViewsShort)}
-                </p>
-                <p className="text-xs">
-                  Avg Full: {formatNumber(tooltip.row.avgViewsFull)}
-                </p>
-                {tooltip.row.engagementPct != null && (
-                  <p className="text-xs" style={{ color: ENGAGEMENT_COLOR }}>
-                    Engagement: {tooltip.row.engagementPct.toFixed(2)}%
-                  </p>
+      <div ref={ref} className="relative w-full" style={{ height: HEIGHT }}>
+        {dims.width > 0 && (
+          <>
+            <svg width={dims.width} height={HEIGHT}>
+              <g transform={`translate(${margin.left},${margin.top})`}>
+                <ChartGrid
+                  innerWidth={dims.innerWidth}
+                  innerHeight={dims.innerHeight}
+                  yTicks={yScale.ticks().map((t) => yScale(t))}
+                  vertical={false}
+                />
+                {/* Bars */}
+                {data.map((d) => (
+                  <g
+                    key={d.name}
+                    transform={`translate(${xScale(d.name) ?? 0},0)`}
+                  >
+                    {AVG_VIEWS_SERIES.map((s) => {
+                      const val = d[s.key]
+                      const top = yPos(val)
+                      const h = Math.max(0, barBase - top)
+                      return (
+                        <rect
+                          key={s.key}
+                          x={xInner(s.key) ?? 0}
+                          y={top}
+                          width={xInner.bandwidth()}
+                          height={h}
+                          fill={s.color}
+                          rx={2}
+                          onMouseMove={(e) => handleMouse(e, d)}
+                          onMouseLeave={() => setTooltip(null)}
+                        />
+                      )
+                    })}
+                  </g>
+                ))}
+                {/* Engagement % line overlay */}
+                <path
+                  d={engagementLine}
+                  fill="none"
+                  stroke={ENGAGEMENT_COLOR}
+                  strokeWidth={2}
+                  strokeLinejoin="round"
+                />
+                {/* Engagement dots */}
+                {data.map((d) =>
+                  d.engagementPct != null ? (
+                    <circle
+                      key={`eng-${d.name}`}
+                      cx={(xScale(d.name) ?? 0) + xScale.bandwidth() / 2}
+                      cy={yRightScale(d.engagementPct)}
+                      r={3.5}
+                      fill={ENGAGEMENT_COLOR}
+                      stroke="var(--color-background)"
+                      strokeWidth={1.5}
+                      onMouseMove={(e) => handleMouse(e, d)}
+                      onMouseLeave={() => setTooltip(null)}
+                    />
+                  ) : null,
                 )}
-              </>
-            )}
-          </ChartTooltip>
-        </>
-      )}
+                {/* Custom rotated X axis tick labels */}
+                {data.map((d) => (
+                  <text
+                    key={d.name}
+                    x={xScale(d.name)! + xScale.bandwidth() / 2}
+                    y={dims.innerHeight + 4}
+                    textAnchor="end"
+                    fontSize={10}
+                    fill="var(--color-muted-foreground)"
+                    transform={`rotate(-90, ${xScale(d.name)! + xScale.bandwidth() / 2}, ${dims.innerHeight + 4})`}
+                  >
+                    {d.name}
+                  </text>
+                ))}
+                <g ref={yAxisRef} />
+                <g ref={yRightAxisRef} transform={`translate(${dims.innerWidth},0)`} />
+              </g>
+            </svg>
+            <ChartTooltip
+              x={tooltip?.x ?? 0}
+              y={tooltip?.y ?? 0}
+              visible={tooltip !== null}
+              containerWidth={dims.width}
+              containerHeight={HEIGHT}
+            >
+              {tooltip && (
+                <div className="flex gap-2.5">
+                  {tooltip.row.avatarUrl && (
+                    <img
+                      src={tooltip.row.avatarUrl}
+                      alt={tooltip.row.name}
+                      className="size-10 rounded-full shrink-0"
+                    />
+                  )}
+                  <div>
+                    <p className="font-medium text-xs mb-1">
+                      {tooltip.row.name}
+                    </p>
+                    <p className="text-xs">
+                      Avg Short: {formatNumber(tooltip.row.avgViewsShort)}
+                    </p>
+                    <p className="text-xs">
+                      Avg Full: {formatNumber(tooltip.row.avgViewsFull)}
+                    </p>
+                    {tooltip.row.engagementPct != null && (
+                      <p className="text-xs" style={{ color: ENGAGEMENT_COLOR }}>
+                        Engagement: {tooltip.row.engagementPct.toFixed(2)}%
+                      </p>
+                    )}
+                  </div>
+                </div>
+              )}
+            </ChartTooltip>
+          </>
+        )}
+      </div>
     </div>
   )
 }
@@ -1018,6 +1030,7 @@ export function SuccessDriversTab({ data }: { data: DashboardData }) {
         const avgFull = stats?.avgViewsFull ?? 0
         return {
           name: c.title,
+          avatarUrl: c.avatarUrl ?? null,
           avgViewsShort: avgShort,
           avgViewsFull: avgFull,
           engagementPct: stats?.avgEngagement ?? null,
@@ -1169,9 +1182,11 @@ export function SuccessDriversTab({ data }: { data: DashboardData }) {
     <div className="space-y-6">
       {/* ── 1.0: Short vs Full Avg Views (full width) ── */}
       <div className="rounded-lg border p-5">
-        <h3 className="text-sm font-semibold mb-4">
-          Short vs Full-Length — Avg Views per Creator
-        </h3>
+        <div className="flex items-center justify-between mb-4">
+          <h3 className="text-sm font-semibold">
+            Short vs Full-Length — Avg Views per Creator
+          </h3>
+        </div>
         <AvgViewsChart data={avgViewsData} />
         <ChartLegend
           entries={[
