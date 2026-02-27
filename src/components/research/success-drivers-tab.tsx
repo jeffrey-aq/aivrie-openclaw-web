@@ -326,170 +326,6 @@ export function SuccessDriversTab({ data }: { data: DashboardData }) {
         </ResponsiveContainer>
       </div>
 
-      {/* ── Row 1: Two-column grid ── */}
-      <div className="grid gap-6 lg:grid-cols-2">
-        {/* 1.1 Subscribers vs Engagement */}
-        <div className="rounded-lg border p-5">
-          <h3 className="text-sm font-semibold mb-4">
-            Subscribers vs Engagement Rate
-          </h3>
-          <ResponsiveContainer width="100%" height={400}>
-            <ScatterChart margin={{ top: 10, right: 20, bottom: 20, left: 10 }}>
-              <CartesianGrid strokeDasharray="3 3" className="opacity-30" />
-              <XAxis
-                type="number"
-                dataKey="subscribers"
-                name="Subscribers"
-                scale="log"
-                domain={["auto", "auto"]}
-                tick={{ fontSize: 11 }}
-                tickFormatter={(v: number) => formatNumber(v)}
-                label={{
-                  value: "Subscribers",
-                  position: "insideBottom",
-                  offset: -10,
-                  style: { fontSize: 11, fill: "var(--color-muted-foreground)" },
-                }}
-              />
-              <YAxis
-                type="number"
-                dataKey="avgEngagement"
-                name="Avg Engagement %"
-                tick={{ fontSize: 11 }}
-                tickFormatter={(v: number) => `${v.toFixed(1)}%`}
-                label={{
-                  value: "Avg Engagement %",
-                  angle: -90,
-                  position: "insideLeft",
-                  offset: 5,
-                  style: { fontSize: 11, fill: "var(--color-muted-foreground)" },
-                }}
-              />
-              <ZAxis
-                type="number"
-                dataKey="totalViews"
-                range={[40, 400]}
-                name="Total Views"
-              />
-              <Tooltip
-                contentStyle={TOOLTIP_STYLE}
-                content={({ active, payload }) => {
-                  if (!active || !payload || payload.length === 0) return null
-                  const row = (payload[0] as TooltipPayloadEntry<EngagementScatterRow>).payload
-                  return (
-                    <div style={TOOLTIP_STYLE} className="p-2 shadow-lg">
-                      <p className="font-medium text-xs mb-1">{row.name}</p>
-                      <p className="text-xs">Subscribers: {formatNumber(row.subscribers)}</p>
-                      <p className="text-xs">Engagement: {row.avgEngagement.toFixed(2)}%</p>
-                      <p className="text-xs">Total Views: {formatNumber(row.totalViews)}</p>
-                      <p className="text-xs">Niche: {row.niche}</p>
-                    </div>
-                  )
-                }}
-              />
-              {/* Legend rendered manually below chart */}
-              <Scatter data={engagementData} shape="circle">
-                {engagementData.map((entry, i) => (
-                  <Cell key={`cell-${i}`} fill={entry.color} fillOpacity={0.7} />
-                ))}
-                <LabelList
-                  dataKey="name"
-                  position="top"
-                  style={{ fontSize: 9, fill: "var(--color-muted-foreground)" }}
-                />
-              </Scatter>
-            </ScatterChart>
-          </ResponsiveContainer>
-          <div className="flex flex-wrap gap-3 mt-2 px-2">
-            {uniqueNiches.map((niche) => (
-              <div key={niche} className="flex items-center gap-1.5 text-xs text-muted-foreground">
-                <div className="size-2.5 rounded-full" style={{ backgroundColor: NICHE_COLORS[niche] ?? "#8884d8" }} />
-                {niche}
-              </div>
-            ))}
-          </div>
-        </div>
-
-        {/* 1.2 Views-to-Sub Ratio vs Avg Views */}
-        <div className="rounded-lg border p-5">
-          <h3 className="text-sm font-semibold mb-4">
-            Views-to-Sub Ratio vs Avg Views per Video
-          </h3>
-          <ResponsiveContainer width="100%" height={400}>
-            <ScatterChart margin={{ top: 10, right: 20, bottom: 20, left: 10 }}>
-              <CartesianGrid strokeDasharray="3 3" className="opacity-30" />
-              <XAxis
-                type="number"
-                dataKey="avgViewsPerVideo"
-                name="Avg Views/Video"
-                scale="log"
-                domain={["auto", "auto"]}
-                tick={{ fontSize: 11 }}
-                tickFormatter={(v: number) => formatNumber(v)}
-                label={{
-                  value: "Avg Views per Video",
-                  position: "insideBottom",
-                  offset: -10,
-                  style: { fontSize: 11, fill: "var(--color-muted-foreground)" },
-                }}
-              />
-              <YAxis
-                type="number"
-                dataKey="viewsToSubRatio"
-                name="Views:Sub Ratio"
-                tick={{ fontSize: 11 }}
-                tickFormatter={(v: number) => `${v.toFixed(0)}%`}
-                label={{
-                  value: "Views:Sub Ratio %",
-                  angle: -90,
-                  position: "insideLeft",
-                  offset: 5,
-                  style: { fontSize: 11, fill: "var(--color-muted-foreground)" },
-                }}
-              />
-              <Tooltip
-                contentStyle={TOOLTIP_STYLE}
-                content={({ active, payload }) => {
-                  if (!active || !payload || payload.length === 0) return null
-                  const row = (payload[0] as TooltipPayloadEntry<ViewsSubRatioRow>).payload
-                  return (
-                    <div style={TOOLTIP_STYLE} className="p-2 shadow-lg">
-                      <p className="font-medium text-xs mb-1">{row.name}</p>
-                      <p className="text-xs">
-                        Avg Views/Video: {formatNumber(row.avgViewsPerVideo)}
-                      </p>
-                      <p className="text-xs">
-                        Views:Sub Ratio: {row.viewsToSubRatio.toFixed(1)}%
-                      </p>
-                      <p className="text-xs">Status: {row.status}</p>
-                    </div>
-                  )
-                }}
-              />
-              {/* Legend rendered manually below */}
-              <Scatter data={viewsSubRatioData} shape="circle">
-                {viewsSubRatioData.map((entry, i) => (
-                  <Cell key={`cell-${i}`} fill={entry.color} fillOpacity={0.7} />
-                ))}
-                <LabelList
-                  dataKey="name"
-                  position="top"
-                  style={{ fontSize: 9, fill: "var(--color-muted-foreground)" }}
-                />
-              </Scatter>
-            </ScatterChart>
-          </ResponsiveContainer>
-          <div className="flex flex-wrap gap-3 mt-2 px-2">
-            {uniqueStatuses.map((status) => (
-              <div key={status} className="flex items-center gap-1.5 text-xs text-muted-foreground">
-                <div className="size-2.5 rounded-full" style={{ backgroundColor: STATUS_COLORS[status] ?? STATUS_COLORS.Monitoring }} />
-                {status}
-              </div>
-            ))}
-          </div>
-        </div>
-      </div>
-
       {/* ── 1.3 Subscribers vs Total Views (full width) ── */}
       <div className="rounded-lg border p-5">
         <h3 className="text-sm font-semibold mb-4">
@@ -684,6 +520,168 @@ export function SuccessDriversTab({ data }: { data: DashboardData }) {
             />
           </BarChart>
         </ResponsiveContainer>
+      </div>
+
+      {/* ── Row: 1.1 + 1.2 scatter plots ── */}
+      <div className="grid gap-6 lg:grid-cols-2">
+        {/* 1.1 Subscribers vs Engagement */}
+        <div className="rounded-lg border p-5">
+          <h3 className="text-sm font-semibold mb-4">
+            Subscribers vs Engagement Rate
+          </h3>
+          <ResponsiveContainer width="100%" height={400}>
+            <ScatterChart margin={{ top: 10, right: 20, bottom: 20, left: 10 }}>
+              <CartesianGrid strokeDasharray="3 3" className="opacity-30" />
+              <XAxis
+                type="number"
+                dataKey="subscribers"
+                name="Subscribers"
+                scale="log"
+                domain={["auto", "auto"]}
+                tick={{ fontSize: 11 }}
+                tickFormatter={(v: number) => formatNumber(v)}
+                label={{
+                  value: "Subscribers",
+                  position: "insideBottom",
+                  offset: -10,
+                  style: { fontSize: 11, fill: "var(--color-muted-foreground)" },
+                }}
+              />
+              <YAxis
+                type="number"
+                dataKey="avgEngagement"
+                name="Avg Engagement %"
+                tick={{ fontSize: 11 }}
+                tickFormatter={(v: number) => `${v.toFixed(1)}%`}
+                label={{
+                  value: "Avg Engagement %",
+                  angle: -90,
+                  position: "insideLeft",
+                  offset: 5,
+                  style: { fontSize: 11, fill: "var(--color-muted-foreground)" },
+                }}
+              />
+              <ZAxis
+                type="number"
+                dataKey="totalViews"
+                range={[40, 400]}
+                name="Total Views"
+              />
+              <Tooltip
+                contentStyle={TOOLTIP_STYLE}
+                content={({ active, payload }) => {
+                  if (!active || !payload || payload.length === 0) return null
+                  const row = (payload[0] as TooltipPayloadEntry<EngagementScatterRow>).payload
+                  return (
+                    <div style={TOOLTIP_STYLE} className="p-2 shadow-lg">
+                      <p className="font-medium text-xs mb-1">{row.name}</p>
+                      <p className="text-xs">Subscribers: {formatNumber(row.subscribers)}</p>
+                      <p className="text-xs">Engagement: {row.avgEngagement.toFixed(2)}%</p>
+                      <p className="text-xs">Total Views: {formatNumber(row.totalViews)}</p>
+                      <p className="text-xs">Niche: {row.niche}</p>
+                    </div>
+                  )
+                }}
+              />
+              <Scatter data={engagementData} shape="circle">
+                {engagementData.map((entry, i) => (
+                  <Cell key={`cell-${i}`} fill={entry.color} fillOpacity={0.7} />
+                ))}
+                <LabelList
+                  dataKey="name"
+                  position="top"
+                  style={{ fontSize: 9, fill: "var(--color-muted-foreground)" }}
+                />
+              </Scatter>
+            </ScatterChart>
+          </ResponsiveContainer>
+          <div className="flex flex-wrap gap-3 mt-2 px-2">
+            {uniqueNiches.map((niche) => (
+              <div key={niche} className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                <div className="size-2.5 rounded-full" style={{ backgroundColor: NICHE_COLORS[niche] ?? "#8884d8" }} />
+                {niche}
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* 1.2 Views-to-Sub Ratio vs Avg Views */}
+        <div className="rounded-lg border p-5">
+          <h3 className="text-sm font-semibold mb-4">
+            Views-to-Sub Ratio vs Avg Views per Video
+          </h3>
+          <ResponsiveContainer width="100%" height={400}>
+            <ScatterChart margin={{ top: 10, right: 20, bottom: 20, left: 10 }}>
+              <CartesianGrid strokeDasharray="3 3" className="opacity-30" />
+              <XAxis
+                type="number"
+                dataKey="avgViewsPerVideo"
+                name="Avg Views/Video"
+                scale="log"
+                domain={["auto", "auto"]}
+                tick={{ fontSize: 11 }}
+                tickFormatter={(v: number) => formatNumber(v)}
+                label={{
+                  value: "Avg Views per Video",
+                  position: "insideBottom",
+                  offset: -10,
+                  style: { fontSize: 11, fill: "var(--color-muted-foreground)" },
+                }}
+              />
+              <YAxis
+                type="number"
+                dataKey="viewsToSubRatio"
+                name="Views:Sub Ratio"
+                tick={{ fontSize: 11 }}
+                tickFormatter={(v: number) => `${v.toFixed(0)}%`}
+                label={{
+                  value: "Views:Sub Ratio %",
+                  angle: -90,
+                  position: "insideLeft",
+                  offset: 5,
+                  style: { fontSize: 11, fill: "var(--color-muted-foreground)" },
+                }}
+              />
+              <Tooltip
+                contentStyle={TOOLTIP_STYLE}
+                content={({ active, payload }) => {
+                  if (!active || !payload || payload.length === 0) return null
+                  const row = (payload[0] as TooltipPayloadEntry<ViewsSubRatioRow>).payload
+                  return (
+                    <div style={TOOLTIP_STYLE} className="p-2 shadow-lg">
+                      <p className="font-medium text-xs mb-1">{row.name}</p>
+                      <p className="text-xs">
+                        Avg Views/Video: {formatNumber(row.avgViewsPerVideo)}
+                      </p>
+                      <p className="text-xs">
+                        Views:Sub Ratio: {row.viewsToSubRatio.toFixed(1)}%
+                      </p>
+                      <p className="text-xs">Status: {row.status}</p>
+                    </div>
+                  )
+                }}
+              />
+              <Scatter data={viewsSubRatioData} shape="circle">
+                {viewsSubRatioData.map((entry, i) => (
+                  <Cell key={`cell-${i}`} fill={entry.color} fillOpacity={0.7} />
+                ))}
+                <LabelList
+                  dataKey="name"
+                  position="top"
+                  style={{ fontSize: 9, fill: "var(--color-muted-foreground)" }}
+                />
+              </Scatter>
+            </ScatterChart>
+          </ResponsiveContainer>
+          <div className="flex flex-wrap gap-3 mt-2 px-2">
+            {uniqueStatuses.map((status) => (
+              <div key={status} className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                <div className="size-2.5 rounded-full" style={{ backgroundColor: STATUS_COLORS[status] ?? STATUS_COLORS.Monitoring }} />
+                {status}
+              </div>
+            ))}
+          </div>
+        </div>
       </div>
     </div>
   )
