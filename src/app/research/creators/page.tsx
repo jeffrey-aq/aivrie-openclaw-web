@@ -514,7 +514,7 @@ export default function CreatorsPage() {
                     </div>
                     <div className="flex items-center justify-between text-xs text-muted-foreground">
                       <span>{c.uploadFrequency || ""}{c.uploadFrequency && c.country ? ` \u00b7 ` : ""}{c.country || ""}</span>
-                      {videoStats[c.channelId]?.avgEngagement != null ? <span className={`font-medium ${percentColor(videoStats[c.channelId]?.avgEngagement ?? null, ENGAGE_TIERS)}`}>{videoStats[c.channelId].avgEngagement!.toFixed(1)}%</span> : null}
+                      <EngagePill value={videoStats[c.channelId]?.avgEngagement ?? null} />
                     </div>
                   </div>
                 </div>
@@ -644,6 +644,18 @@ function FreqPill({ value }: { value: string | null }) {
   if (!value) return <span className="text-muted-foreground">{"\u2014"}</span>
   const color = FREQ_COLORS[value] ?? "bg-muted text-muted-foreground"
   return <span className={`inline-block rounded-full px-2 py-0.5 text-xs font-medium ${color}`}>{value}</span>
+}
+
+const ENGAGE_PILL_COLORS: [number, string][] = [
+  [3.5, "bg-emerald-100 text-emerald-700 dark:bg-emerald-900 dark:text-emerald-300"],
+  [2.5, "bg-amber-100 text-amber-700 dark:bg-amber-900 dark:text-amber-300"],
+  [0, "bg-red-100 text-red-700 dark:bg-red-900 dark:text-red-300"],
+]
+
+function EngagePill({ value }: { value: number | null }) {
+  if (value == null) return null
+  const color = ENGAGE_PILL_COLORS.find(([min]) => value >= min)?.[1] ?? ENGAGE_PILL_COLORS[2][1]
+  return <span className={`inline-block rounded-full px-2 py-0.5 text-xs font-medium ${color}`}>{value.toFixed(1)}%</span>
 }
 
 function Detail({ label, value, children, wide }: { label: string; value?: string; children?: React.ReactNode; wide?: boolean }) {
