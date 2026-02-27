@@ -199,10 +199,10 @@ function AvgViewsChart({ data, scaleMode }: { data: AvgViewsRow[]; scaleMode: Sc
   )
   const yRightAxis = useMemo(
     () =>
-      dims.innerHeight > 0 && !isStacked
+      dims.innerHeight > 0
         ? axisRight(yRightScale).ticks(5).tickFormat((d) => `${Number(d).toFixed(1)}%`)
         : null,
-    [yRightScale, dims.innerHeight, isStacked],
+    [yRightScale, dims.innerHeight],
   )
 
   const yAxisRef = useD3Axis(yAxis)
@@ -304,32 +304,28 @@ function AvgViewsChart({ data, scaleMode }: { data: AvgViewsRow[]; scaleMode: Sc
                         })}
                       </g>
                     ))}
-                {/* Engagement % line overlay (hidden in stacked mode) */}
-                {!isStacked && (
-                  <>
-                    <path
-                      d={engagementLine}
-                      fill="none"
-                      stroke={ENGAGEMENT_COLOR}
-                      strokeWidth={2}
-                      strokeLinejoin="round"
+                {/* Engagement % line overlay */}
+                <path
+                  d={engagementLine}
+                  fill="none"
+                  stroke={ENGAGEMENT_COLOR}
+                  strokeWidth={2}
+                  strokeLinejoin="round"
+                />
+                {data.map((d) =>
+                  d.engagementPct != null ? (
+                    <circle
+                      key={`eng-${d.name}`}
+                      cx={(xScale(d.name) ?? 0) + xScale.bandwidth() / 2}
+                      cy={yRightScale(d.engagementPct)}
+                      r={3.5}
+                      fill={ENGAGEMENT_COLOR}
+                      stroke="var(--color-background)"
+                      strokeWidth={1.5}
+                      onMouseMove={(e) => handleMouse(e, d)}
+                      onMouseLeave={() => setTooltip(null)}
                     />
-                    {data.map((d) =>
-                      d.engagementPct != null ? (
-                        <circle
-                          key={`eng-${d.name}`}
-                          cx={(xScale(d.name) ?? 0) + xScale.bandwidth() / 2}
-                          cy={yRightScale(d.engagementPct)}
-                          r={3.5}
-                          fill={ENGAGEMENT_COLOR}
-                          stroke="var(--color-background)"
-                          strokeWidth={1.5}
-                          onMouseMove={(e) => handleMouse(e, d)}
-                          onMouseLeave={() => setTooltip(null)}
-                        />
-                      ) : null,
-                    )}
-                  </>
+                  ) : null,
                 )}
                 {/* Custom rotated X axis tick labels */}
                 {data.map((d) => (
@@ -378,6 +374,11 @@ function AvgViewsChart({ data, scaleMode }: { data: AvgViewsRow[]; scaleMode: Sc
                         <>
                           <p className="text-xs">Short: {sPct}%</p>
                           <p className="text-xs">Full-Length: {fPct}%</p>
+                          {tooltip.row.engagementPct != null && (
+                            <p className="text-xs" style={{ color: ENGAGEMENT_COLOR }}>
+                              Engagement: {tooltip.row.engagementPct.toFixed(2)}%
+                            </p>
+                          )}
                         </>
                       )
                     })() : (
