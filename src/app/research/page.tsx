@@ -328,10 +328,10 @@ export default function YouTubeDashboard() {
   const summaryCards = [
     { label: "Creators", value: totalCreators.toLocaleString(), sub: `${starredCreators} starred`, icon: Youtube, color: "text-red-500", bg: "bg-red-50 dark:bg-red-950", href: "/research/creators" },
     { label: "Videos", value: totalVideos.toLocaleString(), sub: `${starredVideos} starred`, icon: Video, color: "text-sky-500", bg: "bg-sky-50 dark:bg-sky-950", href: "/research/videos" },
-    { label: "Total Views", value: formatNumber(totalViews), icon: Eye, color: "text-emerald-500", bg: "bg-emerald-50 dark:bg-emerald-950" },
-    { label: "Total Duration", value: formatDuration(totalDuration), icon: Clock, color: "text-violet-500", bg: "bg-violet-50 dark:bg-violet-950" },
-    { label: "Total Likes", value: formatNumber(totalLikes), icon: ThumbsUp, color: "text-pink-500", bg: "bg-pink-50 dark:bg-pink-950" },
-    { label: "Total Comments", value: formatNumber(totalComments), icon: MessageSquare, color: "text-amber-500", bg: "bg-amber-50 dark:bg-amber-950" },
+    { label: "Total Views", value: Math.round(totalViews).toLocaleString(), icon: Eye, color: "text-emerald-500", bg: "bg-emerald-50 dark:bg-emerald-950" },
+    { label: "Total Duration", value: Math.round(totalDuration).toLocaleString() + " min", icon: Clock, color: "text-violet-500", bg: "bg-violet-50 dark:bg-violet-950" },
+    { label: "Total Likes", value: Math.round(totalLikes).toLocaleString(), icon: ThumbsUp, color: "text-pink-500", bg: "bg-pink-50 dark:bg-pink-950" },
+    { label: "Total Comments", value: Math.round(totalComments).toLocaleString(), icon: MessageSquare, color: "text-amber-500", bg: "bg-amber-50 dark:bg-amber-950" },
     { label: "Transcripts", value: `${transcriptPct}%`, sub: `${withTranscript} of ${videoCount}`, icon: FileText, color: "text-teal-500", bg: "bg-teal-50 dark:bg-teal-950" },
     { label: "Shorts", value: `${shortPct}%`, sub: `${shortVideos} of ${videoCount}`, icon: Video, color: "text-pink-500", bg: "bg-pink-50 dark:bg-pink-950" },
   ]
