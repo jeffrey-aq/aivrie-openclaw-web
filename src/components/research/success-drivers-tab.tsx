@@ -303,9 +303,6 @@ export function SuccessDriversTab({ data }: { data: DashboardData }) {
               height={100}
             />
             <YAxis
-              scale="log"
-              domain={["auto", "auto"]}
-              allowDataOverflow
               tick={{ fontSize: 11 }}
               tickFormatter={(v: number) => formatNumber(v)}
             />
