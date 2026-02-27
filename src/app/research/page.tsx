@@ -5,8 +5,9 @@ import Link from "next/link"
 import { gql } from "graphql-request"
 import { extractNodes } from "@/lib/graphql"
 import { useGraphQLClient } from "@/hooks/use-graphql"
+import { supabase } from "@/lib/supabase-client"
 import { PageHeader } from "@/components/page-header"
-import { Youtube, Video, Clock, FileText, Eye, ThumbsUp, MessageSquare } from "lucide-react"
+import { Youtube, Video, Clock, FileText, Eye, ThumbsUp, MessageSquare, Star } from "lucide-react"
 import {
   BarChart,
   Bar,
@@ -46,6 +47,9 @@ const DATA_QUERY = gql`
       totalCount
       edges { node { id title channelId } }
     }
+    starredCreatorsCollection: youtubeCreatorsCollection(filter: { isStarred: { eq: true } }) {
+      totalCount
+    }
     youtubeVideosCollection(first: 1000) {
       totalCount
       edges {
@@ -54,6 +58,9 @@ const DATA_QUERY = gql`
           durationType transcript summary
         }
       }
+    }
+    starredVideosCollection: youtubeVideosCollection(filter: { isStarred: { eq: true } }) {
+      totalCount
     }
   }
 `
@@ -99,6 +106,13 @@ export default function YouTubeDashboard() {
   const [videos, setVideos] = useState<VideoRow[]>([])
   const [totalCreators, setTotalCreators] = useState(0)
   const [totalVideos, setTotalVideos] = useState(0)
+  const [starredCreators, setStarredCreators] = useState(0)
+  const [starredVideos, setStarredVideos] = useState(0)
+  const [dbStats, setDbStats] = useState<{
+    total_views: number; total_likes: number; total_comments: number
+    total_duration: number; short_count: number; full_count: number
+    with_transcript: number; total_videos: number
+  } | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(false)
 
@@ -106,28 +120,41 @@ export default function YouTubeDashboard() {
     graphqlClient
       .request<{
         youtubeCreatorsCollection: { totalCount: number; edges: { node: Creator }[] }
+        starredCreatorsCollection: { totalCount: number }
         youtubeVideosCollection: { totalCount: number; edges: { node: VideoRow }[] }
+        starredVideosCollection: { totalCount: number }
       }>(DATA_QUERY)
       .then((data) => {
         setCreators(extractNodes(data.youtubeCreatorsCollection))
         setVideos(extractNodes(data.youtubeVideosCollection))
         setTotalCreators(data.youtubeCreatorsCollection.totalCount)
         setTotalVideos(data.youtubeVideosCollection.totalCount)
+        setStarredCreators(data.starredCreatorsCollection.totalCount)
+        setStarredVideos(data.starredVideosCollection.totalCount)
       })
       .catch((err) => { console.error("Error loading overview:", err); setError(true) })
       .finally(() => setLoading(false))
+
+    supabase
+      .schema("research")
+      .rpc("get_youtube_dashboard_stats")
+      .then(({ data, error }) => {
+        if (error) { console.error("Error loading dashboard stats:", error); return }
+        if (data && data.length > 0) setDbStats(data[0])
+      })
   }, [graphqlClient])
 
-  // ─── Overview computed values (client-side aggregation) ────────────────────
-  const totalViews = useMemo(() => videos.reduce((s, v) => s + toNum(v.views), 0), [videos])
-  const totalLikes = useMemo(() => videos.reduce((s, v) => s + toNum(v.likes), 0), [videos])
-  const totalComments = useMemo(() => videos.reduce((s, v) => s + toNum(v.comments), 0), [videos])
-  const totalDuration = useMemo(() => videos.reduce((s, v) => s + toNum(v.duration), 0), [videos])
-  const shortVideos = useMemo(() => videos.filter((v) => v.durationType === "Short").length, [videos])
-  const fullVideos = totalVideos - shortVideos
-  const withTranscript = useMemo(() => videos.filter((v) => v.transcript).length, [videos])
-  const transcriptPct = totalVideos > 0 ? Math.round((withTranscript / totalVideos) * 100) : 0
-  const shortPct = totalVideos > 0 ? Math.round((shortVideos / totalVideos) * 100) : 0
+  // ─── Overview computed values (prefer DB-level aggregates, fall back to client) ─
+  const totalViews = dbStats?.total_views ?? videos.reduce((s, v) => s + toNum(v.views), 0)
+  const totalLikes = dbStats?.total_likes ?? videos.reduce((s, v) => s + toNum(v.likes), 0)
+  const totalComments = dbStats?.total_comments ?? videos.reduce((s, v) => s + toNum(v.comments), 0)
+  const totalDuration = dbStats?.total_duration ?? videos.reduce((s, v) => s + toNum(v.duration), 0)
+  const shortVideos = dbStats?.short_count ?? videos.filter((v) => v.durationType === "Short").length
+  const fullVideos = (dbStats?.full_count ?? totalVideos - shortVideos)
+  const withTranscript = dbStats?.with_transcript ?? videos.filter((v) => v.transcript).length
+  const videoCount = dbStats?.total_videos ?? totalVideos
+  const transcriptPct = videoCount > 0 ? Math.round((withTranscript / videoCount) * 100) : 0
+  const shortPct = videoCount > 0 ? Math.round((shortVideos / videoCount) * 100) : 0
 
   const shortFullPie = [
     { name: "Short", value: shortVideos },
@@ -135,18 +162,18 @@ export default function YouTubeDashboard() {
   ]
   const transcriptPie = [
     { name: "With Transcript", value: withTranscript },
-    { name: "No Transcript", value: totalVideos - withTranscript },
+    { name: "No Transcript", value: videoCount - withTranscript },
   ]
 
   const summaryCards = [
-    { label: "Creators", value: totalCreators.toLocaleString(), icon: Youtube, color: "text-red-500", bg: "bg-red-50 dark:bg-red-950", href: "/research/creators" },
-    { label: "Videos", value: totalVideos.toLocaleString(), icon: Video, color: "text-sky-500", bg: "bg-sky-50 dark:bg-sky-950", href: "/research/videos" },
+    { label: "Creators", value: totalCreators.toLocaleString(), sub: `${starredCreators} starred`, icon: Youtube, color: "text-red-500", bg: "bg-red-50 dark:bg-red-950", href: "/research/creators" },
+    { label: "Videos", value: totalVideos.toLocaleString(), sub: `${starredVideos} starred`, icon: Video, color: "text-sky-500", bg: "bg-sky-50 dark:bg-sky-950", href: "/research/videos" },
     { label: "Total Views", value: formatNumber(totalViews), icon: Eye, color: "text-emerald-500", bg: "bg-emerald-50 dark:bg-emerald-950" },
     { label: "Total Likes", value: formatNumber(totalLikes), icon: ThumbsUp, color: "text-pink-500", bg: "bg-pink-50 dark:bg-pink-950" },
     { label: "Total Comments", value: formatNumber(totalComments), icon: MessageSquare, color: "text-amber-500", bg: "bg-amber-50 dark:bg-amber-950" },
     { label: "Total Duration", value: formatDuration(totalDuration), icon: Clock, color: "text-violet-500", bg: "bg-violet-50 dark:bg-violet-950" },
-    { label: "Transcripts", value: `${transcriptPct}%`, sub: `${withTranscript} of ${totalVideos}`, icon: FileText, color: "text-teal-500", bg: "bg-teal-50 dark:bg-teal-950" },
-    { label: "Shorts", value: `${shortPct}%`, sub: `${shortVideos} of ${totalVideos}`, icon: Video, color: "text-pink-500", bg: "bg-pink-50 dark:bg-pink-950" },
+    { label: "Transcripts", value: `${transcriptPct}%`, sub: `${withTranscript} of ${videoCount}`, icon: FileText, color: "text-teal-500", bg: "bg-teal-50 dark:bg-teal-950" },
+    { label: "Shorts", value: `${shortPct}%`, sub: `${shortVideos} of ${videoCount}`, icon: Video, color: "text-pink-500", bg: "bg-pink-50 dark:bg-pink-950" },
   ]
 
   // ─── Detail computed values (from client-side aggregation of rows) ──────
@@ -287,7 +314,12 @@ export default function YouTubeDashboard() {
                           <span className="text-xs font-medium text-muted-foreground">{card.label}</span>
                         </div>
                         <div className="text-2xl font-bold">{card.value}</div>
-                        {card.sub && <div className="text-xs text-muted-foreground mt-0.5">{card.sub}</div>}
+                        {card.sub && (
+                          <div className="flex items-center gap-1 text-xs text-muted-foreground mt-0.5">
+                            {card.sub.includes("starred") && <Star className="size-3 fill-yellow-400 text-yellow-400" />}
+                            {card.sub}
+                          </div>
+                        )}
                       </div>
                     </CardWrapper>
                   ))}
