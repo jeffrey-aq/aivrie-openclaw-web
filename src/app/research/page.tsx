@@ -348,10 +348,10 @@ export default function YouTubeDashboard() {
                 </div>
 
                 <div className="grid gap-6 md:grid-cols-2">
-                  <ViewsHistogramChart title="Short Videos — Duration" data={shortDurationHist} color="#ec4899" labelSuffix="" />
-                  <ViewsHistogramChart title="Full-Length Videos — Duration" data={fullDurationHist} color="#0ea5e9" labelSuffix="" />
-                  <ViewsHistogramChart title="Short Videos — Views" data={shortViewsHist} color="#f472b6" labelSuffix=" views" />
-                  <ViewsHistogramChart title="Full-Length Videos — Views" data={fullViewsHist} color="#38bdf8" labelSuffix=" views" />
+                  <ViewsHistogramChart title="Short Videos — Duration (seconds)" data={shortDurationHist} color="#ec4899" labelSuffix="" />
+                  <ViewsHistogramChart title="Full-Length Videos — Duration (minutes)" data={fullDurationHist} color="#0ea5e9" labelSuffix="" />
+                  <ViewsHistogramChart title="Short Videos — Views (thousands)" data={shortViewsHist} color="#f472b6" labelSuffix="" />
+                  <ViewsHistogramChart title="Full-Length Videos — Views (thousands)" data={fullViewsHist} color="#38bdf8" labelSuffix="" />
                 </div>
               </>
             )}
