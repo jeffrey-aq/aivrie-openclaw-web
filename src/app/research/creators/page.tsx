@@ -257,7 +257,7 @@ function SortableHead({
 }
 
 // Number of primary columns (for colspan on detail row)
-const PRIMARY_COL_COUNT = 15
+const PRIMARY_COL_COUNT = 16
 
 export default function CreatorsPage() {
   const graphqlClient = useGraphQLClient()
@@ -501,7 +501,7 @@ export default function CreatorsPage() {
                   <div className="min-w-0 flex-1">
                     <div className="mb-0.5"><CreatorBadge name={c.title} channelId={c.channelId} /></div>
                     <p className="text-xs text-muted-foreground mt-0.5">
-                      {formatNumber(Number(c.subscribers) || null)} subscribers{c.videoCount ? ` \u00b7 ${formatNumber(c.videoCount)} videos` : ""}
+                      {formatComma(Number(c.subscribers) || null)} subscribers{c.videoCount ? ` \u00b7 ${formatNumber(c.videoCount)} videos` : ""}
                     </p>
                     <p className="text-xs text-muted-foreground">
                       {c.uploadFrequency || ""}{c.uploadFrequency && c.country ? ` \u00b7 ` : ""}{c.country || ""}
@@ -525,6 +525,7 @@ export default function CreatorsPage() {
                   <TableHead className="w-8" />
                   <SortableHead label="" sortKey="isStarred" currentSort={sortKey} currentDir={sortDir} onSort={handleSort} className="w-8" />
                   <SortableHead label="Creator" sortKey="title" currentSort={sortKey} currentDir={sortDir} onSort={handleSort} />
+                  <SortableHead label="Subs" sortKey="subscribers" currentSort={sortKey} currentDir={sortDir} onSort={handleSort} className="text-right" />
                   <SortableHead label="Videos" sortKey="dbVideoCount" currentSort={sortKey} currentDir={sortDir} onSort={handleSort} className="text-right" />
                   <SortableHead label="Avg Views" sortKey="avgViewsPerVideo" currentSort={sortKey} currentDir={sortDir} onSort={handleSort} className="text-right" />
                   <SortableHead label="Views:Sub%" sortKey="viewsToSubRatio" currentSort={sortKey} currentDir={sortDir} onSort={handleSort} className="text-right" />
@@ -563,6 +564,7 @@ export default function CreatorsPage() {
                             <CreatorBadge name={c.title} channelId={c.channelId} />
                           </Link>
                         </TableCell>
+                        <TableCell className="text-right tabular-nums">{formatComma(Number(c.subscribers) || null)}</TableCell>
                         <TableCell className="text-right tabular-nums">{formatNumber(videoStats[c.channelId]?.videoCount ?? null)}</TableCell>
                         <TableCell className="text-right tabular-nums">{formatComma(c.avgViewsPerVideo)}</TableCell>
                         <TableCell className={`text-right tabular-nums font-medium ${percentColor(c.viewsToSubRatio, VIEWS_SUB_TIERS)}`}>{formatPercent(c.viewsToSubRatio)}</TableCell>
