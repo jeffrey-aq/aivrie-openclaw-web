@@ -113,6 +113,7 @@ export default function YouTubeDashboard() {
     total_duration: number; short_count: number; full_count: number
     with_transcript: number; total_videos: number
   } | null>(null)
+  const [durationHistogram, setDurationHistogram] = useState<{ minute_bucket: number; video_count: number }[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(false)
 
@@ -142,6 +143,25 @@ export default function YouTubeDashboard() {
         if (error) { console.error("Error loading dashboard stats:", error); return }
         if (data && data.length > 0) setDbStats(data[0])
       })
+
+    supabase
+      .schema("research")
+      .rpc("get_video_duration_histogram")
+      .then(({ data, error }) => {
+        if (error) { console.error("Error loading duration histogram:", error); return }
+        if (data) {
+          // Fill in missing buckets with 0
+          const map = new Map<number, number>()
+          for (const row of data as { minute_bucket: number; video_count: number }[]) {
+            map.set(row.minute_bucket, Number(row.video_count))
+          }
+          const full: { minute_bucket: number; video_count: number }[] = []
+          for (let i = 1; i <= 21; i++) {
+            full.push({ minute_bucket: i, video_count: map.get(i) || 0 })
+          }
+          setDurationHistogram(full)
+        }
+      })
   }, [graphqlClient])
 
   // ─── Overview computed values (prefer DB-level aggregates, fall back to client) ─
@@ -159,10 +179,6 @@ export default function YouTubeDashboard() {
   const shortFullPie = [
     { name: "Short", value: shortVideos },
     { name: "Full", value: fullVideos },
-  ]
-  const transcriptPie = [
-    { name: "With Transcript", value: withTranscript },
-    { name: "No Transcript", value: videoCount - withTranscript },
   ]
 
   const summaryCards = [
@@ -341,15 +357,24 @@ export default function YouTubeDashboard() {
                   </div>
 
                   <div className="rounded-lg border p-5">
-                    <h3 className="text-sm font-semibold mb-4">Transcript Coverage</h3>
+                    <h3 className="text-sm font-semibold mb-4">Video Duration Distribution</h3>
                     <ResponsiveContainer width="100%" height={250}>
-                      <PieChart>
-                        <Pie data={transcriptPie} cx="50%" cy="50%" innerRadius={55} outerRadius={90} paddingAngle={3} dataKey="value" label={({ name, value }) => `${name}: ${value}`}>
-                          <Cell fill="#14b8a6" />
-                          <Cell fill="#d4d4d8" />
-                        </Pie>
-                        <ChartTooltip />
-                      </PieChart>
+                      <BarChart data={durationHistogram} margin={{ top: 5, right: 20, bottom: 5, left: 0 }}>
+                        <CartesianGrid strokeDasharray="3 3" className="opacity-30" vertical={false} />
+                        <XAxis
+                          dataKey="minute_bucket"
+                          tick={{ fontSize: 11 }}
+                          tickFormatter={(v) => v === 21 ? "20+" : `${v}`}
+                          label={{ value: "Minutes", position: "insideBottom", offset: -2, fontSize: 11 }}
+                        />
+                        <YAxis tick={{ fontSize: 11 }} allowDecimals={false} />
+                        <Tooltip
+                          contentStyle={{ backgroundColor: "var(--color-popover)", border: "1px solid var(--color-border)", borderRadius: "0.375rem", fontSize: "0.75rem" }}
+                          formatter={(v: unknown) => [Number(v).toLocaleString(), "Videos"]}
+                          labelFormatter={(v) => v === 21 ? "20+ min" : `${v} min`}
+                        />
+                        <Bar dataKey="video_count" fill="#8b5cf6" radius={[2, 2, 0, 0]} />
+                      </BarChart>
                     </ResponsiveContainer>
                   </div>
                 </div>
