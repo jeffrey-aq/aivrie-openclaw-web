@@ -201,6 +201,17 @@ function computeFrequency(count: number, minDate: string | null, maxDate: string
   return "Monthly"
 }
 
+interface SummaryCard {
+  label: string
+  value: string
+  sub?: string
+  breakdown?: string
+  icon: typeof Youtube
+  color: string
+  bg: string
+  href?: string
+}
+
 // ─── Tabs ───────────────────────────────────────────────────────────────────
 
 const TABS = [
@@ -320,20 +331,41 @@ export default function YouTubeDashboard() {
   const totalComments = dbStats?.total_comments ?? videos.reduce((s, v) => s + toNum(v.comments), 0)
   const totalDuration = dbStats?.total_duration ?? videos.reduce((s, v) => s + toNum(v.duration), 0)
   const shortVideos = dbStats?.short_count ?? videos.filter((v) => v.durationType === "Short").length
+  const fullVideos = (dbStats?.total_videos ?? totalVideos) - shortVideos
   const withTranscript = dbStats?.with_transcript ?? videos.filter((v) => v.transcript).length
   const videoCount = dbStats?.total_videos ?? totalVideos
   const transcriptPct = videoCount > 0 ? Math.round((withTranscript / videoCount) * 100) : 0
   const shortPct = videoCount > 0 ? Math.round((shortVideos / videoCount) * 100) : 0
+  const fullPct = 100 - shortPct
 
-  const summaryCards = [
+  // Full/Short breakdowns from video data
+  const shortVids = videos.filter((v) => v.durationType === "Short")
+  const fullVids = videos.filter((v) => v.durationType !== "Short")
+  const viewsShort = shortVids.reduce((s, v) => s + toNum(v.views), 0)
+  const viewsFull = fullVids.reduce((s, v) => s + toNum(v.views), 0)
+  const durationShort = shortVids.reduce((s, v) => s + toNum(v.duration), 0)
+  const durationFull = fullVids.reduce((s, v) => s + toNum(v.duration), 0)
+  const likesShort = shortVids.reduce((s, v) => s + toNum(v.likes), 0)
+  const likesFull = fullVids.reduce((s, v) => s + toNum(v.likes), 0)
+  const commentsShort = shortVids.reduce((s, v) => s + toNum(v.comments), 0)
+  const commentsFull = fullVids.reduce((s, v) => s + toNum(v.comments), 0)
+
+  const fmt = (n: number) => Math.round(n).toLocaleString()
+
+  const summaryCards: SummaryCard[] = [
     { label: "Creators", value: totalCreators.toLocaleString(), sub: `${starredCreators} starred`, icon: Youtube, color: "text-red-500", bg: "bg-red-50 dark:bg-red-950", href: "/research/creators" },
-    { label: "Videos", value: totalVideos.toLocaleString(), sub: `${starredVideos} starred`, icon: Video, color: "text-sky-500", bg: "bg-sky-50 dark:bg-sky-950", href: "/research/videos" },
-    { label: "Total Views", value: Math.round(totalViews).toLocaleString(), icon: Eye, color: "text-emerald-500", bg: "bg-emerald-50 dark:bg-emerald-950" },
-    { label: "Total Duration", value: Math.round(totalDuration).toLocaleString() + " min", icon: Clock, color: "text-violet-500", bg: "bg-violet-50 dark:bg-violet-950" },
-    { label: "Total Likes", value: Math.round(totalLikes).toLocaleString(), icon: ThumbsUp, color: "text-pink-500", bg: "bg-pink-50 dark:bg-pink-950" },
-    { label: "Total Comments", value: Math.round(totalComments).toLocaleString(), icon: MessageSquare, color: "text-amber-500", bg: "bg-amber-50 dark:bg-amber-950" },
+    { label: "Videos", value: totalVideos.toLocaleString(), sub: `${starredVideos} starred`, icon: Video, color: "text-sky-500", bg: "bg-sky-50 dark:bg-sky-950", href: "/research/videos",
+      breakdown: `Full: ${fmt(fullVideos)} (${fullPct}%) · Short: ${fmt(shortVideos)} (${shortPct}%)` },
+    { label: "Total Views", value: fmt(totalViews), icon: Eye, color: "text-emerald-500", bg: "bg-emerald-50 dark:bg-emerald-950",
+      breakdown: `Full: ${fmt(viewsFull)} · Short: ${fmt(viewsShort)}` },
+    { label: "Total Duration", value: fmt(totalDuration) + " min", icon: Clock, color: "text-violet-500", bg: "bg-violet-50 dark:bg-violet-950",
+      breakdown: `Full: ${fmt(durationFull)} min · Short: ${fmt(durationShort)} min` },
+    { label: "Total Likes", value: fmt(totalLikes), icon: ThumbsUp, color: "text-pink-500", bg: "bg-pink-50 dark:bg-pink-950",
+      breakdown: `Full: ${fmt(likesFull)} · Short: ${fmt(likesShort)}` },
+    { label: "Total Comments", value: fmt(totalComments), icon: MessageSquare, color: "text-amber-500", bg: "bg-amber-50 dark:bg-amber-950",
+      breakdown: `Full: ${fmt(commentsFull)} · Short: ${fmt(commentsShort)}` },
     { label: "Transcripts", value: `${transcriptPct}%`, sub: `${withTranscript} of ${videoCount}`, icon: FileText, color: "text-teal-500", bg: "bg-teal-50 dark:bg-teal-950" },
-    { label: "Shorts", value: `${shortPct}%`, sub: `${shortVideos} of ${videoCount}`, icon: Video, color: "text-pink-500", bg: "bg-pink-50 dark:bg-pink-950" },
+    { label: "Shorts", value: `${shortPct}%`, sub: `${fmt(shortVideos)} of ${fmt(videoCount)}`, icon: Video, color: "text-pink-500", bg: "bg-pink-50 dark:bg-pink-950" },
   ]
 
   // ─── DashboardData prop for tabs ──────────────────────────────────────────
@@ -396,6 +428,9 @@ export default function YouTubeDashboard() {
                             {card.sub.includes("starred") && <Star className="size-3 fill-yellow-400 text-yellow-400" />}
                             {card.sub}
                           </div>
+                        )}
+                        {card.breakdown && (
+                          <div className="text-[10px] text-muted-foreground mt-1">{card.breakdown}</div>
                         )}
                       </div>
                     </CardWrapper>
