@@ -1179,6 +1179,7 @@ export function SuccessDriversTab({ data }: { data: DashboardData }) {
               })),
               { label: "Engagement %", color: ENGAGEMENT_COLOR, shape: "line" as const },
             ]}
+            className="flex-1"
           />
           <select
             value={avgViewsScale}
