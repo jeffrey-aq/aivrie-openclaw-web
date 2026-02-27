@@ -499,20 +499,23 @@ export default function CreatorsPage() {
                     </div>
                   )}
                   <div className="min-w-0 flex-1">
-                    <div className="mb-0.5"><CreatorBadge name={c.title} channelId={c.channelId} /></div>
-                    <p className="text-xs text-muted-foreground mt-0.5">
-                      {formatComma(Number(c.subscribers) || null)} subscribers{c.videoCount ? ` \u00b7 ${formatNumber(c.videoCount)} videos` : ""}
-                    </p>
+                    <div className="flex items-center gap-1.5 mb-0.5">
+                      <CreatorBadge name={c.title} channelId={c.channelId} />
+                      <button
+                        onClick={(e) => { e.preventDefault(); e.stopPropagation(); toggleStar(c.id, c.isStarred) }}
+                        className="shrink-0 hover:scale-110 transition-transform"
+                      >
+                        <Star className={`size-3.5 ${c.isStarred ? "fill-yellow-400 text-yellow-400" : "text-muted-foreground/40 hover:text-yellow-400"}`} />
+                      </button>
+                    </div>
+                    <div className="flex items-center justify-between text-xs text-muted-foreground mt-0.5">
+                      <span>{formatComma(Number(c.subscribers) || null)} subscribers</span>
+                      {c.videoCount ? <span>{formatNumber(c.videoCount)} videos</span> : null}
+                    </div>
                     <p className="text-xs text-muted-foreground">
                       {c.uploadFrequency || ""}{c.uploadFrequency && c.country ? ` \u00b7 ` : ""}{c.country || ""}
                     </p>
                   </div>
-                  <button
-                    onClick={(e) => { e.preventDefault(); e.stopPropagation(); toggleStar(c.id, c.isStarred) }}
-                    className="shrink-0 mt-0.5 hover:scale-110 transition-transform"
-                  >
-                    <Star className={`size-4 ${c.isStarred ? "fill-yellow-400 text-yellow-400" : "text-muted-foreground/40 hover:text-yellow-400"}`} />
-                  </button>
                 </div>
               </Link>
             ))}
