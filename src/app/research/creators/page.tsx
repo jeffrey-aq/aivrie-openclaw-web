@@ -499,7 +499,7 @@ export default function CreatorsPage() {
                     </div>
                   )}
                   <div className="min-w-0 flex-1">
-                    <div className="flex items-center gap-1.5 mb-0.5">
+                    <div className="flex items-center justify-between mb-0.5">
                       <CreatorBadge name={c.title} channelId={c.channelId} />
                       <button
                         onClick={(e) => { e.preventDefault(); e.stopPropagation(); toggleStar(c.id, c.isStarred) }}
