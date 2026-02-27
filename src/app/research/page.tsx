@@ -205,7 +205,8 @@ interface SummaryCard {
   label: string
   value: string
   sub?: string
-  breakdown?: string
+  fullVal?: string
+  shortVal?: string
   icon: typeof Youtube
   color: string
   bg: string
@@ -355,15 +356,15 @@ export default function YouTubeDashboard() {
   const summaryCards: SummaryCard[] = [
     { label: "Creators", value: totalCreators.toLocaleString(), sub: `${starredCreators} starred`, icon: Youtube, color: "text-red-500", bg: "bg-red-50 dark:bg-red-950", href: "/research/creators" },
     { label: "Videos", value: totalVideos.toLocaleString(), sub: `${starredVideos} starred`, icon: Video, color: "text-sky-500", bg: "bg-sky-50 dark:bg-sky-950", href: "/research/videos",
-      breakdown: `Full: ${fmt(fullVideos)} (${fullPct}%) · Short: ${fmt(shortVideos)} (${shortPct}%)` },
+      fullVal: `${fmt(fullVideos)} (${fullPct}%)`, shortVal: `${fmt(shortVideos)} (${shortPct}%)` },
     { label: "Total Views", value: fmt(totalViews), icon: Eye, color: "text-emerald-500", bg: "bg-emerald-50 dark:bg-emerald-950",
-      breakdown: `Full: ${fmt(viewsFull)} · Short: ${fmt(viewsShort)}` },
+      fullVal: fmt(viewsFull), shortVal: fmt(viewsShort) },
     { label: "Total Duration", value: fmt(totalDuration) + " min", icon: Clock, color: "text-violet-500", bg: "bg-violet-50 dark:bg-violet-950",
-      breakdown: `Full: ${fmt(durationFull)} min · Short: ${fmt(durationShort)} min` },
+      fullVal: fmt(durationFull) + " min", shortVal: fmt(durationShort) + " min" },
     { label: "Total Likes", value: fmt(totalLikes), icon: ThumbsUp, color: "text-pink-500", bg: "bg-pink-50 dark:bg-pink-950",
-      breakdown: `Full: ${fmt(likesFull)} · Short: ${fmt(likesShort)}` },
+      fullVal: fmt(likesFull), shortVal: fmt(likesShort) },
     { label: "Total Comments", value: fmt(totalComments), icon: MessageSquare, color: "text-amber-500", bg: "bg-amber-50 dark:bg-amber-950",
-      breakdown: `Full: ${fmt(commentsFull)} · Short: ${fmt(commentsShort)}` },
+      fullVal: fmt(commentsFull), shortVal: fmt(commentsShort) },
     { label: "Transcripts", value: `${transcriptPct}%`, sub: `${withTranscript} of ${videoCount}`, icon: FileText, color: "text-teal-500", bg: "bg-teal-50 dark:bg-teal-950" },
     { label: "Shorts", value: `${shortPct}%`, sub: `${fmt(shortVideos)} of ${fmt(videoCount)}`, icon: Video, color: "text-pink-500", bg: "bg-pink-50 dark:bg-pink-950" },
   ]
@@ -429,8 +430,11 @@ export default function YouTubeDashboard() {
                             {card.sub}
                           </div>
                         )}
-                        {card.breakdown && (
-                          <div className="text-[10px] text-muted-foreground mt-1">{card.breakdown}</div>
+                        {card.fullVal && (
+                          <div className="mt-2 space-y-0.5 text-xs text-muted-foreground">
+                            <div className="flex justify-between"><span>Full</span><span className="font-medium tabular-nums">{card.fullVal}</span></div>
+                            <div className="flex justify-between"><span>Short</span><span className="font-medium tabular-nums">{card.shortVal}</span></div>
+                          </div>
                         )}
                       </div>
                     </CardWrapper>
