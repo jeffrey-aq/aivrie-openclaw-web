@@ -17,6 +17,7 @@ export function useD3Axis<Domain extends AxisDomain>(
     g.selectAll(".tick text")
       .attr("fill", "var(--color-muted-foreground)")
       .attr("font-size", "11px")
+      .attr("font-weight", "600")
     g.selectAll(".tick line").attr("stroke", "var(--color-border)")
     g.select(".domain").attr("stroke", "var(--color-border)")
     // eslint-disable-next-line react-hooks/exhaustive-deps
