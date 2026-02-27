@@ -92,6 +92,16 @@ export type DashboardStats = {
   full_count: number
   with_transcript: number
   total_videos: number
+  views_short: number
+  views_full: number
+  likes_short: number
+  likes_full: number
+  comments_short: number
+  comments_full: number
+  duration_short: number
+  duration_full: number
+  transcript_short: number
+  transcript_full: number
 }
 
 export interface DashboardData {
@@ -339,17 +349,17 @@ export default function YouTubeDashboard() {
   const shortPct = videoCount > 0 ? Math.round((shortVideos / videoCount) * 100) : 0
   const fullPct = 100 - shortPct
 
-  // Full/Short breakdowns from video data
-  const shortVids = videos.filter((v) => v.durationType === "Short")
-  const fullVids = videos.filter((v) => v.durationType !== "Short")
-  const viewsShort = shortVids.reduce((s, v) => s + toNum(v.views), 0)
-  const viewsFull = fullVids.reduce((s, v) => s + toNum(v.views), 0)
-  const durationShort = shortVids.reduce((s, v) => s + toNum(v.duration), 0)
-  const durationFull = fullVids.reduce((s, v) => s + toNum(v.duration), 0)
-  const likesShort = shortVids.reduce((s, v) => s + toNum(v.likes), 0)
-  const likesFull = fullVids.reduce((s, v) => s + toNum(v.likes), 0)
-  const commentsShort = shortVids.reduce((s, v) => s + toNum(v.comments), 0)
-  const commentsFull = fullVids.reduce((s, v) => s + toNum(v.comments), 0)
+  // Full/Short breakdowns from RPC
+  const viewsShort = dbStats?.views_short ?? 0
+  const viewsFull = dbStats?.views_full ?? 0
+  const durationShort = dbStats?.duration_short ?? 0
+  const durationFull = dbStats?.duration_full ?? 0
+  const likesShort = dbStats?.likes_short ?? 0
+  const likesFull = dbStats?.likes_full ?? 0
+  const commentsShort = dbStats?.comments_short ?? 0
+  const commentsFull = dbStats?.comments_full ?? 0
+  const transcriptShort = dbStats?.transcript_short ?? 0
+  const transcriptFull = dbStats?.transcript_full ?? 0
 
   const fmt = (n: number) => Math.round(n).toLocaleString()
   const pct = (part: number, total: number) => total > 0 ? Math.round((part / total) * 100) : 0
@@ -362,9 +372,6 @@ export default function YouTubeDashboard() {
   const commentsPctShort = 100 - commentsPctFull
   const durationPctFull = pct(durationFull, totalDuration)
   const durationPctShort = 100 - durationPctFull
-
-  const transcriptShort = shortVids.filter((v) => v.transcript).length
-  const transcriptFull = fullVids.filter((v) => v.transcript).length
 
   const summaryCards: SummaryCard[] = [
     { label: "Creators", value: totalCreators.toLocaleString(), badge: `${starredCreators} starred`, icon: Youtube, color: "text-red-500", bg: "bg-red-50 dark:bg-red-950", href: "/research/creators" },
