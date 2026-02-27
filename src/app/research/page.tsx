@@ -476,15 +476,13 @@ function ViewsHistogramChart({
     <div className="rounded-lg border p-5">
       <h3 className="text-sm font-semibold mb-4">{title}</h3>
       <ResponsiveContainer width="100%" height={280}>
-        <BarChart data={data} margin={{ top: 5, right: 20, bottom: 25, left: 0 }}>
+        <BarChart data={data} margin={{ top: 5, right: 10, bottom: 5, left: 0 }}>
           <CartesianGrid strokeDasharray="3 3" className="opacity-30" vertical={false} />
           <XAxis
             dataKey="bucket_label"
-            tick={{ fontSize: 10 }}
-            angle={-45}
-            textAnchor="end"
+            tick={{ fontSize: 9 }}
             interval={0}
-            height={60}
+            height={30}
           />
           <YAxis tick={{ fontSize: 11 }} allowDecimals={false} />
           <Tooltip
