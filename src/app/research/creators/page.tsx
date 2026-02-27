@@ -560,10 +560,11 @@ export default function CreatorsPage() {
                             <Star className={`size-4 ${c.isStarred ? "fill-yellow-400 text-yellow-400" : "text-muted-foreground/40 hover:text-yellow-400"}`} />
                           </button>
                         </TableCell>
-                        <TableCell className="font-medium">
+                        <TableCell className="font-medium max-w-[160px]">
                           <Link
                             href={`/research/videos?creator=${encodeURIComponent(c.channelId)}`}
                             onClick={(e) => e.stopPropagation()}
+                            className="block truncate"
                           >
                             <CreatorBadge name={c.title} channelId={c.channelId} />
                           </Link>
