@@ -118,11 +118,10 @@ const SCALE_OPTIONS: { value: ScaleMode; label: string }[] = [
 
 const ENGAGEMENT_COLOR = "#f59e0b"
 
-function AvgViewsChart({ data }: { data: AvgViewsRow[] }) {
+function AvgViewsChart({ data, scaleMode }: { data: AvgViewsRow[]; scaleMode: ScaleMode }) {
   const margin = { top: 10, right: 55, bottom: 100, left: 70 }
   const HEIGHT = 400
   const [ref, dims] = useChartDimensions(margin)
-  const [scaleMode, setScaleMode] = useState<ScaleMode>("linear")
   const [tooltip, setTooltip] = useState<{
     x: number
     y: number
@@ -226,22 +225,7 @@ function AvgViewsChart({ data }: { data: AvgViewsRow[] }) {
   const barBase = scaleMode === "linear" ? dims.innerHeight : yScale(1)
 
   return (
-    <div>
-      {/* Scale mode dropdown — above chart */}
-      <div className="flex justify-end mb-2">
-        <select
-          value={scaleMode}
-          onChange={(e) => setScaleMode(e.target.value as ScaleMode)}
-          className="rounded border bg-background px-2 py-1 text-xs text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring"
-        >
-          {SCALE_OPTIONS.map((o) => (
-            <option key={o.value} value={o.value}>
-              {o.label}
-            </option>
-          ))}
-        </select>
-      </div>
-      <div ref={ref} className="relative w-full" style={{ height: HEIGHT }}>
+    <div ref={ref} className="relative w-full" style={{ height: HEIGHT }}>
         {dims.width > 0 && (
           <>
             <svg width={dims.width} height={HEIGHT}>
@@ -357,7 +341,6 @@ function AvgViewsChart({ data }: { data: AvgViewsRow[] }) {
             </ChartTooltip>
           </>
         )}
-      </div>
     </div>
   )
 }
@@ -1178,26 +1161,38 @@ export function SuccessDriversTab({ data }: { data: DashboardData }) {
     return Array.from(statuses).sort()
   }, [viewsSubRatioData])
 
+  const [avgViewsScale, setAvgViewsScale] = useState<ScaleMode>("linear")
+
   return (
     <div className="space-y-6">
       {/* ── 1.0: Short vs Full Avg Views (full width) ── */}
       <div className="rounded-lg border p-5">
-        <div className="flex items-center justify-between mb-4">
+        <div className="flex items-center gap-4 mb-4">
           <h3 className="text-sm font-semibold">
             Short vs Full-Length — Avg Views per Creator
           </h3>
+          <ChartLegend
+            entries={[
+              ...AVG_VIEWS_SERIES.map((s) => ({
+                label: s.label,
+                color: s.color,
+              })),
+              { label: "Engagement %", color: ENGAGEMENT_COLOR, shape: "line" as const },
+            ]}
+          />
+          <select
+            value={avgViewsScale}
+            onChange={(e) => setAvgViewsScale(e.target.value as ScaleMode)}
+            className="ml-auto rounded border bg-background px-2 py-1 text-xs text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring"
+          >
+            {SCALE_OPTIONS.map((o) => (
+              <option key={o.value} value={o.value}>
+                {o.label}
+              </option>
+            ))}
+          </select>
         </div>
-        <AvgViewsChart data={avgViewsData} />
-        <ChartLegend
-          entries={[
-            ...AVG_VIEWS_SERIES.map((s) => ({
-              label: s.label,
-              color: s.color,
-            })),
-            { label: "Engagement %", color: ENGAGEMENT_COLOR, shape: "line" as const },
-          ]}
-          className="mt-2"
-        />
+        <AvgViewsChart data={avgViewsData} scaleMode={avgViewsScale} />
       </div>
 
       {/* ── 1.3 Subscribers vs Total Views (full width) ── */}
