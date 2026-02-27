@@ -227,9 +227,9 @@ interface SummaryCard {
 
 const TABS = [
   { key: "success-drivers", label: "Success Drivers" },
+  { key: "content-mix", label: "Content Mix" },
   { key: "strategy", label: "Strategy" },
   { key: "creator-profiles", label: "Creator Profiles" },
-  { key: "content-mix", label: "Content Mix" },
   { key: "revenue", label: "Revenue" },
 ] as const
 
