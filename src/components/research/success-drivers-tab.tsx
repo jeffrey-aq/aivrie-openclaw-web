@@ -293,7 +293,8 @@ function AvgViewsChart({ data, scaleMode }: { data: AvgViewsRow[]; scaleMode: Sc
                     x={xScale(d.name)! + xScale.bandwidth() / 2}
                     y={dims.innerHeight + 4}
                     textAnchor="end"
-                    fontSize={10}
+                    fontSize={11}
+                    fontWeight={600}
                     fill="var(--color-muted-foreground)"
                     transform={`rotate(-90, ${xScale(d.name)! + xScale.bandwidth() / 2}, ${dims.innerHeight + 4})`}
                   >
