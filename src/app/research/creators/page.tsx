@@ -7,7 +7,7 @@ import { extractNodes } from "@/lib/graphql"
 import { useGraphQLClient } from "@/hooks/use-graphql"
 import { supabase } from "@/lib/supabase-client"
 import { PageHeader } from "@/components/page-header"
-import { ArrowUp, ArrowDown, ArrowUpDown, X, ChevronDown, ChevronRight, ChevronsDownUp, ChevronsUpDown, LayoutGrid } from "lucide-react"
+import { ArrowUp, ArrowDown, ArrowUpDown, X, ChevronDown, ChevronRight, ChevronsDownUp, ChevronsUpDown, LayoutGrid, Star } from "lucide-react"
 import {
   UploadFrequencyBadge,
   ContentTypeBadge,
@@ -60,6 +60,7 @@ interface Creator {
   country: string | null
   topicCategories: string[] | null
   trailerVideoId: string | null
+  isStarred: boolean
 }
 
 const CREATORS_QUERY = gql`
@@ -98,6 +99,7 @@ const CREATORS_QUERY = gql`
           country
           topicCategories
           trailerVideoId
+          isStarred
         }
       }
     }
@@ -198,7 +200,7 @@ const revenueOrder: Record<string, number> = {
 }
 
 type SortDir = "asc" | "desc"
-type SortKey = keyof Creator | "dbVideoCount" | "avgViewsShort" | "avgViewsFull" | "viewRatio" | "avgEngagement" | "avgLikesPct" | "avgCommentsPct" | "freqShort" | "freqFull"
+type SortKey = keyof Creator | "dbVideoCount" | "avgViewsShort" | "avgViewsFull" | "viewRatio" | "avgEngagement" | "avgLikesPct" | "avgCommentsPct" | "freqShort" | "freqFull" | "isStarred"
 
 interface Filters {
   search: string
@@ -215,6 +217,7 @@ function compareValues(a: unknown, b: unknown, key: SortKey): number {
   if (a == null) return 1
   if (b == null) return -1
   if (key === "estRevenueRange") return (revenueOrder[a as string] ?? -1) - (revenueOrder[b as string] ?? -1)
+  if (typeof a === "boolean" && typeof b === "boolean") return (a ? 1 : 0) - (b ? 1 : 0)
   if (typeof a === "number" && typeof b === "number") return a - b
   if (typeof a === "string" && typeof b === "string") {
     const na = Number(a), nb = Number(b)
@@ -254,7 +257,7 @@ function SortableHead({
 }
 
 // Number of primary columns (for colspan on detail row)
-const PRIMARY_COL_COUNT = 14
+const PRIMARY_COL_COUNT = 15
 
 export default function CreatorsPage() {
   const graphqlClient = useGraphQLClient()
@@ -275,6 +278,15 @@ export default function CreatorsPage() {
       try { localStorage.setItem("yt-grid-view", next ? "1" : "0") } catch {}
       return next
     })
+  }
+
+  async function toggleStar(id: string, current: boolean) {
+    setCreators((prev) => prev.map((c) => c.id === id ? { ...c, isStarred: !current } : c))
+    const { error } = await supabase.schema("research").from("youtube_creators").update({ is_starred: !current }).eq("id", id)
+    if (error) {
+      console.error("Error toggling star:", error)
+      setCreators((prev) => prev.map((c) => c.id === id ? { ...c, isStarred: current } : c))
+    }
   }
 
   // Fire both requests in parallel — each renders independently as it arrives
@@ -470,11 +482,14 @@ export default function CreatorsPage() {
                 className={`group rounded-2xl p-2 -m-2 transition-colors ${getCreatorCardHover(c.channelId)}`}
               >
                 {/* Banner */}
-                <div className="aspect-[16/5] bg-muted rounded-xl overflow-hidden">
+                <div className="aspect-[16/5] bg-muted rounded-xl overflow-hidden relative">
                   {c.bannerUrl ? (
                     <img src={c.bannerUrl} alt="" className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-110" />
                   ) : (
                     <div className="w-full h-full bg-gradient-to-br from-red-500/20 via-red-500/10 to-transparent transition-transform duration-300 group-hover:scale-110" />
+                  )}
+                  {c.isStarred && (
+                    <Star className="absolute top-1.5 right-1.5 size-4 fill-yellow-400 text-yellow-400 drop-shadow" />
                   )}
                 </div>
                 {/* Info row — avatar + text */}
@@ -505,6 +520,7 @@ export default function CreatorsPage() {
               <TableHeader>
                 <TableRow>
                   <TableHead className="w-8" />
+                  <SortableHead label="" sortKey="isStarred" currentSort={sortKey} currentDir={sortDir} onSort={handleSort} className="w-8" />
                   <SortableHead label="Creator" sortKey="title" currentSort={sortKey} currentDir={sortDir} onSort={handleSort} />
                   <SortableHead label="Videos" sortKey="dbVideoCount" currentSort={sortKey} currentDir={sortDir} onSort={handleSort} className="text-right" />
                   <SortableHead label="Avg Views" sortKey="avgViewsPerVideo" currentSort={sortKey} currentDir={sortDir} onSort={handleSort} className="text-right" />
@@ -527,6 +543,14 @@ export default function CreatorsPage() {
                       <TableRow className="cursor-pointer hover:bg-muted/50" onClick={() => toggleRow(c.id)}>
                         <TableCell className="w-8 px-2">
                           {open ? <ChevronDown className="size-4 text-muted-foreground" /> : <ChevronRight className="size-4 text-muted-foreground" />}
+                        </TableCell>
+                        <TableCell className="w-8 px-2">
+                          <button
+                            onClick={(e) => { e.stopPropagation(); toggleStar(c.id, c.isStarred) }}
+                            className="hover:scale-110 transition-transform"
+                          >
+                            <Star className={`size-4 ${c.isStarred ? "fill-yellow-400 text-yellow-400" : "text-muted-foreground/40 hover:text-yellow-400"}`} />
+                          </button>
                         </TableCell>
                         <TableCell className="font-medium">
                           <Link

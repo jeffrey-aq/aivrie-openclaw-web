@@ -5,8 +5,9 @@ import { useSearchParams } from "next/navigation"
 import { gql } from "graphql-request"
 import { extractNodes } from "@/lib/graphql"
 import { useGraphQLClient } from "@/hooks/use-graphql"
+import { supabase } from "@/lib/supabase-client"
 import { PageHeader } from "@/components/page-header"
-import { ArrowUp, ArrowDown, ArrowUpDown, X, ChevronDown, ChevronLeft, ChevronRight, ChevronsDownUp, ChevronsUpDown, LayoutGrid } from "lucide-react"
+import { ArrowUp, ArrowDown, ArrowUpDown, X, ChevronDown, ChevronLeft, ChevronRight, ChevronsDownUp, ChevronsUpDown, LayoutGrid, Star } from "lucide-react"
 import {
   DurationTypeBadge,
   CreatorBadge,
@@ -53,6 +54,7 @@ interface Video {
   durationType: string | null
   createdAt: string | null
   updatedAt: string | null
+  isStarred: boolean
 }
 
 interface Creator {
@@ -94,6 +96,7 @@ const SERVER_SORT_FIELDS: Partial<Record<SortKey, string>> = {
   durationType: "durationType",
   publishedDate: "publishedDate",
   engagementRatePercent: "engagementRatePercent",
+  isStarred: "isStarred",
 }
 
 interface ServerFilters {
@@ -124,7 +127,7 @@ function buildVideosQuery(
           engagementRatePercent publishedDate duration tags workstream
           status notes transcript summary thumbnailUrl description
           captionAvailable language definition topicCategories
-          categoryId durationType createdAt updatedAt
+          categoryId durationType createdAt updatedAt isStarred
         }
       }
     }
@@ -279,7 +282,7 @@ function SortableHead({
   )
 }
 
-const PRIMARY_COL_COUNT = 14
+const PRIMARY_COL_COUNT = 15
 
 export default function VideosPage() {
   const graphqlClient = useGraphQLClient()
@@ -308,6 +311,15 @@ export default function VideosPage() {
       try { localStorage.setItem("yt-grid-view", next ? "1" : "0") } catch {}
       return next
     })
+  }
+
+  async function toggleStar(id: string, current: boolean) {
+    setVideos((prev) => prev.map((v) => v.id === id ? { ...v, isStarred: !current } : v))
+    const { error } = await supabase.schema("research").from("youtube_videos").update({ is_starred: !current }).eq("id", id)
+    if (error) {
+      console.error("Error toggling star:", error)
+      setVideos((prev) => prev.map((v) => v.id === id ? { ...v, isStarred: current } : v))
+    }
   }
 
   // Fetch creators once
@@ -568,6 +580,9 @@ export default function VideosPage() {
                     ) : (
                       <div className="w-full h-full flex items-center justify-center text-muted-foreground text-xs">No thumbnail</div>
                     )}
+                    {v.isStarred && (
+                      <Star className="absolute top-1.5 right-1.5 size-4 fill-yellow-400 text-yellow-400 drop-shadow" />
+                    )}
                     {v.duration != null && (
                       <span className="absolute bottom-1.5 right-1.5 rounded-md bg-black/80 px-1.5 py-0.5 text-[11px] font-medium text-white tabular-nums">
                         {formatDuration(v.duration)}
@@ -607,6 +622,7 @@ export default function VideosPage() {
               <TableHeader>
                 <TableRow>
                   <TableHead className="w-8" />
+                  <SortableHead label="" sortKey="isStarred" currentSort={sortKey} currentDir={sortDir} onSort={handleSort} className="w-8" />
                   <SortableHead label="Title" sortKey="title" currentSort={sortKey} currentDir={sortDir} onSort={handleSort} />
                   <SortableHead label="Creator" sortKey="creatorName" currentSort={sortKey} currentDir={sortDir} onSort={handleSort} />
                   <SortableHead label="Views" sortKey="views" currentSort={sortKey} currentDir={sortDir} onSort={handleSort} className="text-right" />
@@ -630,6 +646,14 @@ export default function VideosPage() {
                       <TableRow className="cursor-pointer hover:bg-muted/50" onClick={() => toggleRow(v.id)}>
                         <TableCell className="w-8 px-2">
                           {open ? <ChevronDown className="size-4 text-muted-foreground" /> : <ChevronRight className="size-4 text-muted-foreground" />}
+                        </TableCell>
+                        <TableCell className="w-8 px-2">
+                          <button
+                            onClick={(e) => { e.stopPropagation(); toggleStar(v.id, v.isStarred) }}
+                            className="hover:scale-110 transition-transform"
+                          >
+                            <Star className={`size-4 ${v.isStarred ? "fill-yellow-400 text-yellow-400" : "text-muted-foreground/40 hover:text-yellow-400"}`} />
+                          </button>
                         </TableCell>
                         <TableCell className="font-medium max-w-[300px]">
                           <span className="line-clamp-1">{v.title}</span>
@@ -781,6 +805,7 @@ function compareValues(a: unknown, b: unknown): number {
   if (a == null && b == null) return 0
   if (a == null) return 1
   if (b == null) return -1
+  if (typeof a === "boolean" && typeof b === "boolean") return (a ? 1 : 0) - (b ? 1 : 0)
   if (typeof a === "number" && typeof b === "number") return a - b
   if (typeof a === "string" && typeof b === "string") return a.localeCompare(b)
   return 0
