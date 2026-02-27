@@ -1,31 +1,23 @@
 "use client"
 
-import { useMemo } from "react"
-import {
-  PieChart,
-  Pie,
-  Cell,
-  BarChart,
-  Bar,
-  XAxis,
-  YAxis,
-  CartesianGrid,
-  Tooltip,
-  ResponsiveContainer,
-  Legend,
-  ScatterChart,
-  Scatter,
-  ZAxis,
-  LabelList,
-} from "recharts"
-import type { DashboardData, CreatorFull, VideoStats } from "@/app/research/page"
+import { useMemo, useState } from "react"
+import { scaleBand, scaleLinear, scaleSqrt } from "d3-scale"
+import { axisBottom, axisLeft } from "d3-axis"
+import { max } from "d3-array"
+import { pie as d3pie, arc as d3arc } from "d3-shape"
+import type { PieArcDatum } from "d3-shape"
+import type { DashboardData, CreatorFull } from "@/app/research/page"
 import {
   revenueToOrdinal,
   ordinalToRevenue,
-  TOOLTIP_STYLE,
   formatNumber,
   toNum,
 } from "@/components/research/chart-utils"
+import { useChartDimensions } from "@/components/research/d3/use-chart-dimensions"
+import { useD3Axis } from "@/components/research/d3/use-d3-axis"
+import { ChartGrid } from "@/components/research/d3/grid"
+import { ChartTooltip } from "@/components/research/d3/tooltip"
+import { ChartLegend } from "@/components/research/d3/legend"
 
 // ─── Revenue tier ordering & colors ─────────────────────────────────────────
 const REVENUE_TIERS = [
@@ -95,41 +87,575 @@ function isRevenueTier(value: string): value is RevenueTier {
   return (REVENUE_TIERS as readonly string[]).includes(value)
 }
 
-// ─── Custom pie chart label renderer ────────────────────────────────────────
-interface PieLabelProps {
-  cx?: number
-  cy?: number
-  midAngle?: number
-  innerRadius?: number
-  outerRadius?: number
-  name?: string
-  value?: number
-}
+// ─── Chart 5.1: Revenue Tier Pie Chart ──────────────────────────────────────
 
-function renderPieLabel(props: PieLabelProps): React.ReactElement {
-  const cx = props.cx ?? 0
-  const cy = props.cy ?? 0
-  const midAngle = props.midAngle ?? 0
-  const outerRadius = props.outerRadius ?? 0
-  const name = props.name ?? ""
-  const value = props.value ?? 0
+function TierPieChart({ data }: { data: TierSlice[] }) {
+  const HEIGHT = 360
+  const OUTER_RADIUS = 110
+  const LABEL_RADIUS = OUTER_RADIUS + 25
+  const margin = { top: 10, right: 10, bottom: 10, left: 10 }
+  const [ref, dims] = useChartDimensions(margin)
+  const [tooltip, setTooltip] = useState<{
+    x: number
+    y: number
+    slice: TierSlice
+  } | null>(null)
 
-  const RADIAN = Math.PI / 180
-  const radius = outerRadius + 25
-  const x = cx + radius * Math.cos(-midAngle * RADIAN)
-  const y = cy + radius * Math.sin(-midAngle * RADIAN)
+  const total = useMemo(
+    () => data.reduce((s, d) => s + d.value, 0),
+    [data],
+  )
+
+  const pieGen = useMemo(
+    () => d3pie<TierSlice>().value((d) => d.value).sort(null),
+    [],
+  )
+
+  const arcGen = useMemo(
+    () =>
+      d3arc<PieArcDatum<TierSlice>>()
+        .innerRadius(0)
+        .outerRadius(OUTER_RADIUS),
+    [],
+  )
+
+  const arcs = useMemo(() => pieGen(data), [pieGen, data])
+
+  const handleMouse = (e: React.MouseEvent, slice: TierSlice) => {
+    const el = ref.current
+    if (!el) return
+    const rect = el.getBoundingClientRect()
+    setTooltip({
+      x: e.clientX - rect.left,
+      y: e.clientY - rect.top,
+      slice,
+    })
+  }
 
   return (
-    <text
-      x={x}
-      y={y}
-      fill="var(--color-foreground)"
-      textAnchor={x > cx ? "start" : "end"}
-      dominantBaseline="central"
-      style={{ fontSize: 11 }}
-    >
-      {`${name}: ${value}`}
-    </text>
+    <div ref={ref} className="relative w-full" style={{ height: HEIGHT }}>
+      {dims.width > 0 && (
+        <>
+          <svg width={dims.width} height={HEIGHT}>
+            <g transform={`translate(${dims.width / 2},${HEIGHT / 2})`}>
+              {arcs.map((a, i) => (
+                <path
+                  key={a.data.name}
+                  d={arcGen(a)!}
+                  fill={a.data.fill}
+                  onMouseMove={(e) => handleMouse(e, a.data)}
+                  onMouseLeave={() => setTooltip(null)}
+                />
+              ))}
+              {arcs.map((a) => {
+                const midAngle = (a.startAngle + a.endAngle) / 2
+                const x = LABEL_RADIUS * Math.cos(midAngle - Math.PI / 2)
+                const y = LABEL_RADIUS * Math.sin(midAngle - Math.PI / 2)
+                if (a.data.value === 0) return null
+                return (
+                  <text
+                    key={a.data.name}
+                    x={x}
+                    y={y}
+                    textAnchor={x > 0 ? "start" : "end"}
+                    dominantBaseline="central"
+                    fontSize={11}
+                    fill="var(--color-foreground)"
+                  >
+                    {`${a.data.name}: ${a.data.value}`}
+                  </text>
+                )
+              })}
+            </g>
+          </svg>
+          <ChartTooltip
+            x={tooltip?.x ?? 0}
+            y={tooltip?.y ?? 0}
+            visible={tooltip !== null}
+            containerWidth={dims.width}
+            containerHeight={HEIGHT}
+          >
+            {tooltip && (
+              <>
+                <p className="font-medium text-xs mb-1">
+                  {tooltip.slice.name}
+                </p>
+                <p className="text-xs">
+                  {tooltip.slice.value} creators (
+                  {total > 0
+                    ? ((tooltip.slice.value / total) * 100).toFixed(1)
+                    : "0"}
+                  %)
+                </p>
+              </>
+            )}
+          </ChartTooltip>
+        </>
+      )}
+    </div>
+  )
+}
+
+// ─── Chart 5.2: Revenue Tier vs Metrics (Vertical Grouped Bar) ──────────────
+
+const TIER_METRICS_SERIES = [
+  {
+    key: "avgSubscribers" as const,
+    label: "Avg Subscribers",
+    color: "#3b82f6",
+  },
+  {
+    key: "avgEngagement" as const,
+    label: "Avg Engagement",
+    color: "#6366f1",
+  },
+  {
+    key: "avgVideoCount" as const,
+    label: "Avg Video Count",
+    color: "#10b981",
+  },
+]
+
+function TierMetricsChart({ data }: { data: TierMetricsRow[] }) {
+  const margin = { top: 10, right: 20, bottom: 30, left: 50 }
+  const HEIGHT = 360
+  const [ref, dims] = useChartDimensions(margin)
+  const [tooltip, setTooltip] = useState<{
+    x: number
+    y: number
+    row: TierMetricsRow
+  } | null>(null)
+
+  const xScale = useMemo(
+    () =>
+      scaleBand<string>()
+        .domain(data.map((d) => d.tier))
+        .range([0, dims.innerWidth])
+        .padding(0.2),
+    [data, dims.innerWidth],
+  )
+
+  const xInner = useMemo(
+    () =>
+      scaleBand<string>()
+        .domain(TIER_METRICS_SERIES.map((s) => s.key))
+        .range([0, xScale.bandwidth()])
+        .padding(0.05),
+    [xScale],
+  )
+
+  const yScale = useMemo(
+    () =>
+      scaleLinear()
+        .domain([0, 100])
+        .range([dims.innerHeight, 0]),
+    [dims.innerHeight],
+  )
+
+  const xAxis = useMemo(
+    () => (dims.innerWidth > 0 ? axisBottom(xScale) : null),
+    [xScale, dims.innerWidth],
+  )
+  const yAxis = useMemo(
+    () =>
+      dims.innerHeight > 0
+        ? axisLeft(yScale).tickFormat((d) => `${d}`)
+        : null,
+    [yScale, dims.innerHeight],
+  )
+
+  const xAxisRef = useD3Axis(xAxis)
+  const yAxisRef = useD3Axis(yAxis)
+
+  const handleMouse = (e: React.MouseEvent, row: TierMetricsRow) => {
+    const el = ref.current
+    if (!el) return
+    const rect = el.getBoundingClientRect()
+    setTooltip({
+      x: e.clientX - rect.left,
+      y: e.clientY - rect.top,
+      row,
+    })
+  }
+
+  return (
+    <div ref={ref} className="relative w-full" style={{ height: HEIGHT }}>
+      {dims.width > 0 && (
+        <>
+          <svg width={dims.width} height={HEIGHT}>
+            <g transform={`translate(${margin.left},${margin.top})`}>
+              <ChartGrid
+                innerWidth={dims.innerWidth}
+                innerHeight={dims.innerHeight}
+                yTicks={yScale.ticks().map((t) => yScale(t))}
+                vertical={false}
+              />
+              {data.map((d) => (
+                <g
+                  key={d.tier}
+                  transform={`translate(${xScale(d.tier) ?? 0},0)`}
+                >
+                  {TIER_METRICS_SERIES.map((s) => {
+                    const val = d[s.key]
+                    return (
+                      <rect
+                        key={s.key}
+                        x={xInner(s.key) ?? 0}
+                        y={yScale(val)}
+                        width={xInner.bandwidth()}
+                        height={Math.max(0, dims.innerHeight - yScale(val))}
+                        fill={s.color}
+                        rx={2}
+                        onMouseMove={(e) => handleMouse(e, d)}
+                        onMouseLeave={() => setTooltip(null)}
+                      />
+                    )
+                  })}
+                </g>
+              ))}
+              <g
+                ref={xAxisRef}
+                transform={`translate(0,${dims.innerHeight})`}
+              />
+              <g ref={yAxisRef} />
+            </g>
+          </svg>
+          <ChartTooltip
+            x={tooltip?.x ?? 0}
+            y={tooltip?.y ?? 0}
+            visible={tooltip !== null}
+            containerWidth={dims.width}
+            containerHeight={HEIGHT}
+          >
+            {tooltip && (
+              <>
+                <p className="font-medium text-xs mb-1">{tooltip.row.tier}</p>
+                {TIER_METRICS_SERIES.map((s) => (
+                  <p key={s.key} className="text-xs">
+                    {s.label}: {tooltip.row[s.key].toFixed(1)}
+                  </p>
+                ))}
+              </>
+            )}
+          </ChartTooltip>
+        </>
+      )}
+    </div>
+  )
+}
+
+// ─── Chart 5.3: Monetization Frequency (Horizontal Stacked Bar) ─────────────
+
+function MonetizationStackChart({
+  data,
+  height,
+}: {
+  data: MonetizationStackRow[]
+  height: number
+}) {
+  const margin = { top: 5, right: 20, bottom: 30, left: 100 }
+  const [ref, dims] = useChartDimensions(margin)
+  const [tooltip, setTooltip] = useState<{
+    x: number
+    y: number
+    method: string
+    tier: string
+    count: number
+  } | null>(null)
+
+  const yScale = useMemo(
+    () =>
+      scaleBand<string>()
+        .domain(data.map((d) => d.method))
+        .range([0, dims.innerHeight])
+        .padding(0.2),
+    [data, dims.innerHeight],
+  )
+
+  const maxTotal = useMemo(
+    () => max(data, (d) => d.total) ?? 0,
+    [data],
+  )
+
+  const xScale = useMemo(
+    () =>
+      scaleLinear()
+        .domain([0, maxTotal])
+        .nice()
+        .range([0, dims.innerWidth]),
+    [maxTotal, dims.innerWidth],
+  )
+
+  const xAxis = useMemo(
+    () =>
+      dims.innerWidth > 0
+        ? axisBottom(xScale).ticks(Math.min(maxTotal, 10))
+        : null,
+    [xScale, dims.innerWidth, maxTotal],
+  )
+  const yAxis = useMemo(
+    () => (dims.innerHeight > 0 ? axisLeft(yScale) : null),
+    [yScale, dims.innerHeight],
+  )
+
+  const xAxisRef = useD3Axis(xAxis)
+  const yAxisRef = useD3Axis(yAxis)
+
+  const handleMouse = (
+    e: React.MouseEvent,
+    method: string,
+    tier: string,
+    count: number,
+  ) => {
+    const el = ref.current
+    if (!el) return
+    const rect = el.getBoundingClientRect()
+    setTooltip({
+      x: e.clientX - rect.left,
+      y: e.clientY - rect.top,
+      method,
+      tier,
+      count,
+    })
+  }
+
+  return (
+    <div ref={ref} className="relative w-full" style={{ height }}>
+      {dims.width > 0 && (
+        <>
+          <svg width={dims.width} height={height}>
+            <g transform={`translate(${margin.left},${margin.top})`}>
+              <ChartGrid
+                innerWidth={dims.innerWidth}
+                innerHeight={dims.innerHeight}
+                xTicks={xScale.ticks().map((t) => xScale(t))}
+                horizontal={false}
+              />
+              {data.map((d) => {
+                let cumX = 0
+                return (
+                  <g
+                    key={d.method}
+                    transform={`translate(0,${yScale(d.method) ?? 0})`}
+                  >
+                    {REVENUE_TIERS.map((tier, i) => {
+                      const val = d[tier]
+                      const x = xScale(cumX)
+                      const w = xScale(cumX + val) - xScale(cumX)
+                      cumX += val
+                      return (
+                        <rect
+                          key={tier}
+                          x={x}
+                          y={0}
+                          width={Math.max(0, w)}
+                          height={yScale.bandwidth()}
+                          fill={REVENUE_COLORS[tier]}
+                          rx={i === REVENUE_TIERS.length - 1 ? 2 : 0}
+                          onMouseMove={(e) =>
+                            handleMouse(e, d.method, tier, val)
+                          }
+                          onMouseLeave={() => setTooltip(null)}
+                        />
+                      )
+                    })}
+                  </g>
+                )
+              })}
+              <g
+                ref={xAxisRef}
+                transform={`translate(0,${dims.innerHeight})`}
+              />
+              <g ref={yAxisRef} />
+            </g>
+          </svg>
+          <ChartTooltip
+            x={tooltip?.x ?? 0}
+            y={tooltip?.y ?? 0}
+            visible={tooltip !== null}
+            containerWidth={dims.width}
+            containerHeight={height}
+          >
+            {tooltip && (
+              <>
+                <p className="font-medium text-xs mb-1">{tooltip.method}</p>
+                <p className="text-xs">
+                  {tooltip.tier}: {tooltip.count} creators
+                </p>
+              </>
+            )}
+          </ChartTooltip>
+        </>
+      )}
+    </div>
+  )
+}
+
+// ─── Chart 5.4: Monetization Diversity (Scatter with labels) ────────────────
+
+function DiversityScatterChart({ data }: { data: DiversityDot[] }) {
+  const margin = { top: 10, right: 20, bottom: 45, left: 70 }
+  const HEIGHT = 400
+  const [ref, dims] = useChartDimensions(margin)
+  const [tooltip, setTooltip] = useState<{
+    x: number
+    y: number
+    row: DiversityDot
+  } | null>(null)
+
+  const maxMonetization = useMemo(
+    () => max(data, (d) => d.monetizationCount) ?? 1,
+    [data],
+  )
+
+  const maxSubs = useMemo(
+    () => max(data, (d) => d.subscribers) ?? 1,
+    [data],
+  )
+
+  const xScale = useMemo(
+    () =>
+      scaleLinear()
+        .domain([0, maxMonetization + 1])
+        .range([0, dims.innerWidth]),
+    [maxMonetization, dims.innerWidth],
+  )
+
+  const yScale = useMemo(
+    () =>
+      scaleLinear()
+        .domain([0.5, 5.5])
+        .range([dims.innerHeight, 0]),
+    [dims.innerHeight],
+  )
+
+  const rScale = useMemo(
+    () => scaleSqrt().domain([0, maxSubs]).range([4, 20]),
+    [maxSubs],
+  )
+
+  const xAxis = useMemo(
+    () => {
+      if (dims.innerWidth <= 0) return null
+      const intTicks: number[] = []
+      for (let i = 0; i <= maxMonetization + 1; i++) intTicks.push(i)
+      return axisBottom(xScale)
+        .tickValues(intTicks)
+        .tickFormat((d) => `${d}`)
+    },
+    [xScale, dims.innerWidth, maxMonetization],
+  )
+
+  const yAxis = useMemo(
+    () =>
+      dims.innerHeight > 0
+        ? axisLeft(yScale)
+            .tickValues([1, 2, 3, 4, 5])
+            .tickFormat((d) => ordinalToRevenue(Number(d)))
+        : null,
+    [yScale, dims.innerHeight],
+  )
+
+  const xAxisRef = useD3Axis(xAxis)
+  const yAxisRef = useD3Axis(yAxis)
+
+  const handleMouse = (e: React.MouseEvent, row: DiversityDot) => {
+    const el = ref.current
+    if (!el) return
+    const rect = el.getBoundingClientRect()
+    setTooltip({ x: e.clientX - rect.left, y: e.clientY - rect.top, row })
+  }
+
+  return (
+    <div ref={ref} className="relative w-full" style={{ height: HEIGHT }}>
+      {dims.width > 0 && (
+        <>
+          <svg width={dims.width} height={HEIGHT}>
+            <g transform={`translate(${margin.left},${margin.top})`}>
+              <ChartGrid
+                innerWidth={dims.innerWidth}
+                innerHeight={dims.innerHeight}
+                xTicks={xScale.ticks().map((t) => xScale(t))}
+                yTicks={yScale.ticks().map((t) => yScale(t))}
+              />
+              {data.map((d, i) => {
+                const r = rScale(d.subscribers)
+                return (
+                  <g key={i}>
+                    <circle
+                      cx={xScale(d.monetizationCount)}
+                      cy={yScale(d.revenueOrdinal)}
+                      r={r}
+                      fill="#6366f1"
+                      fillOpacity={0.75}
+                      stroke="#6366f1"
+                      strokeWidth={1}
+                      onMouseMove={(e) => handleMouse(e, d)}
+                      onMouseLeave={() => setTooltip(null)}
+                    />
+                    <text
+                      x={xScale(d.monetizationCount)}
+                      y={yScale(d.revenueOrdinal) - r - 4}
+                      textAnchor="middle"
+                      fontSize={9}
+                      fill="var(--color-muted-foreground)"
+                    >
+                      {d.name}
+                    </text>
+                  </g>
+                )
+              })}
+              <g
+                ref={xAxisRef}
+                transform={`translate(0,${dims.innerHeight})`}
+              />
+              <g ref={yAxisRef} />
+              <text
+                x={dims.innerWidth / 2}
+                y={dims.innerHeight + margin.bottom - 5}
+                textAnchor="middle"
+                fontSize={11}
+                fill="var(--color-muted-foreground)"
+              >
+                Number of Monetization Types
+              </text>
+              <text
+                transform="rotate(-90)"
+                x={-dims.innerHeight / 2}
+                y={-margin.left + 15}
+                textAnchor="middle"
+                fontSize={11}
+                fill="var(--color-muted-foreground)"
+              >
+                Revenue Tier
+              </text>
+            </g>
+          </svg>
+          <ChartTooltip
+            x={tooltip?.x ?? 0}
+            y={tooltip?.y ?? 0}
+            visible={tooltip !== null}
+            containerWidth={dims.width}
+            containerHeight={HEIGHT}
+          >
+            {tooltip && (
+              <>
+                <p className="font-medium text-xs mb-1">{tooltip.row.name}</p>
+                <p className="text-xs">
+                  Monetization Types: {tooltip.row.monetizationCount}
+                </p>
+                <p className="text-xs">
+                  Revenue: {ordinalToRevenue(tooltip.row.revenueOrdinal)}
+                </p>
+                <p className="text-xs">
+                  Subscribers: {formatNumber(tooltip.row.subscribers)}
+                </p>
+              </>
+            )}
+          </ChartTooltip>
+        </>
+      )}
+    </div>
   )
 }
 
@@ -270,33 +796,15 @@ export function RevenueTab({ data }: { data: DashboardData }) {
           <h3 className="text-sm font-semibold mb-4">
             Revenue Tier Breakdown
           </h3>
-          <ResponsiveContainer width="100%" height={360}>
-            <PieChart>
-              <Pie
-                data={tierPieData}
-                cx="50%"
-                cy="50%"
-                outerRadius={110}
-                dataKey="value"
-                nameKey="name"
-                label={renderPieLabel}
-              >
-                {tierPieData.map((entry) => (
-                  <Cell key={entry.name} fill={entry.fill} />
-                ))}
-              </Pie>
-              <Tooltip
-                contentStyle={TOOLTIP_STYLE}
-                formatter={(value: number | undefined, name: string | undefined) => {
-                  const v = value ?? 0
-                  const total = tierPieData.reduce((s, d) => s + d.value, 0)
-                  const pct = total > 0 ? ((v / total) * 100).toFixed(1) : "0"
-                  return [`${v} creators (${pct}%)`, name ?? ""]
-                }}
-              />
-              <Legend wrapperStyle={{ fontSize: "0.75rem" }} />
-            </PieChart>
-          </ResponsiveContainer>
+          <TierPieChart data={tierPieData} />
+          <ChartLegend
+            entries={REVENUE_TIERS.map((tier) => ({
+              label: tier,
+              color: REVENUE_COLORS[tier],
+              shape: "square" as const,
+            }))}
+            className="mt-2"
+          />
         </div>
 
         {/* 5.2 Revenue Tier vs Metrics (normalized) */}
@@ -304,63 +812,14 @@ export function RevenueTab({ data }: { data: DashboardData }) {
           <h3 className="text-sm font-semibold mb-4">
             Revenue Tier vs Metrics (normalized)
           </h3>
-          <ResponsiveContainer width="100%" height={360}>
-            <BarChart
-              data={tierMetricsData}
-              margin={{ top: 5, right: 20, bottom: 5, left: 10 }}
-            >
-              <CartesianGrid
-                strokeDasharray="3 3"
-                className="opacity-30"
-                vertical={false}
-              />
-              <XAxis
-                dataKey="tier"
-                tick={{ fontSize: 11 }}
-                interval={0}
-              />
-              <YAxis
-                tick={{ fontSize: 11 }}
-                domain={[0, 100]}
-                tickFormatter={(v: number) => `${v}`}
-              />
-              <Tooltip
-                contentStyle={TOOLTIP_STYLE}
-                formatter={(value: number | undefined, name: string | undefined) => {
-                  const label =
-                    name === "avgSubscribers"
-                      ? "Avg Subscribers"
-                      : name === "avgEngagement"
-                        ? "Avg Engagement"
-                        : "Avg Video Count"
-                  return [`${(value ?? 0).toFixed(1)}`, label]
-                }}
-              />
-              <Legend
-                wrapperStyle={{ fontSize: "0.75rem" }}
-                formatter={(value: string) => {
-                  if (value === "avgSubscribers") return "Avg Subscribers"
-                  if (value === "avgEngagement") return "Avg Engagement"
-                  return "Avg Video Count"
-                }}
-              />
-              <Bar
-                dataKey="avgSubscribers"
-                fill="#3b82f6"
-                radius={[2, 2, 0, 0]}
-              />
-              <Bar
-                dataKey="avgEngagement"
-                fill="#6366f1"
-                radius={[2, 2, 0, 0]}
-              />
-              <Bar
-                dataKey="avgVideoCount"
-                fill="#10b981"
-                radius={[2, 2, 0, 0]}
-              />
-            </BarChart>
-          </ResponsiveContainer>
+          <TierMetricsChart data={tierMetricsData} />
+          <ChartLegend
+            entries={TIER_METRICS_SERIES.map((s) => ({
+              label: s.label,
+              color: s.color,
+            }))}
+            className="mt-2"
+          />
         </div>
       </div>
 
@@ -371,54 +830,18 @@ export function RevenueTab({ data }: { data: DashboardData }) {
           <h3 className="text-sm font-semibold mb-4">
             Monetization Frequency by Revenue Tier
           </h3>
-          <ResponsiveContainer
-            width="100%"
+          <MonetizationStackChart
+            data={monetizationStackData}
             height={Math.max(monetizationStackData.length * 40 + 60, 200)}
-          >
-            <BarChart
-              data={monetizationStackData}
-              layout="vertical"
-              margin={{ left: 100, right: 20, top: 5, bottom: 5 }}
-            >
-              <CartesianGrid
-                strokeDasharray="3 3"
-                className="opacity-30"
-                horizontal={false}
-              />
-              <XAxis
-                type="number"
-                allowDecimals={false}
-                tick={{ fontSize: 11 }}
-              />
-              <YAxis
-                type="category"
-                dataKey="method"
-                tick={{ fontSize: 11 }}
-                width={95}
-              />
-              <Tooltip
-                contentStyle={TOOLTIP_STYLE}
-                formatter={(value: number | undefined, name: string | undefined) => [
-                  `${value ?? 0} creators`,
-                  name ?? "",
-                ]}
-              />
-              <Legend wrapperStyle={{ fontSize: "0.75rem" }} />
-              {REVENUE_TIERS.map((tier, i) => (
-                <Bar
-                  key={tier}
-                  dataKey={tier}
-                  stackId="monetization"
-                  fill={REVENUE_COLORS[tier]}
-                  radius={
-                    i === REVENUE_TIERS.length - 1
-                      ? [0, 2, 2, 0]
-                      : [0, 0, 0, 0]
-                  }
-                />
-              ))}
-            </BarChart>
-          </ResponsiveContainer>
+          />
+          <ChartLegend
+            entries={REVENUE_TIERS.map((tier) => ({
+              label: tier,
+              color: REVENUE_COLORS[tier],
+              shape: "square" as const,
+            }))}
+            className="mt-2"
+          />
         </div>
 
         {/* 5.4 Monetization Diversity (Scatter) */}
@@ -426,90 +849,7 @@ export function RevenueTab({ data }: { data: DashboardData }) {
           <h3 className="text-sm font-semibold mb-4">
             Monetization Diversity vs Revenue
           </h3>
-          <ResponsiveContainer width="100%" height={400}>
-            <ScatterChart
-              margin={{ top: 10, right: 20, bottom: 20, left: 10 }}
-            >
-              <CartesianGrid
-                strokeDasharray="3 3"
-                className="opacity-30"
-              />
-              <XAxis
-                type="number"
-                dataKey="monetizationCount"
-                name="Monetization Types"
-                tick={{ fontSize: 11 }}
-                allowDecimals={false}
-                label={{
-                  value: "Number of Monetization Types",
-                  position: "insideBottom",
-                  offset: -10,
-                  style: {
-                    fontSize: 11,
-                    fill: "var(--color-muted-foreground)",
-                  },
-                }}
-              />
-              <YAxis
-                type="number"
-                dataKey="revenueOrdinal"
-                name="Revenue Tier"
-                domain={[0.5, 5.5]}
-                ticks={[1, 2, 3, 4, 5]}
-                tick={{ fontSize: 11 }}
-                tickFormatter={(v: number) => ordinalToRevenue(v)}
-                label={{
-                  value: "Revenue Tier",
-                  angle: -90,
-                  position: "insideLeft",
-                  offset: 5,
-                  style: {
-                    fontSize: 11,
-                    fill: "var(--color-muted-foreground)",
-                  },
-                }}
-              />
-              <ZAxis
-                type="number"
-                dataKey="subscribers"
-                range={[40, 400]}
-                name="Subscribers"
-              />
-              <Tooltip
-                contentStyle={TOOLTIP_STYLE}
-                content={({ active, payload }) => {
-                  if (!active || !payload || payload.length === 0) return null
-                  const row = (
-                    payload[0] as TooltipPayloadEntry<DiversityDot>
-                  ).payload
-                  return (
-                    <div style={TOOLTIP_STYLE} className="p-2 shadow-lg">
-                      <p className="font-medium text-xs mb-1">{row.name}</p>
-                      <p className="text-xs">
-                        Monetization Types: {row.monetizationCount}
-                      </p>
-                      <p className="text-xs">
-                        Revenue: {ordinalToRevenue(row.revenueOrdinal)}
-                      </p>
-                      <p className="text-xs">
-                        Subscribers: {formatNumber(row.subscribers)}
-                      </p>
-                    </div>
-                  )
-                }}
-              />
-              <Scatter data={diversityData} name="Creators" fill="#6366f1">
-                <LabelList
-                  dataKey="name"
-                  position="top"
-                  style={{
-                    fontSize: 9,
-                    fill: "var(--color-muted-foreground)",
-                  }}
-                />
-              </Scatter>
-            </ScatterChart>
-          </ResponsiveContainer>
+          <DiversityScatterChart data={diversityData} />
         </div>
       </div>
     </div>

@@ -1,23 +1,21 @@
 "use client"
 
-import { useMemo } from "react"
-import {
-  BarChart,
-  Bar,
-  XAxis,
-  YAxis,
-  CartesianGrid,
-  Tooltip,
-  ResponsiveContainer,
-  Legend,
-  ScatterChart,
-  Scatter,
-  ZAxis,
-  Cell,
-  LabelList,
-} from "recharts"
+import { useMemo, useState } from "react"
+import { scaleBand, scaleLinear, scaleSqrt } from "d3-scale"
+import { axisBottom, axisLeft } from "d3-axis"
+import { max, extent } from "d3-array"
 import type { DashboardData } from "@/app/research/page"
-import { TOOLTIP_STYLE, NICHE_COLORS, formatNumber, toNum } from "@/components/research/chart-utils"
+import {
+  TOOLTIP_STYLE,
+  NICHE_COLORS,
+  formatNumber,
+  toNum,
+} from "@/components/research/chart-utils"
+import { useChartDimensions } from "@/components/research/d3/use-chart-dimensions"
+import { useD3Axis } from "@/components/research/d3/use-d3-axis"
+import { ChartGrid } from "@/components/research/d3/grid"
+import { ChartTooltip } from "@/components/research/d3/tooltip"
+import { ChartLegend } from "@/components/research/d3/legend"
 
 // ─── Frequency ordering ──────────────────────────────────────────────────────
 const FREQUENCY_ORDER = [
@@ -65,7 +63,10 @@ function avg(values: number[]): number {
   return values.reduce((a, b) => a + b, 0) / values.length
 }
 
-function groupBy<T>(items: T[], key: (item: T) => string | null): Map<string, T[]> {
+function groupBy<T>(
+  items: T[],
+  key: (item: T) => string | null,
+): Map<string, T[]> {
   const map = new Map<string, T[]>()
   for (const item of items) {
     const k = key(item)
@@ -75,6 +76,590 @@ function groupBy<T>(items: T[], key: (item: T) => string | null): Map<string, T[
     else map.set(k, [item])
   }
   return map
+}
+
+// ─── Chart 2.1: Upload Frequency vs Performance (Vertical Grouped Bar) ──────
+
+const FREQ_SERIES = [
+  {
+    key: "avgSubscribers" as const,
+    label: "Avg Subscribers",
+    color: "#3b82f6",
+  },
+  {
+    key: "avgViewsPerVideo" as const,
+    label: "Avg Views/Video",
+    color: "#10b981",
+  },
+]
+
+function FreqPerformanceChart({ data }: { data: FreqRow[] }) {
+  const margin = { top: 10, right: 20, bottom: 30, left: 70 }
+  const HEIGHT = 320
+  const [ref, dims] = useChartDimensions(margin)
+  const [tooltip, setTooltip] = useState<{
+    x: number
+    y: number
+    row: FreqRow
+  } | null>(null)
+
+  const xScale = useMemo(
+    () =>
+      scaleBand<string>()
+        .domain(data.map((d) => d.frequency))
+        .range([0, dims.innerWidth])
+        .padding(0.2),
+    [data, dims.innerWidth],
+  )
+
+  const xInner = useMemo(
+    () =>
+      scaleBand<string>()
+        .domain(FREQ_SERIES.map((s) => s.key))
+        .range([0, xScale.bandwidth()])
+        .padding(0.05),
+    [xScale],
+  )
+
+  const maxVal = useMemo(
+    () =>
+      max(data.flatMap((d) => [d.avgSubscribers, d.avgViewsPerVideo])) ?? 0,
+    [data],
+  )
+
+  const yScale = useMemo(
+    () =>
+      scaleLinear()
+        .domain([0, maxVal])
+        .nice()
+        .range([dims.innerHeight, 0]),
+    [maxVal, dims.innerHeight],
+  )
+
+  const xAxis = useMemo(
+    () => (dims.innerWidth > 0 ? axisBottom(xScale) : null),
+    [xScale, dims.innerWidth],
+  )
+  const yAxis = useMemo(
+    () =>
+      dims.innerHeight > 0
+        ? axisLeft(yScale).tickFormat((d) => formatNumber(Number(d)))
+        : null,
+    [yScale, dims.innerHeight],
+  )
+
+  const xAxisRef = useD3Axis(xAxis)
+  const yAxisRef = useD3Axis(yAxis)
+
+  const handleMouse = (e: React.MouseEvent, row: FreqRow) => {
+    const el = ref.current
+    if (!el) return
+    const rect = el.getBoundingClientRect()
+    setTooltip({
+      x: e.clientX - rect.left,
+      y: e.clientY - rect.top,
+      row,
+    })
+  }
+
+  return (
+    <div ref={ref} className="relative w-full" style={{ height: HEIGHT }}>
+      {dims.width > 0 && (
+        <>
+          <svg width={dims.width} height={HEIGHT}>
+            <g transform={`translate(${margin.left},${margin.top})`}>
+              <ChartGrid
+                innerWidth={dims.innerWidth}
+                innerHeight={dims.innerHeight}
+                yTicks={yScale.ticks().map((t) => yScale(t))}
+                vertical={false}
+              />
+              {data.map((d) => (
+                <g
+                  key={d.frequency}
+                  transform={`translate(${xScale(d.frequency) ?? 0},0)`}
+                >
+                  {FREQ_SERIES.map((s) => {
+                    const val = d[s.key]
+                    return (
+                      <rect
+                        key={s.key}
+                        x={xInner(s.key) ?? 0}
+                        y={yScale(val)}
+                        width={xInner.bandwidth()}
+                        height={Math.max(0, dims.innerHeight - yScale(val))}
+                        fill={s.color}
+                        rx={2}
+                        onMouseMove={(e) => handleMouse(e, d)}
+                        onMouseLeave={() => setTooltip(null)}
+                      />
+                    )
+                  })}
+                </g>
+              ))}
+              <g
+                ref={xAxisRef}
+                transform={`translate(0,${dims.innerHeight})`}
+              />
+              <g ref={yAxisRef} />
+            </g>
+          </svg>
+          <ChartTooltip
+            x={tooltip?.x ?? 0}
+            y={tooltip?.y ?? 0}
+            visible={tooltip !== null}
+            containerWidth={dims.width}
+            containerHeight={HEIGHT}
+          >
+            {tooltip && (
+              <>
+                <p className="font-medium text-xs mb-1">
+                  {tooltip.row.frequency}
+                </p>
+                <p className="text-xs">
+                  Avg Subscribers: {formatNumber(tooltip.row.avgSubscribers)}
+                </p>
+                <p className="text-xs">
+                  Avg Views/Video:{" "}
+                  {formatNumber(tooltip.row.avgViewsPerVideo)}
+                </p>
+              </>
+            )}
+          </ChartTooltip>
+        </>
+      )}
+    </div>
+  )
+}
+
+// ─── Chart 2.2: Niche Performance (Horizontal Grouped Bar, Normalized) ──────
+
+const NICHE_SERIES = [
+  {
+    key: "normSubs" as const,
+    rawKey: "rawSubs" as const,
+    label: "Subscribers",
+    color: "#3b82f6",
+    formatRaw: (v: number) => formatNumber(v),
+  },
+  {
+    key: "normEngagement" as const,
+    rawKey: "rawEngagement" as const,
+    label: "Engagement",
+    color: "#6366f1",
+    formatRaw: (v: number) => `${v.toFixed(2)}%`,
+  },
+  {
+    key: "normViewsToSub" as const,
+    rawKey: "rawViewsToSub" as const,
+    label: "Views:Sub Ratio",
+    color: "#10b981",
+    formatRaw: (v: number) => `${v.toFixed(1)}%`,
+  },
+]
+
+function NichePerformanceChart({
+  data,
+  height,
+}: {
+  data: NicheRow[]
+  height: number
+}) {
+  const margin = { top: 5, right: 20, bottom: 30, left: 100 }
+  const [ref, dims] = useChartDimensions(margin)
+  const [tooltip, setTooltip] = useState<{
+    x: number
+    y: number
+    row: NicheRow
+  } | null>(null)
+
+  const yScale = useMemo(
+    () =>
+      scaleBand<string>()
+        .domain(data.map((d) => d.niche))
+        .range([0, dims.innerHeight])
+        .padding(0.2),
+    [data, dims.innerHeight],
+  )
+
+  const yInner = useMemo(
+    () =>
+      scaleBand<string>()
+        .domain(NICHE_SERIES.map((s) => s.key))
+        .range([0, yScale.bandwidth()])
+        .padding(0.05),
+    [yScale],
+  )
+
+  const xScale = useMemo(
+    () => scaleLinear().domain([0, 100]).range([0, dims.innerWidth]),
+    [dims.innerWidth],
+  )
+
+  const xAxis = useMemo(
+    () => (dims.innerWidth > 0 ? axisBottom(xScale) : null),
+    [xScale, dims.innerWidth],
+  )
+  const yAxis = useMemo(
+    () => (dims.innerHeight > 0 ? axisLeft(yScale) : null),
+    [yScale, dims.innerHeight],
+  )
+
+  const xAxisRef = useD3Axis(xAxis)
+  const yAxisRef = useD3Axis(yAxis)
+
+  const handleMouse = (e: React.MouseEvent, row: NicheRow) => {
+    const el = ref.current
+    if (!el) return
+    const rect = el.getBoundingClientRect()
+    setTooltip({ x: e.clientX - rect.left, y: e.clientY - rect.top, row })
+  }
+
+  return (
+    <div ref={ref} className="relative w-full" style={{ height }}>
+      {dims.width > 0 && (
+        <>
+          <svg width={dims.width} height={height}>
+            <g transform={`translate(${margin.left},${margin.top})`}>
+              <ChartGrid
+                innerWidth={dims.innerWidth}
+                innerHeight={dims.innerHeight}
+                xTicks={xScale.ticks().map((t) => xScale(t))}
+                horizontal={false}
+              />
+              {data.map((d) => (
+                <g
+                  key={d.niche}
+                  transform={`translate(0,${yScale(d.niche) ?? 0})`}
+                >
+                  {NICHE_SERIES.map((s) => {
+                    const val = d[s.key]
+                    return (
+                      <rect
+                        key={s.key}
+                        x={0}
+                        y={yInner(s.key) ?? 0}
+                        width={Math.max(0, xScale(val))}
+                        height={yInner.bandwidth()}
+                        fill={s.color}
+                        rx={2}
+                        onMouseMove={(e) => handleMouse(e, d)}
+                        onMouseLeave={() => setTooltip(null)}
+                      />
+                    )
+                  })}
+                </g>
+              ))}
+              <g
+                ref={xAxisRef}
+                transform={`translate(0,${dims.innerHeight})`}
+              />
+              <g ref={yAxisRef} />
+            </g>
+          </svg>
+          <ChartTooltip
+            x={tooltip?.x ?? 0}
+            y={tooltip?.y ?? 0}
+            visible={tooltip !== null}
+            containerWidth={dims.width}
+            containerHeight={height}
+          >
+            {tooltip && (
+              <>
+                <p className="font-medium text-xs mb-1">
+                  {tooltip.row.niche}
+                </p>
+                {NICHE_SERIES.map((s) => (
+                  <p key={s.key} className="text-xs">
+                    {s.label}: {tooltip.row[s.key].toFixed(0)} (
+                    {s.formatRaw(tooltip.row[s.rawKey])})
+                  </p>
+                ))}
+              </>
+            )}
+          </ChartTooltip>
+        </>
+      )}
+    </div>
+  )
+}
+
+// ─── Chart 2.3: Video Length Sweet Spot (Bubble Scatter) ─────────────────────
+
+function LengthScatterChart({ data }: { data: LengthDot[] }) {
+  const margin = { top: 10, right: 20, bottom: 45, left: 70 }
+  const HEIGHT = 360
+  const [ref, dims] = useChartDimensions(margin)
+  const [tooltip, setTooltip] = useState<{
+    x: number
+    y: number
+    row: LengthDot
+  } | null>(null)
+
+  const xExt = useMemo(
+    () => extent(data, (d) => d.length) as [number, number],
+    [data],
+  )
+  const yExt = useMemo(
+    () => extent(data, (d) => d.avgViews) as [number, number],
+    [data],
+  )
+  const maxSubs = useMemo(() => max(data, (d) => d.subscribers) ?? 1, [data])
+
+  const xScale = useMemo(
+    () =>
+      scaleLinear()
+        .domain([Math.max(xExt[0] ?? 0, 0), xExt[1] ?? 1])
+        .nice()
+        .range([0, dims.innerWidth]),
+    [xExt, dims.innerWidth],
+  )
+  const yScale = useMemo(
+    () =>
+      scaleLinear()
+        .domain([0, yExt[1] ?? 1])
+        .nice()
+        .range([dims.innerHeight, 0]),
+    [yExt, dims.innerHeight],
+  )
+  const rScale = useMemo(
+    () => scaleSqrt().domain([0, maxSubs]).range([4, 20]),
+    [maxSubs],
+  )
+
+  const xAxis = useMemo(
+    () => (dims.innerWidth > 0 ? axisBottom(xScale) : null),
+    [xScale, dims.innerWidth],
+  )
+  const yAxis = useMemo(
+    () =>
+      dims.innerHeight > 0
+        ? axisLeft(yScale).tickFormat((d) => formatNumber(Number(d)))
+        : null,
+    [yScale, dims.innerHeight],
+  )
+
+  const xAxisRef = useD3Axis(xAxis)
+  const yAxisRef = useD3Axis(yAxis)
+
+  const handleMouse = (e: React.MouseEvent, row: LengthDot) => {
+    const el = ref.current
+    if (!el) return
+    const rect = el.getBoundingClientRect()
+    setTooltip({ x: e.clientX - rect.left, y: e.clientY - rect.top, row })
+  }
+
+  return (
+    <div ref={ref} className="relative w-full" style={{ height: HEIGHT }}>
+      {dims.width > 0 && (
+        <>
+          <svg width={dims.width} height={HEIGHT}>
+            <g transform={`translate(${margin.left},${margin.top})`}>
+              <ChartGrid
+                innerWidth={dims.innerWidth}
+                innerHeight={dims.innerHeight}
+                xTicks={xScale.ticks().map((t) => xScale(t))}
+                yTicks={yScale.ticks().map((t) => yScale(t))}
+              />
+              {data.map((d, i) => {
+                const r = rScale(d.subscribers)
+                return (
+                  <g key={i}>
+                    <circle
+                      cx={xScale(d.length)}
+                      cy={yScale(d.avgViews)}
+                      r={r}
+                      fill={NICHE_COLORS[d.niche] ?? "#94a3b8"}
+                      fillOpacity={0.75}
+                      stroke={NICHE_COLORS[d.niche] ?? "#94a3b8"}
+                      strokeWidth={1}
+                      onMouseMove={(e) => handleMouse(e, d)}
+                      onMouseLeave={() => setTooltip(null)}
+                    />
+                    <text
+                      x={xScale(d.length)}
+                      y={yScale(d.avgViews) - r - 4}
+                      textAnchor="middle"
+                      fontSize={9}
+                      fill="var(--color-muted-foreground)"
+                    >
+                      {d.name}
+                    </text>
+                  </g>
+                )
+              })}
+              <g
+                ref={xAxisRef}
+                transform={`translate(0,${dims.innerHeight})`}
+              />
+              <g ref={yAxisRef} />
+              <text
+                x={dims.innerWidth / 2}
+                y={dims.innerHeight + margin.bottom - 5}
+                textAnchor="middle"
+                fontSize={11}
+                fill="var(--color-muted-foreground)"
+              >
+                Typical Video Length (min)
+              </text>
+              <text
+                transform="rotate(-90)"
+                x={-dims.innerHeight / 2}
+                y={-margin.left + 15}
+                textAnchor="middle"
+                fontSize={11}
+                fill="var(--color-muted-foreground)"
+              >
+                Avg Views / Video
+              </text>
+            </g>
+          </svg>
+          <ChartTooltip
+            x={tooltip?.x ?? 0}
+            y={tooltip?.y ?? 0}
+            visible={tooltip !== null}
+            containerWidth={dims.width}
+            containerHeight={HEIGHT}
+          >
+            {tooltip && (
+              <>
+                <p className="font-medium text-xs mb-1">
+                  {tooltip.row.name}
+                </p>
+                <p className="text-xs">
+                  Video Length: {tooltip.row.length} min
+                </p>
+                <p className="text-xs">
+                  Avg Views: {formatNumber(tooltip.row.avgViews)}
+                </p>
+                <p className="text-xs">
+                  Subscribers: {formatNumber(tooltip.row.subscribers)}
+                </p>
+              </>
+            )}
+          </ChartTooltip>
+        </>
+      )}
+    </div>
+  )
+}
+
+// ─── Chart 2.4: Content Type vs Engagement (Horizontal Single Bar) ──────────
+
+function ContentEngagementChart({
+  data,
+  height,
+}: {
+  data: EngagementRow[]
+  height: number
+}) {
+  const margin = { top: 5, right: 20, bottom: 30, left: 100 }
+  const [ref, dims] = useChartDimensions(margin)
+  const [tooltip, setTooltip] = useState<{
+    x: number
+    y: number
+    row: EngagementRow
+  } | null>(null)
+
+  const yScale = useMemo(
+    () =>
+      scaleBand<string>()
+        .domain(data.map((d) => d.contentType))
+        .range([0, dims.innerHeight])
+        .padding(0.3),
+    [data, dims.innerHeight],
+  )
+
+  const maxEng = useMemo(
+    () => max(data, (d) => d.avgEngagement) ?? 0,
+    [data],
+  )
+
+  const xScale = useMemo(
+    () =>
+      scaleLinear()
+        .domain([0, maxEng])
+        .nice()
+        .range([0, dims.innerWidth]),
+    [maxEng, dims.innerWidth],
+  )
+
+  const xAxis = useMemo(
+    () =>
+      dims.innerWidth > 0
+        ? axisBottom(xScale).tickFormat((d) => `${Number(d)}%`)
+        : null,
+    [xScale, dims.innerWidth],
+  )
+  const yAxis = useMemo(
+    () => (dims.innerHeight > 0 ? axisLeft(yScale) : null),
+    [yScale, dims.innerHeight],
+  )
+
+  const xAxisRef = useD3Axis(xAxis)
+  const yAxisRef = useD3Axis(yAxis)
+
+  const handleMouse = (e: React.MouseEvent, row: EngagementRow) => {
+    const el = ref.current
+    if (!el) return
+    const rect = el.getBoundingClientRect()
+    setTooltip({ x: e.clientX - rect.left, y: e.clientY - rect.top, row })
+  }
+
+  return (
+    <div ref={ref} className="relative w-full" style={{ height }}>
+      {dims.width > 0 && (
+        <>
+          <svg width={dims.width} height={height}>
+            <g transform={`translate(${margin.left},${margin.top})`}>
+              <ChartGrid
+                innerWidth={dims.innerWidth}
+                innerHeight={dims.innerHeight}
+                xTicks={xScale.ticks().map((t) => xScale(t))}
+                horizontal={false}
+              />
+              {data.map((d) => (
+                <rect
+                  key={d.contentType}
+                  x={0}
+                  y={yScale(d.contentType) ?? 0}
+                  width={Math.max(0, xScale(d.avgEngagement))}
+                  height={yScale.bandwidth()}
+                  fill="#6366f1"
+                  rx={2}
+                  onMouseMove={(e) => handleMouse(e, d)}
+                  onMouseLeave={() => setTooltip(null)}
+                />
+              ))}
+              <g
+                ref={xAxisRef}
+                transform={`translate(0,${dims.innerHeight})`}
+              />
+              <g ref={yAxisRef} />
+            </g>
+          </svg>
+          <ChartTooltip
+            x={tooltip?.x ?? 0}
+            y={tooltip?.y ?? 0}
+            visible={tooltip !== null}
+            containerWidth={dims.width}
+            containerHeight={height}
+          >
+            {tooltip && (
+              <>
+                <p className="font-medium text-xs mb-1">
+                  {tooltip.row.contentType}
+                </p>
+                <p className="text-xs">
+                  Avg Engagement: {tooltip.row.avgEngagement.toFixed(2)}%
+                </p>
+              </>
+            )}
+          </ChartTooltip>
+        </>
+      )}
+    </div>
+  )
 }
 
 // ─── Component ───────────────────────────────────────────────────────────────
@@ -105,7 +690,12 @@ export function StrategyTab({ data }: { data: DashboardData }) {
   // 2.2 Niche Performance (normalized 0-100)
   const nicheData = useMemo<NicheRow[]>(() => {
     const grouped = groupBy(creators, (c) => c.topContentType)
-    const raw: { niche: string; avgSubs: number; avgEng: number; avgVSR: number }[] = []
+    const raw: {
+      niche: string
+      avgSubs: number
+      avgEng: number
+      avgVSR: number
+    }[] = []
 
     for (const [niche, group] of grouped) {
       const engagements = group
@@ -145,7 +735,7 @@ export function StrategyTab({ data }: { data: DashboardData }) {
           c.typicalVideoLength != null &&
           c.typicalVideoLength > 0 &&
           c.avgViewsPerVideo != null &&
-          c.avgViewsPerVideo > 0
+          c.avgViewsPerVideo > 0,
       )
       .map((c) => ({
         name: c.title ?? "",
@@ -186,54 +776,14 @@ export function StrategyTab({ data }: { data: DashboardData }) {
           <h3 className="text-sm font-semibold mb-4">
             Upload Frequency vs Performance
           </h3>
-          <ResponsiveContainer width="100%" height={320}>
-            <BarChart
-              data={freqData}
-              margin={{ top: 5, right: 20, bottom: 5, left: 10 }}
-            >
-              <CartesianGrid
-                strokeDasharray="3 3"
-                className="opacity-30"
-                vertical={false}
-              />
-              <XAxis
-                dataKey="frequency"
-                tick={{ fontSize: 11 }}
-                interval={0}
-              />
-              <YAxis
-                tick={{ fontSize: 11 }}
-                tickFormatter={(v: number) => formatNumber(v)}
-              />
-              <Tooltip
-                contentStyle={TOOLTIP_STYLE}
-                formatter={(value: number | undefined, name?: string) => [
-                  formatNumber(value ?? 0),
-                  name === "avgSubscribers"
-                    ? "Avg Subscribers"
-                    : "Avg Views/Video",
-                ]}
-              />
-              <Legend
-                wrapperStyle={{ fontSize: "0.75rem" }}
-                formatter={(value: string) =>
-                  value === "avgSubscribers"
-                    ? "Avg Subscribers"
-                    : "Avg Views/Video"
-                }
-              />
-              <Bar
-                dataKey="avgSubscribers"
-                fill="#3b82f6"
-                radius={[2, 2, 0, 0]}
-              />
-              <Bar
-                dataKey="avgViewsPerVideo"
-                fill="#10b981"
-                radius={[2, 2, 0, 0]}
-              />
-            </BarChart>
-          </ResponsiveContainer>
+          <FreqPerformanceChart data={freqData} />
+          <ChartLegend
+            entries={FREQ_SERIES.map((s) => ({
+              label: s.label,
+              color: s.color,
+            }))}
+            className="mt-2"
+          />
         </div>
 
         {/* 2.2 Niche Performance (normalized) */}
@@ -241,78 +791,17 @@ export function StrategyTab({ data }: { data: DashboardData }) {
           <h3 className="text-sm font-semibold mb-4">
             Niche Performance (normalized)
           </h3>
-          <ResponsiveContainer
-            width="100%"
+          <NichePerformanceChart
+            data={nicheData}
             height={Math.max(nicheData.length * 40 + 40, 200)}
-          >
-            <BarChart
-              data={nicheData}
-              layout="vertical"
-              margin={{ left: 100, right: 20, top: 5, bottom: 5 }}
-            >
-              <CartesianGrid
-                strokeDasharray="3 3"
-                className="opacity-30"
-                horizontal={false}
-              />
-              <XAxis
-                type="number"
-                domain={[0, 100]}
-                tick={{ fontSize: 11 }}
-              />
-              <YAxis
-                type="category"
-                dataKey="niche"
-                tick={{ fontSize: 11 }}
-                width={95}
-              />
-              <Tooltip
-                contentStyle={TOOLTIP_STYLE}
-                // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                formatter={(value: any, name: any, props: any) => {
-                  const v = Number(value ?? 0)
-                  const row = props?.payload as NicheRow | undefined
-                  if (name === "normSubs")
-                    return [
-                      `${v.toFixed(0)} (${formatNumber(row?.rawSubs ?? 0)})`,
-                      "Subscribers",
-                    ]
-                  if (name === "normEngagement")
-                    return [
-                      `${v.toFixed(0)} (${(row?.rawEngagement ?? 0).toFixed(2)}%)`,
-                      "Engagement",
-                    ]
-                  return [
-                    `${v.toFixed(0)} (${(row?.rawViewsToSub ?? 0).toFixed(1)}%)`,
-                    "Views:Sub Ratio",
-                  ]
-                }}
-              />
-              <Legend
-                wrapperStyle={{ fontSize: "0.75rem" }}
-                formatter={(value: string) => {
-                  if (value === "normSubs") return "Subscribers"
-                  if (value === "normEngagement") return "Engagement"
-                  return "Views:Sub Ratio"
-                }}
-              />
-              <Bar
-                dataKey="normSubs"
-                fill="#3b82f6"
-                radius={[0, 2, 2, 0]}
-              />
-              <Bar
-                dataKey="normEngagement"
-                fill="#6366f1"
-                radius={[0, 2, 2, 0]}
-              />
-              <Bar
-                dataKey="normViewsToSub"
-                fill="#10b981"
-                radius={[0, 2, 2, 0]}
-              />
-            </BarChart>
-          </ResponsiveContainer>
+          />
+          <ChartLegend
+            entries={NICHE_SERIES.map((s) => ({
+              label: s.label,
+              color: s.color,
+            }))}
+            className="mt-2"
+          />
         </div>
       </div>
 
@@ -323,95 +812,14 @@ export function StrategyTab({ data }: { data: DashboardData }) {
           <h3 className="text-sm font-semibold mb-4">
             Video Length Sweet Spot
           </h3>
-          <ResponsiveContainer width="100%" height={360}>
-            <ScatterChart
-              margin={{ top: 10, right: 20, bottom: 10, left: 10 }}
-            >
-              <CartesianGrid
-                strokeDasharray="3 3"
-                className="opacity-30"
-              />
-              <XAxis
-                type="number"
-                dataKey="length"
-                name="Video Length"
-                unit=" min"
-                tick={{ fontSize: 11 }}
-                label={{
-                  value: "Typical Video Length (min)",
-                  position: "insideBottom",
-                  offset: -5,
-                  style: { fontSize: 11, fill: "var(--color-muted-foreground)" },
-                }}
-              />
-              <YAxis
-                type="number"
-                dataKey="avgViews"
-                name="Avg Views"
-                tick={{ fontSize: 11 }}
-                tickFormatter={(v: number) => formatNumber(v)}
-                label={{
-                  value: "Avg Views / Video",
-                  angle: -90,
-                  position: "insideLeft",
-                  offset: 0,
-                  style: { fontSize: 11, fill: "var(--color-muted-foreground)" },
-                }}
-              />
-              <ZAxis
-                type="number"
-                dataKey="subscribers"
-                range={[40, 400]}
-                name="Subscribers"
-              />
-              <Tooltip
-                contentStyle={TOOLTIP_STYLE}
-                formatter={(value: number | undefined, name?: string) => {
-                  const v = value ?? 0
-                  const n = name ?? ""
-                  if (n === "Subscribers") return [formatNumber(v), n]
-                  if (n === "Avg Views") return [formatNumber(v), n]
-                  if (n === "Video Length") return [`${v} min`, n]
-                  return [String(v), n]
-                }}
-                labelFormatter={(_label, payload) => {
-                  if (payload && payload.length > 0) {
-                    const item = payload[0].payload as LengthDot
-                    return item.name
-                  }
-                  return ""
-                }}
-              />
-              <Scatter data={lengthData} name="Creators">
-                {lengthData.map((entry, index) => (
-                  <Cell
-                    key={`cell-${index}`}
-                    fill={NICHE_COLORS[entry.niche] ?? "#94a3b8"}
-                    fillOpacity={0.75}
-                    stroke={NICHE_COLORS[entry.niche] ?? "#94a3b8"}
-                    strokeWidth={1}
-                  />
-                ))}
-                <LabelList
-                  dataKey="name"
-                  position="top"
-                  style={{ fontSize: 9, fill: "var(--color-muted-foreground)" }}
-                />
-              </Scatter>
-            </ScatterChart>
-          </ResponsiveContainer>
-          {/* Niche color legend */}
-          <div className="flex flex-wrap gap-3 mt-3">
-            {Object.entries(NICHE_COLORS).map(([niche, color]) => (
-              <div key={niche} className="flex items-center gap-1.5 text-xs text-muted-foreground">
-                <span
-                  className="inline-block size-2.5 rounded-full"
-                  style={{ backgroundColor: color }}
-                />
-                {niche}
-              </div>
-            ))}
-          </div>
+          <LengthScatterChart data={lengthData} />
+          <ChartLegend
+            entries={Object.entries(NICHE_COLORS).map(([niche, color]) => ({
+              label: niche,
+              color,
+            }))}
+            className="mt-3"
+          />
         </div>
 
         {/* 2.4 Content Type vs Engagement */}
@@ -419,42 +827,10 @@ export function StrategyTab({ data }: { data: DashboardData }) {
           <h3 className="text-sm font-semibold mb-4">
             Content Type vs Engagement
           </h3>
-          <ResponsiveContainer
-            width="100%"
+          <ContentEngagementChart
+            data={engagementData}
             height={Math.max(engagementData.length * 40 + 40, 200)}
-          >
-            <BarChart
-              data={engagementData}
-              layout="vertical"
-              margin={{ left: 100, right: 20, top: 5, bottom: 5 }}
-            >
-              <CartesianGrid
-                strokeDasharray="3 3"
-                className="opacity-30"
-                horizontal={false}
-              />
-              <XAxis
-                type="number"
-                tick={{ fontSize: 11 }}
-                tickFormatter={(v: number) => `${v}%`}
-              />
-              <YAxis
-                type="category"
-                dataKey="contentType"
-                tick={{ fontSize: 11 }}
-                width={95}
-              />
-              <Tooltip
-                contentStyle={TOOLTIP_STYLE}
-                formatter={(value: number | undefined) => [`${(value ?? 0).toFixed(2)}%`, "Avg Engagement"]}
-              />
-              <Bar
-                dataKey="avgEngagement"
-                fill="#6366f1"
-                radius={[0, 2, 2, 0]}
-              />
-            </BarChart>
-          </ResponsiveContainer>
+          />
         </div>
       </div>
     </div>

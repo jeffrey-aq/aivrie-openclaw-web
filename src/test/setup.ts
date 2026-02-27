@@ -4,6 +4,14 @@ import "@testing-library/jest-dom/vitest"
 process.env.NEXT_PUBLIC_SUPABASE_URL = "http://localhost:54321"
 process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY = "test-anon-key"
 
+// Mock ResizeObserver (used by D3 chart containers)
+class ResizeObserverStub {
+  observe() {}
+  unobserve() {}
+  disconnect() {}
+}
+globalThis.ResizeObserver = ResizeObserverStub as unknown as typeof ResizeObserver
+
 // Mock window.matchMedia (used by useIsMobile hook in sidebar)
 Object.defineProperty(window, "matchMedia", {
   writable: true,

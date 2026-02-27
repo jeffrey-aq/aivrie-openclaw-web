@@ -1,26 +1,9 @@
 "use client"
 
 import { useMemo, useState, useRef, useEffect, useCallback } from "react"
-import type { ReactElement } from "react"
-import {
-  RadarChart,
-  Radar,
-  PolarGrid,
-  PolarAngleAxis,
-  PolarRadiusAxis,
-  ResponsiveContainer,
-  Tooltip,
-  Legend,
-  ScatterChart,
-  Scatter,
-  XAxis,
-  YAxis,
-  ZAxis,
-  CartesianGrid,
-  Cell,
-  LabelList,
-} from "recharts"
-import type { LabelProps } from "recharts"
+import { scaleLog, scaleLinear, scaleSqrt } from "d3-scale"
+import { axisBottom, axisLeft } from "d3-axis"
+import { max, extent } from "d3-array"
 import type { DashboardData, CreatorFull, VideoStats } from "@/app/research/page"
 import {
   percentile,
@@ -32,6 +15,11 @@ import {
   formatNumber,
   toNum,
 } from "@/components/research/chart-utils"
+import { useChartDimensions } from "@/components/research/d3/use-chart-dimensions"
+import { useD3Axis } from "@/components/research/d3/use-d3-axis"
+import { ChartGrid } from "@/components/research/d3/grid"
+import { ChartTooltip } from "@/components/research/d3/tooltip"
+import { ChartLegend } from "@/components/research/d3/legend"
 
 // ─── Radar axis labels ──────────────────────────────────────────────────────
 const RADAR_AXES = [
@@ -207,7 +195,7 @@ interface ThreatDatum {
   threat: string
 }
 
-// ─── Custom threat legend (since recharts v3 Legend doesn't accept custom payload) ─
+// ─── Custom threat legend ────────────────────────────────────────────────────
 function ThreatLegend() {
   const entries = [
     { label: "High Threat", color: THREAT_COLORS.High },
@@ -229,23 +217,472 @@ function ThreatLegend() {
   )
 }
 
-// ─── Custom scatter label renderer ──────────────────────────────────────────
-function renderScatterLabel(props: LabelProps): ReactElement | string {
-  const x = props.x as number | undefined
-  const y = props.y as number | undefined
-  const value = props.value as string | number | undefined
-  if (x == null || y == null) return ""
+// ─── 3.1 Small Radar Chart (individual creator) ─────────────────────────────
+
+function SmallRadarChart({
+  profile,
+  size = 200,
+}: {
+  profile: CreatorRadarProfile
+  size?: number
+}) {
+  const cx = size / 2
+  const cy = size / 2
+  const outerRadius = 60
+  const axes = RADAR_AXES
+  const angleStep = (2 * Math.PI) / axes.length
+  const gridLevels = [20, 40, 60, 80, 100]
+
+  const [tooltip, setTooltip] = useState<{
+    x: number
+    y: number
+    datum: RadarDatum
+  } | null>(null)
+
+  const points = profile.data.map((d, i) => {
+    const angle = i * angleStep - Math.PI / 2
+    const r = (d.value / 100) * outerRadius
+    return { x: cx + r * Math.cos(angle), y: cy + r * Math.sin(angle) }
+  })
+
+  const polygonPoints = points.map((p) => `${p.x},${p.y}`).join(" ")
+
+  const handlePointMouse = (
+    e: React.MouseEvent<SVGCircleElement>,
+    datum: RadarDatum,
+  ) => {
+    const svg = (e.target as SVGElement).closest("svg")
+    if (!svg) return
+    const rect = svg.getBoundingClientRect()
+    setTooltip({
+      x: e.clientX - rect.left,
+      y: e.clientY - rect.top,
+      datum,
+    })
+  }
+
   return (
-    <text
-      x={x}
-      y={Number(y) - 12}
-      textAnchor="middle"
-      fontSize={10}
-      fill="currentColor"
-      className="fill-foreground"
-    >
-      {value}
-    </text>
+    <div className="relative" style={{ width: size, height: size, margin: "0 auto" }}>
+      <svg width={size} height={size}>
+        {/* Concentric circles */}
+        {gridLevels.map((level) => (
+          <circle
+            key={level}
+            cx={cx}
+            cy={cy}
+            r={(level / 100) * outerRadius}
+            fill="none"
+            stroke="var(--color-border)"
+            strokeOpacity={0.3}
+          />
+        ))}
+        {/* Axis lines */}
+        {axes.map((_, i) => {
+          const angle = i * angleStep - Math.PI / 2
+          const x2 = cx + outerRadius * Math.cos(angle)
+          const y2 = cy + outerRadius * Math.sin(angle)
+          return (
+            <line
+              key={i}
+              x1={cx}
+              y1={cy}
+              x2={x2}
+              y2={y2}
+              stroke="var(--color-border)"
+              strokeOpacity={0.3}
+            />
+          )
+        })}
+        {/* Axis labels */}
+        {axes.map((label, i) => {
+          const angle = i * angleStep - Math.PI / 2
+          const labelR = outerRadius + 12
+          const x = cx + labelR * Math.cos(angle)
+          const y = cy + labelR * Math.sin(angle)
+          return (
+            <text
+              key={label}
+              x={x}
+              y={y}
+              textAnchor="middle"
+              dominantBaseline="central"
+              fontSize={8}
+              fill="var(--color-muted-foreground)"
+            >
+              {label}
+            </text>
+          )
+        })}
+        {/* Data polygon */}
+        <polygon
+          points={polygonPoints}
+          fill={profile.color}
+          fillOpacity={0.3}
+          stroke={profile.color}
+          strokeWidth={2}
+        />
+        {/* Hover targets at each data point */}
+        {points.map((p, i) => (
+          <circle
+            key={i}
+            cx={p.x}
+            cy={p.y}
+            r={4}
+            fill={profile.color}
+            fillOpacity={0}
+            stroke="none"
+            className="cursor-pointer"
+            onMouseMove={(e) => handlePointMouse(e, profile.data[i])}
+            onMouseLeave={() => setTooltip(null)}
+          />
+        ))}
+      </svg>
+      <ChartTooltip
+        x={tooltip?.x ?? 0}
+        y={tooltip?.y ?? 0}
+        visible={tooltip !== null}
+        containerWidth={size}
+        containerHeight={size}
+      >
+        {tooltip && (
+          <>
+            <p className="font-medium text-xs mb-1">{tooltip.datum.axis}</p>
+            <p className="text-xs">{Math.round(tooltip.datum.value)}</p>
+          </>
+        )}
+      </ChartTooltip>
+    </div>
+  )
+}
+
+// ─── 3.2 Comparison Radar Chart (overlaid polygons) ──────────────────────────
+
+function ComparisonRadarChart({
+  profiles,
+}: {
+  profiles: CreatorRadarProfile[]
+}) {
+  const margin = { top: 20, right: 20, bottom: 20, left: 20 }
+  const HEIGHT = 400
+  const [ref, dims] = useChartDimensions(margin)
+
+  const [tooltip, setTooltip] = useState<{
+    x: number
+    y: number
+    profile: CreatorRadarProfile
+  } | null>(null)
+
+  const axes = RADAR_AXES
+  const angleStep = (2 * Math.PI) / axes.length
+  const outerRadius = 120
+
+  // The SVG center depends on the responsive width
+  const svgWidth = dims.width
+  const cx = svgWidth / 2
+  const cy = HEIGHT / 2
+
+  const gridLevels = [20, 40, 60, 80, 100]
+
+  const handlePolygonMouse = (
+    e: React.MouseEvent<SVGPolygonElement>,
+    profile: CreatorRadarProfile,
+  ) => {
+    const el = ref.current
+    if (!el) return
+    const rect = el.getBoundingClientRect()
+    setTooltip({
+      x: e.clientX - rect.left,
+      y: e.clientY - rect.top,
+      profile,
+    })
+  }
+
+  return (
+    <div ref={ref} className="relative w-full" style={{ height: HEIGHT }}>
+      {dims.width > 0 && (
+        <>
+          <svg width={svgWidth} height={HEIGHT}>
+            {/* Concentric circles */}
+            {gridLevels.map((level) => (
+              <circle
+                key={level}
+                cx={cx}
+                cy={cy}
+                r={(level / 100) * outerRadius}
+                fill="none"
+                stroke="var(--color-border)"
+                strokeOpacity={0.3}
+              />
+            ))}
+            {/* Axis lines */}
+            {axes.map((_, i) => {
+              const angle = i * angleStep - Math.PI / 2
+              const x2 = cx + outerRadius * Math.cos(angle)
+              const y2 = cy + outerRadius * Math.sin(angle)
+              return (
+                <line
+                  key={i}
+                  x1={cx}
+                  y1={cy}
+                  x2={x2}
+                  y2={y2}
+                  stroke="var(--color-border)"
+                  strokeOpacity={0.3}
+                />
+              )
+            })}
+            {/* Axis labels */}
+            {axes.map((label, i) => {
+              const angle = i * angleStep - Math.PI / 2
+              const labelR = outerRadius + 18
+              const x = cx + labelR * Math.cos(angle)
+              const y = cy + labelR * Math.sin(angle)
+              return (
+                <text
+                  key={label}
+                  x={x}
+                  y={y}
+                  textAnchor="middle"
+                  dominantBaseline="central"
+                  fontSize={11}
+                  fill="var(--color-muted-foreground)"
+                >
+                  {label}
+                </text>
+              )
+            })}
+            {/* Data polygons for each profile */}
+            {profiles.map((profile) => {
+              const points = profile.data.map((d, i) => {
+                const angle = i * angleStep - Math.PI / 2
+                const r = (d.value / 100) * outerRadius
+                return {
+                  x: cx + r * Math.cos(angle),
+                  y: cy + r * Math.sin(angle),
+                }
+              })
+              const polygonStr = points
+                .map((p) => `${p.x},${p.y}`)
+                .join(" ")
+              return (
+                <polygon
+                  key={profile.channelId}
+                  points={polygonStr}
+                  fill={profile.color}
+                  fillOpacity={0.15}
+                  stroke={profile.color}
+                  strokeWidth={2}
+                  className="cursor-pointer"
+                  onMouseMove={(e) => handlePolygonMouse(e, profile)}
+                  onMouseLeave={() => setTooltip(null)}
+                />
+              )
+            })}
+          </svg>
+          {/* Legend */}
+          <ChartLegend
+            entries={profiles.map((p) => ({
+              label: p.title,
+              color: p.color,
+            }))}
+            className="mt-2"
+          />
+          <ChartTooltip
+            x={tooltip?.x ?? 0}
+            y={tooltip?.y ?? 0}
+            visible={tooltip !== null}
+            containerWidth={dims.width}
+            containerHeight={HEIGHT}
+          >
+            {tooltip && (
+              <>
+                <p className="font-medium text-xs mb-1">
+                  {tooltip.profile.title}
+                </p>
+                {tooltip.profile.data.map((d) => (
+                  <p key={d.axis} className="text-xs">
+                    {d.axis}: {Math.round(d.value)}
+                  </p>
+                ))}
+              </>
+            )}
+          </ChartTooltip>
+        </>
+      )}
+    </div>
+  )
+}
+
+// ─── 3.3 Threat Scatter Chart (log-X bubble scatter) ─────────────────────────
+
+function ThreatScatterChart({ data }: { data: ThreatDatum[] }) {
+  const margin = { top: 20, right: 30, bottom: 50, left: 70 }
+  const HEIGHT = 450
+  const [ref, dims] = useChartDimensions(margin)
+  const [tooltip, setTooltip] = useState<{
+    x: number
+    y: number
+    row: ThreatDatum
+  } | null>(null)
+
+  const subsExtent = useMemo(
+    () => extent(data, (d) => d.subscribers) as [number, number],
+    [data],
+  )
+  const engExtent = useMemo(
+    () => extent(data, (d) => d.engagement) as [number, number],
+    [data],
+  )
+  const maxViews = useMemo(() => max(data, (d) => d.totalViews) ?? 1, [data])
+
+  const xScale = useMemo(
+    () =>
+      scaleLog()
+        .domain([Math.max(subsExtent[0] ?? 1, 1), subsExtent[1] ?? 10])
+        .nice()
+        .range([0, dims.innerWidth]),
+    [subsExtent, dims.innerWidth],
+  )
+
+  const yScale = useMemo(
+    () =>
+      scaleLinear()
+        .domain([0, engExtent[1] ?? 1])
+        .nice()
+        .range([dims.innerHeight, 0]),
+    [engExtent, dims.innerHeight],
+  )
+
+  const rScale = useMemo(
+    () => scaleSqrt().domain([0, maxViews]).range([4, 20]),
+    [maxViews],
+  )
+
+  const xAxis = useMemo(
+    () =>
+      dims.innerWidth > 0
+        ? axisBottom(xScale).tickFormat((d) => formatNumber(Number(d)))
+        : null,
+    [xScale, dims.innerWidth],
+  )
+
+  const yAxis = useMemo(
+    () =>
+      dims.innerHeight > 0
+        ? axisLeft(yScale).tickFormat((d) => `${Number(d).toFixed(1)}%`)
+        : null,
+    [yScale, dims.innerHeight],
+  )
+
+  const xAxisRef = useD3Axis(xAxis)
+  const yAxisRef = useD3Axis(yAxis)
+
+  const handleMouse = (e: React.MouseEvent, row: ThreatDatum) => {
+    const el = ref.current
+    if (!el) return
+    const rect = el.getBoundingClientRect()
+    setTooltip({ x: e.clientX - rect.left, y: e.clientY - rect.top, row })
+  }
+
+  return (
+    <div ref={ref} className="relative w-full" style={{ height: HEIGHT }}>
+      {dims.width > 0 && (
+        <>
+          <svg width={dims.width} height={HEIGHT}>
+            <g transform={`translate(${margin.left},${margin.top})`}>
+              <ChartGrid
+                innerWidth={dims.innerWidth}
+                innerHeight={dims.innerHeight}
+                xTicks={xScale.ticks().map((t) => xScale(t))}
+                yTicks={yScale.ticks().map((t) => yScale(t))}
+              />
+              {data.map((d, i) => {
+                const cx = xScale(d.subscribers)
+                const cy = yScale(d.engagement)
+                const r = rScale(d.totalViews)
+                const color =
+                  THREAT_COLORS[d.threat] ?? THREAT_COLORS.Low
+                return (
+                  <g key={i}>
+                    <circle
+                      cx={cx}
+                      cy={cy}
+                      r={r}
+                      fill={color}
+                      fillOpacity={0.7}
+                      stroke={color}
+                      strokeWidth={1}
+                      className="cursor-pointer"
+                      onMouseMove={(e) => handleMouse(e, d)}
+                      onMouseLeave={() => setTooltip(null)}
+                    />
+                    <text
+                      x={cx}
+                      y={cy - r - 4}
+                      textAnchor="middle"
+                      fontSize={10}
+                      fill="var(--color-muted-foreground)"
+                    >
+                      {d.name}
+                    </text>
+                  </g>
+                )
+              })}
+              <g
+                ref={xAxisRef}
+                transform={`translate(0,${dims.innerHeight})`}
+              />
+              <g ref={yAxisRef} />
+              {/* X axis label */}
+              <text
+                x={dims.innerWidth / 2}
+                y={dims.innerHeight + margin.bottom - 5}
+                textAnchor="middle"
+                fontSize={11}
+                fill="var(--color-muted-foreground)"
+              >
+                Subscribers (log scale)
+              </text>
+              {/* Y axis label */}
+              <text
+                transform="rotate(-90)"
+                x={-dims.innerHeight / 2}
+                y={-margin.left + 15}
+                textAnchor="middle"
+                fontSize={11}
+                fill="var(--color-muted-foreground)"
+              >
+                Avg Engagement %
+              </text>
+            </g>
+          </svg>
+          <ChartTooltip
+            x={tooltip?.x ?? 0}
+            y={tooltip?.y ?? 0}
+            visible={tooltip !== null}
+            containerWidth={dims.width}
+            containerHeight={HEIGHT}
+          >
+            {tooltip && (
+              <>
+                <p className="font-medium text-xs mb-1">
+                  {tooltip.row.name} ({tooltip.row.threat} Threat)
+                </p>
+                <p className="text-xs">
+                  Subscribers: {formatNumber(tooltip.row.subscribers)}
+                </p>
+                <p className="text-xs">
+                  Avg Engagement: {tooltip.row.engagement.toFixed(2)}%
+                </p>
+                <p className="text-xs">
+                  Total Views: {formatNumber(tooltip.row.totalViews)}
+                </p>
+              </>
+            )}
+          </ChartTooltip>
+        </>
+      )}
+    </div>
   )
 }
 
@@ -284,21 +721,6 @@ export function CreatorProfilesTab({ data }: { data: DashboardData }) {
     [creators],
   )
 
-  // ── Merged radar data for comparison chart (one entry per axis with keys per creator) ──
-  const comparisonData = useMemo(() => {
-    const selectedProfiles = radarProfiles.filter((p) =>
-      selectedIds.includes(p.channelId),
-    )
-    return RADAR_AXES.map((axis) => {
-      const entry: Record<string, string | number> = { axis }
-      for (const profile of selectedProfiles) {
-        const datum = profile.data.find((d: RadarDatum) => d.axis === axis)
-        entry[profile.channelId] = datum?.value ?? 0
-      }
-      return entry
-    })
-  }, [radarProfiles, selectedIds])
-
   const selectedProfiles = useMemo(
     () => radarProfiles.filter((p) => selectedIds.includes(p.channelId)),
     [radarProfiles, selectedIds],
@@ -333,7 +755,7 @@ export function CreatorProfilesTab({ data }: { data: DashboardData }) {
 
   return (
     <div className="space-y-8">
-      {/* ── 3.2 Creator Comparison (large RadarChart) ── */}
+      {/* ── 3.2 Creator Comparison (large overlaid radar) ── */}
       <div className="rounded-lg border p-5">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between mb-4">
           <h3 className="text-sm font-semibold">Creator Comparison</h3>
@@ -350,37 +772,7 @@ export function CreatorProfilesTab({ data }: { data: DashboardData }) {
             Select at least 2 creators to compare.
           </p>
         ) : (
-          <ResponsiveContainer width="100%" height={400}>
-            <RadarChart outerRadius={120} data={comparisonData}>
-              <PolarGrid />
-              <PolarAngleAxis dataKey="axis" tick={{ fontSize: 11 }} />
-              <PolarRadiusAxis
-                angle={90}
-                domain={[0, 100]}
-                tick={false}
-                axisLine={false}
-              />
-              {selectedProfiles.map((profile) => (
-                <Radar
-                  key={profile.channelId}
-                  name={profile.title}
-                  dataKey={profile.channelId}
-                  stroke={profile.color}
-                  fill={profile.color}
-                  fillOpacity={0.15}
-                  strokeWidth={2}
-                />
-              ))}
-              <Tooltip
-                contentStyle={TOOLTIP_STYLE}
-                formatter={(value: unknown) => [
-                  `${Math.round(Number(value))}`,
-                  undefined,
-                ]}
-              />
-              <Legend wrapperStyle={{ fontSize: "0.75rem" }} />
-            </RadarChart>
-          </ResponsiveContainer>
+          <ComparisonRadarChart profiles={selectedProfiles} />
         )}
       </div>
 
@@ -395,32 +787,7 @@ export function CreatorProfilesTab({ data }: { data: DashboardData }) {
               <p className="text-xs font-medium truncate mb-2">
                 {profile.title}
               </p>
-              <ResponsiveContainer width="100%" height={200}>
-                <RadarChart outerRadius={60} data={profile.data}>
-                  <PolarGrid />
-                  <PolarAngleAxis dataKey="axis" tick={{ fontSize: 8 }} />
-                  <PolarRadiusAxis
-                    angle={90}
-                    domain={[0, 100]}
-                    tick={false}
-                    axisLine={false}
-                  />
-                  <Radar
-                    dataKey="value"
-                    stroke={profile.color}
-                    fill={profile.color}
-                    fillOpacity={0.3}
-                    strokeWidth={2}
-                  />
-                  <Tooltip
-                    contentStyle={TOOLTIP_STYLE}
-                    formatter={(value: unknown) => [
-                      `${Math.round(Number(value))}`,
-                      undefined,
-                    ]}
-                  />
-                </RadarChart>
-              </ResponsiveContainer>
+              <SmallRadarChart profile={profile} />
             </div>
           ))}
         </div>
@@ -437,90 +804,7 @@ export function CreatorProfilesTab({ data }: { data: DashboardData }) {
           </p>
         ) : (
           <>
-            <ResponsiveContainer width="100%" height={450}>
-              <ScatterChart
-                margin={{ top: 20, right: 30, bottom: 20, left: 20 }}
-              >
-                <CartesianGrid
-                  strokeDasharray="3 3"
-                  className="opacity-30"
-                />
-                <XAxis
-                  type="number"
-                  dataKey="subscribers"
-                  name="Subscribers"
-                  scale="log"
-                  domain={["auto", "auto"]}
-                  tickFormatter={(v: number) => formatNumber(v)}
-                  tick={{ fontSize: 11 }}
-                  label={{
-                    value: "Subscribers (log scale)",
-                    position: "insideBottom",
-                    offset: -10,
-                    style: { fontSize: 11 },
-                  }}
-                />
-                <YAxis
-                  type="number"
-                  dataKey="engagement"
-                  name="Avg Engagement %"
-                  tick={{ fontSize: 11 }}
-                  label={{
-                    value: "Avg Engagement %",
-                    angle: -90,
-                    position: "insideLeft",
-                    offset: 0,
-                    style: { fontSize: 11 },
-                  }}
-                />
-                <ZAxis
-                  type="number"
-                  dataKey="totalViews"
-                  range={[40, 400]}
-                  name="Total Views"
-                />
-                <Tooltip
-                  contentStyle={TOOLTIP_STYLE}
-                  formatter={(value: unknown, name: unknown) => {
-                    const v = Number(value)
-                    const n = String(name)
-                    if (n === "Subscribers") return [formatNumber(v), n]
-                    if (n === "Total Views") return [formatNumber(v), n]
-                    return [`${v.toFixed(2)}%`, n]
-                  }}
-                  labelFormatter={(
-                    _label: unknown,
-                    payload: ReadonlyArray<{ payload?: Record<string, unknown> }>,
-                  ) => {
-                    const item = payload?.[0]?.payload as
-                      | ThreatDatum
-                      | undefined
-                    return item
-                      ? `${item.name} (${item.threat} Threat)`
-                      : ""
-                  }}
-                />
-                <Scatter data={threatData} name="Creators">
-                  {threatData.map((entry, index) => (
-                    <Cell
-                      key={`cell-${index}`}
-                      fill={
-                        THREAT_COLORS[entry.threat] ?? THREAT_COLORS.Low
-                      }
-                      fillOpacity={0.7}
-                      stroke={
-                        THREAT_COLORS[entry.threat] ?? THREAT_COLORS.Low
-                      }
-                      strokeWidth={1}
-                    />
-                  ))}
-                  <LabelList
-                    dataKey="name"
-                    content={renderScatterLabel}
-                  />
-                </Scatter>
-              </ScatterChart>
-            </ResponsiveContainer>
+            <ThreatScatterChart data={threatData} />
             <ThreatLegend />
           </>
         )}

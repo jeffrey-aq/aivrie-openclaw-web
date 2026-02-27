@@ -1,35 +1,26 @@
 "use client"
 
-import { useMemo } from "react"
+import { useMemo, useState } from "react"
+import { scaleBand, scaleLinear, scaleLog, scaleSqrt } from "d3-scale"
+import { axisBottom, axisLeft } from "d3-axis"
+import { max, extent } from "d3-array"
+import { line as d3line } from "d3-shape"
 import regression from "regression"
-import {
-  ScatterChart,
-  Scatter,
-  XAxis,
-  YAxis,
-  ZAxis,
-  CartesianGrid,
-  Tooltip,
-  ResponsiveContainer,
-  Legend,
-  ComposedChart,
-  Line,
-  BarChart,
-  Bar,
-  LabelList,
-  Cell,
-} from "recharts"
 
 import type { DashboardData } from "@/app/research/page"
 
 import {
   percentile,
-  TOOLTIP_STYLE,
   NICHE_COLORS,
   getCreatorColor,
   formatNumber,
   toNum,
 } from "@/components/research/chart-utils"
+import { useChartDimensions } from "@/components/research/d3/use-chart-dimensions"
+import { useD3Axis } from "@/components/research/d3/use-d3-axis"
+import { ChartGrid } from "@/components/research/d3/grid"
+import { ChartTooltip } from "@/components/research/d3/tooltip"
+import { ChartLegend } from "@/components/research/d3/legend"
 
 // ─── Status colors for chart 1.2 ───────────────────────────────────────────
 const STATUS_COLORS: Record<string, string> = {
@@ -95,6 +86,7 @@ interface ScoreRow {
 }
 
 // ─── Custom tooltip payloads ────────────────────────────────────────────────
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 interface TooltipPayloadEntry<T> {
   payload: T
   name?: string
@@ -106,6 +98,811 @@ interface AvgViewsRow {
   name: string
   avgViewsShort: number
   avgViewsFull: number
+}
+
+// ─── Chart 1.0: Short vs Full Avg Views (Vertical Grouped Bar) ─────────────
+
+const AVG_VIEWS_SERIES = [
+  { key: "avgViewsShort" as const, label: "Short", color: "#ec4899" },
+  { key: "avgViewsFull" as const, label: "Full-Length", color: "#38bdf8" },
+]
+
+function AvgViewsChart({ data }: { data: AvgViewsRow[] }) {
+  const margin = { top: 10, right: 20, bottom: 100, left: 70 }
+  const HEIGHT = 400
+  const [ref, dims] = useChartDimensions(margin)
+  const [tooltip, setTooltip] = useState<{
+    x: number
+    y: number
+    row: AvgViewsRow
+  } | null>(null)
+
+  const xScale = useMemo(
+    () =>
+      scaleBand<string>()
+        .domain(data.map((d) => d.name))
+        .range([0, dims.innerWidth])
+        .padding(0.2),
+    [data, dims.innerWidth],
+  )
+
+  const xInner = useMemo(
+    () =>
+      scaleBand<string>()
+        .domain(AVG_VIEWS_SERIES.map((s) => s.key))
+        .range([0, xScale.bandwidth()])
+        .padding(0.05),
+    [xScale],
+  )
+
+  const maxVal = useMemo(
+    () =>
+      max(data.flatMap((d) => [d.avgViewsShort, d.avgViewsFull])) ?? 0,
+    [data],
+  )
+
+  const yScale = useMemo(
+    () =>
+      scaleLinear()
+        .domain([0, maxVal])
+        .nice()
+        .range([dims.innerHeight, 0]),
+    [maxVal, dims.innerHeight],
+  )
+
+  const yAxis = useMemo(
+    () =>
+      dims.innerHeight > 0
+        ? axisLeft(yScale).tickFormat((d) => formatNumber(Number(d)))
+        : null,
+    [yScale, dims.innerHeight],
+  )
+
+  const yAxisRef = useD3Axis(yAxis)
+
+  const handleMouse = (e: React.MouseEvent, row: AvgViewsRow) => {
+    const el = ref.current
+    if (!el) return
+    const rect = el.getBoundingClientRect()
+    setTooltip({
+      x: e.clientX - rect.left,
+      y: e.clientY - rect.top,
+      row,
+    })
+  }
+
+  return (
+    <div ref={ref} className="relative w-full" style={{ height: HEIGHT }}>
+      {dims.width > 0 && (
+        <>
+          <svg width={dims.width} height={HEIGHT}>
+            <g transform={`translate(${margin.left},${margin.top})`}>
+              <ChartGrid
+                innerWidth={dims.innerWidth}
+                innerHeight={dims.innerHeight}
+                yTicks={yScale.ticks().map((t) => yScale(t))}
+                vertical={false}
+              />
+              {data.map((d) => (
+                <g
+                  key={d.name}
+                  transform={`translate(${xScale(d.name) ?? 0},0)`}
+                >
+                  {AVG_VIEWS_SERIES.map((s) => {
+                    const val = d[s.key]
+                    return (
+                      <rect
+                        key={s.key}
+                        x={xInner(s.key) ?? 0}
+                        y={yScale(val)}
+                        width={xInner.bandwidth()}
+                        height={Math.max(0, dims.innerHeight - yScale(val))}
+                        fill={s.color}
+                        rx={2}
+                        onMouseMove={(e) => handleMouse(e, d)}
+                        onMouseLeave={() => setTooltip(null)}
+                      />
+                    )
+                  })}
+                </g>
+              ))}
+              {/* Custom rotated X axis tick labels */}
+              {data.map((d) => (
+                <text
+                  key={d.name}
+                  x={xScale(d.name)! + xScale.bandwidth() / 2}
+                  y={dims.innerHeight + 4}
+                  textAnchor="end"
+                  fontSize={10}
+                  fill="var(--color-muted-foreground)"
+                  transform={`rotate(-90, ${xScale(d.name)! + xScale.bandwidth() / 2}, ${dims.innerHeight + 4})`}
+                >
+                  {d.name}
+                </text>
+              ))}
+              <g ref={yAxisRef} />
+            </g>
+          </svg>
+          <ChartTooltip
+            x={tooltip?.x ?? 0}
+            y={tooltip?.y ?? 0}
+            visible={tooltip !== null}
+            containerWidth={dims.width}
+            containerHeight={HEIGHT}
+          >
+            {tooltip && (
+              <>
+                <p className="font-medium text-xs mb-1">
+                  {tooltip.row.name}
+                </p>
+                <p className="text-xs">
+                  Avg Short: {formatNumber(tooltip.row.avgViewsShort)}
+                </p>
+                <p className="text-xs">
+                  Avg Full: {formatNumber(tooltip.row.avgViewsFull)}
+                </p>
+              </>
+            )}
+          </ChartTooltip>
+        </>
+      )}
+    </div>
+  )
+}
+
+// ─── Chart 1.1: Subscribers vs Engagement (Bubble Scatter, Log X) ───────────
+
+function EngagementScatterChart({
+  data,
+}: {
+  data: EngagementScatterRow[]
+}) {
+  const margin = { top: 10, right: 20, bottom: 45, left: 70 }
+  const HEIGHT = 400
+  const [ref, dims] = useChartDimensions(margin)
+  const [tooltip, setTooltip] = useState<{
+    x: number
+    y: number
+    row: EngagementScatterRow
+  } | null>(null)
+
+  const xExt = useMemo(() => {
+    const ext = extent(data, (d) => d.subscribers) as [number, number]
+    return [Math.max(ext[0] ?? 1, 1), ext[1] ?? 1] as [number, number]
+  }, [data])
+
+  const yExt = useMemo(
+    () => extent(data, (d) => d.avgEngagement) as [number, number],
+    [data],
+  )
+
+  const maxViews = useMemo(() => max(data, (d) => d.totalViews) ?? 1, [data])
+
+  const xScale = useMemo(
+    () =>
+      scaleLog()
+        .domain(xExt)
+        .nice()
+        .range([0, dims.innerWidth]),
+    [xExt, dims.innerWidth],
+  )
+
+  const yScale = useMemo(
+    () =>
+      scaleLinear()
+        .domain([0, yExt[1] ?? 1])
+        .nice()
+        .range([dims.innerHeight, 0]),
+    [yExt, dims.innerHeight],
+  )
+
+  const rScale = useMemo(
+    () => scaleSqrt().domain([0, maxViews]).range([4, 20]),
+    [maxViews],
+  )
+
+  const xAxis = useMemo(
+    () =>
+      dims.innerWidth > 0
+        ? axisBottom(xScale).tickFormat((d) => formatNumber(Number(d)))
+        : null,
+    [xScale, dims.innerWidth],
+  )
+  const yAxis = useMemo(
+    () =>
+      dims.innerHeight > 0
+        ? axisLeft(yScale).tickFormat((d) => `${Number(d).toFixed(1)}%`)
+        : null,
+    [yScale, dims.innerHeight],
+  )
+
+  const xAxisRef = useD3Axis(xAxis)
+  const yAxisRef = useD3Axis(yAxis)
+
+  const handleMouse = (e: React.MouseEvent, row: EngagementScatterRow) => {
+    const el = ref.current
+    if (!el) return
+    const rect = el.getBoundingClientRect()
+    setTooltip({ x: e.clientX - rect.left, y: e.clientY - rect.top, row })
+  }
+
+  return (
+    <div ref={ref} className="relative w-full" style={{ height: HEIGHT }}>
+      {dims.width > 0 && (
+        <>
+          <svg width={dims.width} height={HEIGHT}>
+            <g transform={`translate(${margin.left},${margin.top})`}>
+              <ChartGrid
+                innerWidth={dims.innerWidth}
+                innerHeight={dims.innerHeight}
+                xTicks={xScale.ticks().map((t) => xScale(t))}
+                yTicks={yScale.ticks().map((t) => yScale(t))}
+              />
+              {data.map((d, i) => {
+                const r = rScale(d.totalViews)
+                return (
+                  <g key={i}>
+                    <circle
+                      cx={xScale(d.subscribers)}
+                      cy={yScale(d.avgEngagement)}
+                      r={r}
+                      fill={d.color}
+                      fillOpacity={0.7}
+                      stroke={d.color}
+                      strokeWidth={1}
+                      onMouseMove={(e) => handleMouse(e, d)}
+                      onMouseLeave={() => setTooltip(null)}
+                    />
+                    <text
+                      x={xScale(d.subscribers)}
+                      y={yScale(d.avgEngagement) - r - 4}
+                      textAnchor="middle"
+                      fontSize={9}
+                      fill="var(--color-muted-foreground)"
+                    >
+                      {d.name}
+                    </text>
+                  </g>
+                )
+              })}
+              <g
+                ref={xAxisRef}
+                transform={`translate(0,${dims.innerHeight})`}
+              />
+              <g ref={yAxisRef} />
+              <text
+                x={dims.innerWidth / 2}
+                y={dims.innerHeight + margin.bottom - 5}
+                textAnchor="middle"
+                fontSize={11}
+                fill="var(--color-muted-foreground)"
+              >
+                Subscribers
+              </text>
+              <text
+                transform="rotate(-90)"
+                x={-dims.innerHeight / 2}
+                y={-margin.left + 15}
+                textAnchor="middle"
+                fontSize={11}
+                fill="var(--color-muted-foreground)"
+              >
+                Avg Engagement %
+              </text>
+            </g>
+          </svg>
+          <ChartTooltip
+            x={tooltip?.x ?? 0}
+            y={tooltip?.y ?? 0}
+            visible={tooltip !== null}
+            containerWidth={dims.width}
+            containerHeight={HEIGHT}
+          >
+            {tooltip && (
+              <>
+                <p className="font-medium text-xs mb-1">{tooltip.row.name}</p>
+                <p className="text-xs">
+                  Subscribers: {formatNumber(tooltip.row.subscribers)}
+                </p>
+                <p className="text-xs">
+                  Engagement: {tooltip.row.avgEngagement.toFixed(2)}%
+                </p>
+                <p className="text-xs">
+                  Total Views: {formatNumber(tooltip.row.totalViews)}
+                </p>
+                <p className="text-xs">Niche: {tooltip.row.niche}</p>
+              </>
+            )}
+          </ChartTooltip>
+        </>
+      )}
+    </div>
+  )
+}
+
+// ─── Chart 1.2: Views-to-Sub Ratio (Scatter, Log X) ────────────────────────
+
+function ViewsSubRatioChart({
+  data,
+}: {
+  data: ViewsSubRatioRow[]
+}) {
+  const margin = { top: 10, right: 20, bottom: 45, left: 70 }
+  const HEIGHT = 400
+  const [ref, dims] = useChartDimensions(margin)
+  const [tooltip, setTooltip] = useState<{
+    x: number
+    y: number
+    row: ViewsSubRatioRow
+  } | null>(null)
+
+  const xExt = useMemo(() => {
+    const ext = extent(data, (d) => d.avgViewsPerVideo) as [number, number]
+    return [Math.max(ext[0] ?? 1, 1), ext[1] ?? 1] as [number, number]
+  }, [data])
+
+  const yExt = useMemo(
+    () => extent(data, (d) => d.viewsToSubRatio) as [number, number],
+    [data],
+  )
+
+  const xScale = useMemo(
+    () =>
+      scaleLog()
+        .domain(xExt)
+        .nice()
+        .range([0, dims.innerWidth]),
+    [xExt, dims.innerWidth],
+  )
+
+  const yScale = useMemo(
+    () =>
+      scaleLinear()
+        .domain([0, yExt[1] ?? 1])
+        .nice()
+        .range([dims.innerHeight, 0]),
+    [yExt, dims.innerHeight],
+  )
+
+  const xAxis = useMemo(
+    () =>
+      dims.innerWidth > 0
+        ? axisBottom(xScale).tickFormat((d) => formatNumber(Number(d)))
+        : null,
+    [xScale, dims.innerWidth],
+  )
+  const yAxis = useMemo(
+    () =>
+      dims.innerHeight > 0
+        ? axisLeft(yScale).tickFormat((d) => `${Number(d).toFixed(0)}%`)
+        : null,
+    [yScale, dims.innerHeight],
+  )
+
+  const xAxisRef = useD3Axis(xAxis)
+  const yAxisRef = useD3Axis(yAxis)
+
+  const handleMouse = (e: React.MouseEvent, row: ViewsSubRatioRow) => {
+    const el = ref.current
+    if (!el) return
+    const rect = el.getBoundingClientRect()
+    setTooltip({ x: e.clientX - rect.left, y: e.clientY - rect.top, row })
+  }
+
+  return (
+    <div ref={ref} className="relative w-full" style={{ height: HEIGHT }}>
+      {dims.width > 0 && (
+        <>
+          <svg width={dims.width} height={HEIGHT}>
+            <g transform={`translate(${margin.left},${margin.top})`}>
+              <ChartGrid
+                innerWidth={dims.innerWidth}
+                innerHeight={dims.innerHeight}
+                xTicks={xScale.ticks().map((t) => xScale(t))}
+                yTicks={yScale.ticks().map((t) => yScale(t))}
+              />
+              {data.map((d, i) => (
+                <g key={i}>
+                  <circle
+                    cx={xScale(d.avgViewsPerVideo)}
+                    cy={yScale(d.viewsToSubRatio)}
+                    r={5}
+                    fill={d.color}
+                    fillOpacity={0.7}
+                    stroke={d.color}
+                    strokeWidth={1}
+                    onMouseMove={(e) => handleMouse(e, d)}
+                    onMouseLeave={() => setTooltip(null)}
+                  />
+                  <text
+                    x={xScale(d.avgViewsPerVideo)}
+                    y={yScale(d.viewsToSubRatio) - 9}
+                    textAnchor="middle"
+                    fontSize={9}
+                    fill="var(--color-muted-foreground)"
+                  >
+                    {d.name}
+                  </text>
+                </g>
+              ))}
+              <g
+                ref={xAxisRef}
+                transform={`translate(0,${dims.innerHeight})`}
+              />
+              <g ref={yAxisRef} />
+              <text
+                x={dims.innerWidth / 2}
+                y={dims.innerHeight + margin.bottom - 5}
+                textAnchor="middle"
+                fontSize={11}
+                fill="var(--color-muted-foreground)"
+              >
+                Avg Views per Video
+              </text>
+              <text
+                transform="rotate(-90)"
+                x={-dims.innerHeight / 2}
+                y={-margin.left + 15}
+                textAnchor="middle"
+                fontSize={11}
+                fill="var(--color-muted-foreground)"
+              >
+                Views:Sub Ratio %
+              </text>
+            </g>
+          </svg>
+          <ChartTooltip
+            x={tooltip?.x ?? 0}
+            y={tooltip?.y ?? 0}
+            visible={tooltip !== null}
+            containerWidth={dims.width}
+            containerHeight={HEIGHT}
+          >
+            {tooltip && (
+              <>
+                <p className="font-medium text-xs mb-1">{tooltip.row.name}</p>
+                <p className="text-xs">
+                  Avg Views/Video: {formatNumber(tooltip.row.avgViewsPerVideo)}
+                </p>
+                <p className="text-xs">
+                  Views:Sub Ratio: {tooltip.row.viewsToSubRatio.toFixed(1)}%
+                </p>
+                <p className="text-xs">Status: {tooltip.row.status}</p>
+              </>
+            )}
+          </ChartTooltip>
+        </>
+      )}
+    </div>
+  )
+}
+
+// ─── Chart 1.3: Subscribers vs Total Views (Dual Log Scatter + Regression) ──
+
+function RegressionChart({
+  data,
+  regressionLine,
+}: {
+  data: SubsViewsRow[]
+  regressionLine: RegressionLinePoint[]
+}) {
+  const margin = { top: 10, right: 20, bottom: 45, left: 70 }
+  const HEIGHT = 450
+  const [ref, dims] = useChartDimensions(margin)
+  const [tooltip, setTooltip] = useState<{
+    x: number
+    y: number
+    row: SubsViewsRow | null
+    isRegression: boolean
+  } | null>(null)
+
+  const xExt = useMemo(() => {
+    const ext = extent(data, (d) => d.totalViews) as [number, number]
+    return [Math.max(ext[0] ?? 1, 1), ext[1] ?? 1] as [number, number]
+  }, [data])
+
+  const yExt = useMemo(() => {
+    const ext = extent(data, (d) => d.subscribers) as [number, number]
+    return [Math.max(ext[0] ?? 1, 1), ext[1] ?? 1] as [number, number]
+  }, [data])
+
+  const xScale = useMemo(
+    () =>
+      scaleLog()
+        .domain(xExt)
+        .nice()
+        .range([0, dims.innerWidth]),
+    [xExt, dims.innerWidth],
+  )
+
+  const yScale = useMemo(
+    () =>
+      scaleLog()
+        .domain(yExt)
+        .nice()
+        .range([dims.innerHeight, 0]),
+    [yExt, dims.innerHeight],
+  )
+
+  const xAxis = useMemo(
+    () =>
+      dims.innerWidth > 0
+        ? axisBottom(xScale).tickFormat((d) => formatNumber(Number(d)))
+        : null,
+    [xScale, dims.innerWidth],
+  )
+  const yAxis = useMemo(
+    () =>
+      dims.innerHeight > 0
+        ? axisLeft(yScale).tickFormat((d) => formatNumber(Number(d)))
+        : null,
+    [yScale, dims.innerHeight],
+  )
+
+  const xAxisRef = useD3Axis(xAxis)
+  const yAxisRef = useD3Axis(yAxis)
+
+  const lineGen = useMemo(
+    () =>
+      d3line<RegressionLinePoint>()
+        .x((d) => xScale(d.totalViews))
+        .y((d) => yScale(d.subscribers)),
+    [xScale, yScale],
+  )
+
+  const handleMouse = (e: React.MouseEvent, row: SubsViewsRow) => {
+    const el = ref.current
+    if (!el) return
+    const rect = el.getBoundingClientRect()
+    setTooltip({
+      x: e.clientX - rect.left,
+      y: e.clientY - rect.top,
+      row,
+      isRegression: false,
+    })
+  }
+
+  return (
+    <div ref={ref} className="relative w-full" style={{ height: HEIGHT }}>
+      {dims.width > 0 && (
+        <>
+          <svg width={dims.width} height={HEIGHT}>
+            <g transform={`translate(${margin.left},${margin.top})`}>
+              <ChartGrid
+                innerWidth={dims.innerWidth}
+                innerHeight={dims.innerHeight}
+                xTicks={xScale.ticks().map((t) => xScale(t))}
+                yTicks={yScale.ticks().map((t) => yScale(t))}
+              />
+              {/* Regression line */}
+              {regressionLine.length > 0 && (
+                <path
+                  d={lineGen(regressionLine) ?? ""}
+                  fill="none"
+                  stroke="#f59e0b"
+                  strokeWidth={2}
+                  strokeDasharray="6 3"
+                />
+              )}
+              {/* Scatter points */}
+              {data.map((d, i) => (
+                <g key={i}>
+                  <circle
+                    cx={xScale(d.totalViews)}
+                    cy={yScale(d.subscribers)}
+                    r={6}
+                    fill={d.color}
+                    fillOpacity={0.7}
+                    stroke={d.color}
+                    strokeWidth={1}
+                    onMouseMove={(e) => handleMouse(e, d)}
+                    onMouseLeave={() => setTooltip(null)}
+                  />
+                  <text
+                    x={xScale(d.totalViews)}
+                    y={yScale(d.subscribers) - 10}
+                    textAnchor="middle"
+                    fontSize={9}
+                    fill="var(--color-muted-foreground)"
+                  >
+                    {d.name}
+                  </text>
+                </g>
+              ))}
+              <g
+                ref={xAxisRef}
+                transform={`translate(0,${dims.innerHeight})`}
+              />
+              <g ref={yAxisRef} />
+              <text
+                x={dims.innerWidth / 2}
+                y={dims.innerHeight + margin.bottom - 5}
+                textAnchor="middle"
+                fontSize={11}
+                fill="var(--color-muted-foreground)"
+              >
+                Total Views
+              </text>
+              <text
+                transform="rotate(-90)"
+                x={-dims.innerHeight / 2}
+                y={-margin.left + 15}
+                textAnchor="middle"
+                fontSize={11}
+                fill="var(--color-muted-foreground)"
+              >
+                Subscribers
+              </text>
+            </g>
+          </svg>
+          <ChartTooltip
+            x={tooltip?.x ?? 0}
+            y={tooltip?.y ?? 0}
+            visible={tooltip !== null}
+            containerWidth={dims.width}
+            containerHeight={HEIGHT}
+          >
+            {tooltip && tooltip.row && (
+              <>
+                <p className="font-medium text-xs mb-1">
+                  {tooltip.row.name}
+                </p>
+                <p className="text-xs">
+                  Total Views: {formatNumber(tooltip.row.totalViews)}
+                </p>
+                <p className="text-xs">
+                  Subscribers: {formatNumber(tooltip.row.subscribers)}
+                </p>
+              </>
+            )}
+          </ChartTooltip>
+        </>
+      )}
+    </div>
+  )
+}
+
+// ─── Chart 1.4: Success Score Ranking (Horizontal Stacked Bar) ──────────────
+
+function ScoreRankingChart({ data }: { data: ScoreRow[] }) {
+  const height = Math.max(data.length * 32 + 60, 250)
+  const margin = { top: 5, right: 30, bottom: 30, left: 120 }
+  const [ref, dims] = useChartDimensions(margin)
+  const [tooltip, setTooltip] = useState<{
+    x: number
+    y: number
+    row: ScoreRow
+  } | null>(null)
+
+  const yScale = useMemo(
+    () =>
+      scaleBand<string>()
+        .domain(data.map((d) => d.name))
+        .range([0, dims.innerHeight])
+        .padding(0.2),
+    [data, dims.innerHeight],
+  )
+
+  const xScale = useMemo(
+    () =>
+      scaleLinear()
+        .domain([0, 100])
+        .range([0, dims.innerWidth]),
+    [dims.innerWidth],
+  )
+
+  const xAxis = useMemo(
+    () =>
+      dims.innerWidth > 0
+        ? axisBottom(xScale).tickFormat((d) => `${Number(d)}`)
+        : null,
+    [xScale, dims.innerWidth],
+  )
+  const yAxis = useMemo(
+    () => (dims.innerHeight > 0 ? axisLeft(yScale) : null),
+    [yScale, dims.innerHeight],
+  )
+
+  const xAxisRef = useD3Axis(xAxis)
+  const yAxisRef = useD3Axis(yAxis)
+
+  const handleMouse = (e: React.MouseEvent, row: ScoreRow) => {
+    const el = ref.current
+    if (!el) return
+    const rect = el.getBoundingClientRect()
+    setTooltip({ x: e.clientX - rect.left, y: e.clientY - rect.top, row })
+  }
+
+  const keys = Object.keys(SCORE_COLORS) as Array<keyof typeof SCORE_COLORS>
+
+  return (
+    <div ref={ref} className="relative w-full" style={{ height }}>
+      {dims.width > 0 && (
+        <>
+          <svg width={dims.width} height={height}>
+            <g transform={`translate(${margin.left},${margin.top})`}>
+              <ChartGrid
+                innerWidth={dims.innerWidth}
+                innerHeight={dims.innerHeight}
+                xTicks={xScale.ticks().map((t) => xScale(t))}
+                horizontal={false}
+              />
+              {data.map((d) => {
+                let cumX = 0
+                return (
+                  <g
+                    key={d.name}
+                    transform={`translate(0,${yScale(d.name) ?? 0})`}
+                  >
+                    {keys.map((key, i) => {
+                      const val = d[key]
+                      const x = xScale(cumX)
+                      const w = xScale(cumX + val) - xScale(cumX)
+                      cumX += val
+                      return (
+                        <rect
+                          key={key}
+                          x={x}
+                          y={0}
+                          width={Math.max(0, w)}
+                          height={yScale.bandwidth()}
+                          fill={SCORE_COLORS[key]}
+                          rx={i === keys.length - 1 ? 2 : 0}
+                          onMouseMove={(e) => handleMouse(e, d)}
+                          onMouseLeave={() => setTooltip(null)}
+                        />
+                      )
+                    })}
+                  </g>
+                )
+              })}
+              <g
+                ref={xAxisRef}
+                transform={`translate(0,${dims.innerHeight})`}
+              />
+              <g ref={yAxisRef} />
+            </g>
+          </svg>
+          <ChartTooltip
+            x={tooltip?.x ?? 0}
+            y={tooltip?.y ?? 0}
+            visible={tooltip !== null}
+            containerWidth={dims.width}
+            containerHeight={height}
+          >
+            {tooltip && (
+              <>
+                <p className="font-medium text-xs mb-2">{tooltip.row.name}</p>
+                <div className="space-y-0.5">
+                  {keys.map((key) => (
+                    <div
+                      key={key}
+                      className="flex items-center gap-2 text-xs"
+                    >
+                      <span
+                        className="inline-block size-2 rounded-full"
+                        style={{ backgroundColor: SCORE_COLORS[key] }}
+                      />
+                      <span className="flex-1">{SCORE_LABELS[key]}</span>
+                      <span className="tabular-nums font-medium">
+                        {tooltip.row[key].toFixed(1)}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+                <div className="border-t mt-1.5 pt-1.5 flex justify-between text-xs font-semibold">
+                  <span>Total</span>
+                  <span className="tabular-nums">
+                    {tooltip.row.total.toFixed(1)}
+                  </span>
+                </div>
+              </>
+            )}
+          </ChartTooltip>
+        </>
+      )}
+    </div>
+  )
 }
 
 // ─── Component ──────────────────────────────────────────────────────────────
@@ -128,6 +925,7 @@ export function SuccessDriversTab({ data }: { data: DashboardData }) {
       })
       .filter((r) => r._max > 0)
       .sort((a, b) => b._max - a._max)
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
       .map(({ _max: _, ...rest }) => rest)
   }, [creators, videoStats])
 
@@ -268,69 +1066,19 @@ export function SuccessDriversTab({ data }: { data: DashboardData }) {
 
   return (
     <div className="space-y-6">
-      {/* ── 1.0: Short vs Full Avg Views (full width, horizontal) ── */}
+      {/* ── 1.0: Short vs Full Avg Views (full width) ── */}
       <div className="rounded-lg border p-5">
         <h3 className="text-sm font-semibold mb-4">
           Short vs Full-Length — Avg Views per Creator
         </h3>
-        <ResponsiveContainer width="100%" height={400}>
-          <BarChart
-            data={avgViewsData}
-            margin={{ top: 5, right: 20, bottom: 60, left: 10 }}
-          >
-            <CartesianGrid
-              strokeDasharray="3 3"
-              className="opacity-30"
-              vertical={false}
-            />
-            <XAxis
-              dataKey="name"
-              // eslint-disable-next-line @typescript-eslint/no-explicit-any
-              tick={((props: any) => (
-                <text
-                  x={props.x}
-                  y={props.y + 4}
-                  textAnchor="end"
-                  fontSize={10}
-                  fill="currentColor"
-                  className="text-muted-foreground"
-                  transform={`rotate(-90, ${props.x}, ${props.y + 4})`}
-                >
-                  {props.payload.value}
-                </text>
-              )) as any}
-              interval={0}
-              height={100}
-            />
-            <YAxis
-              tick={{ fontSize: 11 }}
-              tickFormatter={(v: number) => formatNumber(v)}
-            />
-            <Tooltip
-              contentStyle={TOOLTIP_STYLE}
-              formatter={(v: number | undefined, name?: string) => [
-                formatNumber(v ?? 0),
-                name === "avgViewsShort" ? "Avg Short" : "Avg Full",
-              ]}
-            />
-            <Legend
-              wrapperStyle={{ fontSize: "0.75rem" }}
-              formatter={(value: string) =>
-                value === "avgViewsShort" ? "Short" : "Full-Length"
-              }
-            />
-            <Bar
-              dataKey="avgViewsShort"
-              fill="#ec4899"
-              radius={[2, 2, 0, 0]}
-            />
-            <Bar
-              dataKey="avgViewsFull"
-              fill="#38bdf8"
-              radius={[2, 2, 0, 0]}
-            />
-          </BarChart>
-        </ResponsiveContainer>
+        <AvgViewsChart data={avgViewsData} />
+        <ChartLegend
+          entries={AVG_VIEWS_SERIES.map((s) => ({
+            label: s.label,
+            color: s.color,
+          }))}
+          className="mt-2"
+        />
       </div>
 
       {/* ── 1.3 Subscribers vs Total Views (full width) ── */}
@@ -338,99 +1086,14 @@ export function SuccessDriversTab({ data }: { data: DashboardData }) {
         <h3 className="text-sm font-semibold mb-4">
           Subscribers vs Total Views (Power Regression)
         </h3>
-        <ResponsiveContainer width="100%" height={450}>
-          <ComposedChart margin={{ top: 10, right: 20, bottom: 20, left: 10 }}>
-            <CartesianGrid strokeDasharray="3 3" className="opacity-30" />
-            <XAxis
-              type="number"
-              dataKey="totalViews"
-              name="Total Views"
-              scale="log"
-              domain={["auto", "auto"]}
-              tick={{ fontSize: 11 }}
-              tickFormatter={(v: number) => formatNumber(v)}
-              label={{
-                value: "Total Views",
-                position: "insideBottom",
-                offset: -10,
-                style: { fontSize: 11, fill: "var(--color-muted-foreground)" },
-              }}
-            />
-            <YAxis
-              type="number"
-              dataKey="subscribers"
-              name="Subscribers"
-              scale="log"
-              domain={["auto", "auto"]}
-              tick={{ fontSize: 11 }}
-              tickFormatter={(v: number) => formatNumber(v)}
-              label={{
-                value: "Subscribers",
-                angle: -90,
-                position: "insideLeft",
-                offset: 5,
-                style: { fontSize: 11, fill: "var(--color-muted-foreground)" },
-              }}
-            />
-            <Tooltip
-              contentStyle={TOOLTIP_STYLE}
-              content={({ active, payload }) => {
-                if (!active || !payload || payload.length === 0) return null
-                const entry = payload[0]
-                if (!entry) return null
-                // Could be a scatter point or regression line point
-                const row = entry.payload as SubsViewsRow | RegressionLinePoint
-                const hasName = "name" in row
-                return (
-                  <div style={TOOLTIP_STYLE} className="p-2 shadow-lg">
-                    {hasName && (
-                      <p className="font-medium text-xs mb-1">
-                        {(row as SubsViewsRow).name}
-                      </p>
-                    )}
-                    <p className="text-xs">
-                      Total Views: {formatNumber(row.totalViews)}
-                    </p>
-                    <p className="text-xs">
-                      Subscribers: {formatNumber(row.subscribers)}
-                    </p>
-                    {!hasName && (
-                      <p className="text-xs italic text-muted-foreground">
-                        Regression line
-                      </p>
-                    )}
-                  </div>
-                )
-              }}
-            />
-            <Legend wrapperStyle={{ fontSize: "0.7rem" }} />
-            <Line
-              data={regressionLine}
-              type="monotone"
-              dataKey="subscribers"
-              stroke="#f59e0b"
-              strokeWidth={2}
-              strokeDasharray="6 3"
-              dot={false}
-              name="Regression"
-              legendType="line"
-            />
-            <Scatter
-              data={subsViewsData}
-              name="Creators"
-              legendType="circle"
-            >
-              {subsViewsData.map((entry, i) => (
-                <Cell key={`cell-${i}`} fill={entry.color} fillOpacity={0.7} />
-              ))}
-              <LabelList
-                dataKey="name"
-                position="top"
-                style={{ fontSize: 9, fill: "var(--color-muted-foreground)" }}
-              />
-            </Scatter>
-          </ComposedChart>
-        </ResponsiveContainer>
+        <RegressionChart data={subsViewsData} regressionLine={regressionLine} />
+        <ChartLegend
+          entries={[
+            { label: "Creators", color: "#8b5cf6" },
+            { label: "Regression", color: "#f59e0b", shape: "line" },
+          ]}
+          className="mt-2"
+        />
       </div>
 
       {/* ── 1.4 Success Score Ranking (full width) ── */}
@@ -438,95 +1101,15 @@ export function SuccessDriversTab({ data }: { data: DashboardData }) {
         <h3 className="text-sm font-semibold mb-4">
           Composite Success Score Ranking
         </h3>
-        <ResponsiveContainer
-          width="100%"
-          height={Math.max(scoreData.length * 32 + 60, 250)}
-        >
-          <BarChart
-            data={scoreData}
-            layout="vertical"
-            margin={{ left: 120, right: 30, top: 5, bottom: 5 }}
-          >
-            <CartesianGrid
-              strokeDasharray="3 3"
-              className="opacity-30"
-              horizontal={false}
-            />
-            <XAxis
-              type="number"
-              domain={[0, 100]}
-              tick={{ fontSize: 11 }}
-              tickFormatter={(v: number) => `${v}`}
-            />
-            <YAxis
-              type="category"
-              dataKey="name"
-              tick={{ fontSize: 11 }}
-              width={115}
-            />
-            <Tooltip
-              contentStyle={TOOLTIP_STYLE}
-              content={({ active, payload }) => {
-                if (!active || !payload || payload.length === 0) return null
-                const row = (payload[0] as TooltipPayloadEntry<ScoreRow>).payload
-                return (
-                  <div style={TOOLTIP_STYLE} className="p-2 shadow-lg">
-                    <p className="font-medium text-xs mb-2">{row.name}</p>
-                    <div className="space-y-0.5">
-                      {(
-                        Object.keys(SCORE_COLORS) as Array<keyof typeof SCORE_COLORS>
-                      ).map((key) => (
-                        <div key={key} className="flex items-center gap-2 text-xs">
-                          <span
-                            className="inline-block size-2 rounded-full"
-                            style={{ backgroundColor: SCORE_COLORS[key] }}
-                          />
-                          <span className="flex-1">{SCORE_LABELS[key]}</span>
-                          <span className="tabular-nums font-medium">
-                            {row[key].toFixed(1)}
-                          </span>
-                        </div>
-                      ))}
-                    </div>
-                    <div className="border-t mt-1.5 pt-1.5 flex justify-between text-xs font-semibold">
-                      <span>Total</span>
-                      <span className="tabular-nums">{row.total.toFixed(1)}</span>
-                    </div>
-                  </div>
-                )
-              }}
-            />
-            <Legend wrapperStyle={{ fontSize: "0.7rem" }} />
-            <Bar
-              dataKey="subscriber_pct"
-              stackId="score"
-              fill={SCORE_COLORS.subscriber_pct}
-              name={SCORE_LABELS.subscriber_pct}
-              radius={[0, 0, 0, 0]}
-            />
-            <Bar
-              dataKey="engagement_pct"
-              stackId="score"
-              fill={SCORE_COLORS.engagement_pct}
-              name={SCORE_LABELS.engagement_pct}
-              radius={[0, 0, 0, 0]}
-            />
-            <Bar
-              dataKey="views_to_sub_pct"
-              stackId="score"
-              fill={SCORE_COLORS.views_to_sub_pct}
-              name={SCORE_LABELS.views_to_sub_pct}
-              radius={[0, 0, 0, 0]}
-            />
-            <Bar
-              dataKey="volume_pct"
-              stackId="score"
-              fill={SCORE_COLORS.volume_pct}
-              name={SCORE_LABELS.volume_pct}
-              radius={[0, 2, 2, 0]}
-            />
-          </BarChart>
-        </ResponsiveContainer>
+        <ScoreRankingChart data={scoreData} />
+        <ChartLegend
+          entries={Object.entries(SCORE_COLORS).map(([key, color]) => ({
+            label: SCORE_LABELS[key] ?? key,
+            color,
+            shape: "square" as const,
+          }))}
+          className="mt-2"
+        />
       </div>
 
       {/* ── Row: 1.1 + 1.2 scatter plots ── */}
@@ -536,80 +1119,14 @@ export function SuccessDriversTab({ data }: { data: DashboardData }) {
           <h3 className="text-sm font-semibold mb-4">
             Subscribers vs Engagement Rate
           </h3>
-          <ResponsiveContainer width="100%" height={400}>
-            <ScatterChart margin={{ top: 10, right: 20, bottom: 20, left: 10 }}>
-              <CartesianGrid strokeDasharray="3 3" className="opacity-30" />
-              <XAxis
-                type="number"
-                dataKey="subscribers"
-                name="Subscribers"
-                scale="log"
-                domain={["auto", "auto"]}
-                tick={{ fontSize: 11 }}
-                tickFormatter={(v: number) => formatNumber(v)}
-                label={{
-                  value: "Subscribers",
-                  position: "insideBottom",
-                  offset: -10,
-                  style: { fontSize: 11, fill: "var(--color-muted-foreground)" },
-                }}
-              />
-              <YAxis
-                type="number"
-                dataKey="avgEngagement"
-                name="Avg Engagement %"
-                tick={{ fontSize: 11 }}
-                tickFormatter={(v: number) => `${v.toFixed(1)}%`}
-                label={{
-                  value: "Avg Engagement %",
-                  angle: -90,
-                  position: "insideLeft",
-                  offset: 5,
-                  style: { fontSize: 11, fill: "var(--color-muted-foreground)" },
-                }}
-              />
-              <ZAxis
-                type="number"
-                dataKey="totalViews"
-                range={[40, 400]}
-                name="Total Views"
-              />
-              <Tooltip
-                contentStyle={TOOLTIP_STYLE}
-                content={({ active, payload }) => {
-                  if (!active || !payload || payload.length === 0) return null
-                  const row = (payload[0] as TooltipPayloadEntry<EngagementScatterRow>).payload
-                  return (
-                    <div style={TOOLTIP_STYLE} className="p-2 shadow-lg">
-                      <p className="font-medium text-xs mb-1">{row.name}</p>
-                      <p className="text-xs">Subscribers: {formatNumber(row.subscribers)}</p>
-                      <p className="text-xs">Engagement: {row.avgEngagement.toFixed(2)}%</p>
-                      <p className="text-xs">Total Views: {formatNumber(row.totalViews)}</p>
-                      <p className="text-xs">Niche: {row.niche}</p>
-                    </div>
-                  )
-                }}
-              />
-              <Scatter data={engagementData} shape="circle">
-                {engagementData.map((entry, i) => (
-                  <Cell key={`cell-${i}`} fill={entry.color} fillOpacity={0.7} />
-                ))}
-                <LabelList
-                  dataKey="name"
-                  position="top"
-                  style={{ fontSize: 9, fill: "var(--color-muted-foreground)" }}
-                />
-              </Scatter>
-            </ScatterChart>
-          </ResponsiveContainer>
-          <div className="flex flex-wrap gap-3 mt-2 px-2">
-            {uniqueNiches.map((niche) => (
-              <div key={niche} className="flex items-center gap-1.5 text-xs text-muted-foreground">
-                <div className="size-2.5 rounded-full" style={{ backgroundColor: NICHE_COLORS[niche] ?? "#8884d8" }} />
-                {niche}
-              </div>
-            ))}
-          </div>
+          <EngagementScatterChart data={engagementData} />
+          <ChartLegend
+            entries={uniqueNiches.map((niche) => ({
+              label: niche,
+              color: NICHE_COLORS[niche] ?? "#94a3b8",
+            }))}
+            className="mt-3"
+          />
         </div>
 
         {/* 1.2 Views-to-Sub Ratio vs Avg Views */}
@@ -617,77 +1134,14 @@ export function SuccessDriversTab({ data }: { data: DashboardData }) {
           <h3 className="text-sm font-semibold mb-4">
             Views-to-Sub Ratio vs Avg Views per Video
           </h3>
-          <ResponsiveContainer width="100%" height={400}>
-            <ScatterChart margin={{ top: 10, right: 20, bottom: 20, left: 10 }}>
-              <CartesianGrid strokeDasharray="3 3" className="opacity-30" />
-              <XAxis
-                type="number"
-                dataKey="avgViewsPerVideo"
-                name="Avg Views/Video"
-                scale="log"
-                domain={["auto", "auto"]}
-                tick={{ fontSize: 11 }}
-                tickFormatter={(v: number) => formatNumber(v)}
-                label={{
-                  value: "Avg Views per Video",
-                  position: "insideBottom",
-                  offset: -10,
-                  style: { fontSize: 11, fill: "var(--color-muted-foreground)" },
-                }}
-              />
-              <YAxis
-                type="number"
-                dataKey="viewsToSubRatio"
-                name="Views:Sub Ratio"
-                tick={{ fontSize: 11 }}
-                tickFormatter={(v: number) => `${v.toFixed(0)}%`}
-                label={{
-                  value: "Views:Sub Ratio %",
-                  angle: -90,
-                  position: "insideLeft",
-                  offset: 5,
-                  style: { fontSize: 11, fill: "var(--color-muted-foreground)" },
-                }}
-              />
-              <Tooltip
-                contentStyle={TOOLTIP_STYLE}
-                content={({ active, payload }) => {
-                  if (!active || !payload || payload.length === 0) return null
-                  const row = (payload[0] as TooltipPayloadEntry<ViewsSubRatioRow>).payload
-                  return (
-                    <div style={TOOLTIP_STYLE} className="p-2 shadow-lg">
-                      <p className="font-medium text-xs mb-1">{row.name}</p>
-                      <p className="text-xs">
-                        Avg Views/Video: {formatNumber(row.avgViewsPerVideo)}
-                      </p>
-                      <p className="text-xs">
-                        Views:Sub Ratio: {row.viewsToSubRatio.toFixed(1)}%
-                      </p>
-                      <p className="text-xs">Status: {row.status}</p>
-                    </div>
-                  )
-                }}
-              />
-              <Scatter data={viewsSubRatioData} shape="circle">
-                {viewsSubRatioData.map((entry, i) => (
-                  <Cell key={`cell-${i}`} fill={entry.color} fillOpacity={0.7} />
-                ))}
-                <LabelList
-                  dataKey="name"
-                  position="top"
-                  style={{ fontSize: 9, fill: "var(--color-muted-foreground)" }}
-                />
-              </Scatter>
-            </ScatterChart>
-          </ResponsiveContainer>
-          <div className="flex flex-wrap gap-3 mt-2 px-2">
-            {uniqueStatuses.map((status) => (
-              <div key={status} className="flex items-center gap-1.5 text-xs text-muted-foreground">
-                <div className="size-2.5 rounded-full" style={{ backgroundColor: STATUS_COLORS[status] ?? STATUS_COLORS.Monitoring }} />
-                {status}
-              </div>
-            ))}
-          </div>
+          <ViewsSubRatioChart data={viewsSubRatioData} />
+          <ChartLegend
+            entries={uniqueStatuses.map((status) => ({
+              label: status,
+              color: STATUS_COLORS[status] ?? STATUS_COLORS.Monitoring,
+            }))}
+            className="mt-3"
+          />
         </div>
       </div>
     </div>

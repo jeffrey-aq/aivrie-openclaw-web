@@ -7,16 +7,14 @@ import { extractNodes } from "@/lib/graphql"
 import { useGraphQLClient } from "@/hooks/use-graphql"
 import { PageHeader } from "@/components/page-header"
 import { Users, MessageSquare, Clock } from "lucide-react"
-import {
-  BarChart,
-  Bar,
-  XAxis,
-  YAxis,
-  CartesianGrid,
-  Tooltip,
-  ResponsiveContainer,
-  Legend,
-} from "recharts"
+import { scaleBand, scaleLinear } from "d3-scale"
+import { axisBottom, axisLeft } from "d3-axis"
+import { max } from "d3-array"
+import { useChartDimensions } from "@/components/research/d3/use-chart-dimensions"
+import { useD3Axis } from "@/components/research/d3/use-d3-axis"
+import { ChartGrid } from "@/components/research/d3/grid"
+import { ChartTooltip } from "@/components/research/d3/tooltip"
+import { ChartLegend } from "@/components/research/d3/legend"
 
 interface TimestampedRow {
   createdAt: string
@@ -175,27 +173,142 @@ function ActivityChart({
   data: { week: string; Created: number; Modified: number }[]
   color: string
 }) {
+  const margin = { top: 10, right: 20, bottom: 30, left: 50 }
+  const HEIGHT = 200
+  const [ref, dims] = useChartDimensions(margin)
+  const [tooltip, setTooltip] = useState<{
+    x: number
+    y: number
+    row: (typeof data)[0]
+  } | null>(null)
+
+  const SERIES = [
+    { key: "Created" as const, label: "Created", fill: color },
+    { key: "Modified" as const, label: "Modified", fill: `${color}80` },
+  ]
+
+  const xScale = useMemo(
+    () =>
+      scaleBand<string>()
+        .domain(data.map((d) => d.week))
+        .range([0, dims.innerWidth])
+        .padding(0.2),
+    [data, dims.innerWidth],
+  )
+
+  const xInner = useMemo(
+    () =>
+      scaleBand<string>()
+        .domain(SERIES.map((s) => s.key))
+        .range([0, xScale.bandwidth()])
+        .padding(0.05),
+    [xScale],
+  )
+
+  const maxVal = useMemo(
+    () => max(data.flatMap((d) => [d.Created, d.Modified])) ?? 0,
+    [data],
+  )
+
+  const yScale = useMemo(
+    () =>
+      scaleLinear()
+        .domain([0, maxVal])
+        .nice()
+        .range([dims.innerHeight, 0]),
+    [maxVal, dims.innerHeight],
+  )
+
+  const xAxis = useMemo(
+    () => (dims.innerWidth > 0 ? axisBottom(xScale) : null),
+    [xScale, dims.innerWidth],
+  )
+  const yAxis = useMemo(
+    () =>
+      dims.innerHeight > 0
+        ? axisLeft(yScale).ticks(Math.min(maxVal, 5))
+        : null,
+    [yScale, dims.innerHeight, maxVal],
+  )
+
+  const xAxisRef = useD3Axis(xAxis)
+  const yAxisRef = useD3Axis(yAxis)
+
+  const handleMouse = (e: React.MouseEvent, row: (typeof data)[0]) => {
+    const el = ref.current
+    if (!el) return
+    const rect = el.getBoundingClientRect()
+    setTooltip({ x: e.clientX - rect.left, y: e.clientY - rect.top, row })
+  }
+
   return (
     <div className="rounded-lg border p-5">
       <h3 className="text-sm font-semibold mb-4">{title}</h3>
-      <ResponsiveContainer width="100%" height={200}>
-        <BarChart data={data}>
-          <CartesianGrid strokeDasharray="3 3" className="opacity-30" />
-          <XAxis dataKey="week" tick={{ fontSize: 11 }} />
-          <YAxis allowDecimals={false} tick={{ fontSize: 11 }} />
-          <Tooltip
-            contentStyle={{
-              backgroundColor: "var(--color-popover)",
-              border: "1px solid var(--color-border)",
-              borderRadius: "0.375rem",
-              fontSize: "0.75rem",
-            }}
-          />
-          <Legend wrapperStyle={{ fontSize: "0.75rem" }} />
-          <Bar dataKey="Created" fill={color} radius={[2, 2, 0, 0]} />
-          <Bar dataKey="Modified" fill={`${color}80`} radius={[2, 2, 0, 0]} />
-        </BarChart>
-      </ResponsiveContainer>
+      <div ref={ref} className="relative w-full" style={{ height: HEIGHT }}>
+        {dims.width > 0 && (
+          <>
+            <svg width={dims.width} height={HEIGHT}>
+              <g transform={`translate(${margin.left},${margin.top})`}>
+                <ChartGrid
+                  innerWidth={dims.innerWidth}
+                  innerHeight={dims.innerHeight}
+                  yTicks={yScale.ticks().map((t) => yScale(t))}
+                  vertical={false}
+                />
+                {data.map((d) => (
+                  <g
+                    key={d.week}
+                    transform={`translate(${xScale(d.week) ?? 0},0)`}
+                  >
+                    {SERIES.map((s) => {
+                      const val = d[s.key]
+                      return (
+                        <rect
+                          key={s.key}
+                          x={xInner(s.key) ?? 0}
+                          y={yScale(val)}
+                          width={xInner.bandwidth()}
+                          height={Math.max(0, dims.innerHeight - yScale(val))}
+                          fill={s.fill}
+                          rx={2}
+                          onMouseMove={(e) => handleMouse(e, d)}
+                          onMouseLeave={() => setTooltip(null)}
+                        />
+                      )
+                    })}
+                  </g>
+                ))}
+                <g
+                  ref={xAxisRef}
+                  transform={`translate(0,${dims.innerHeight})`}
+                />
+                <g ref={yAxisRef} />
+              </g>
+            </svg>
+            <ChartTooltip
+              x={tooltip?.x ?? 0}
+              y={tooltip?.y ?? 0}
+              visible={tooltip !== null}
+              containerWidth={dims.width}
+              containerHeight={HEIGHT}
+            >
+              {tooltip && (
+                <>
+                  <p className="font-medium text-xs mb-1">
+                    {tooltip.row.week}
+                  </p>
+                  <p className="text-xs">Created: {tooltip.row.Created}</p>
+                  <p className="text-xs">Modified: {tooltip.row.Modified}</p>
+                </>
+              )}
+            </ChartTooltip>
+          </>
+        )}
+      </div>
+      <ChartLegend
+        entries={SERIES.map((s) => ({ label: s.label, color: s.fill }))}
+        className="mt-2"
+      />
     </div>
   )
 }

@@ -34,19 +34,16 @@ vi.mock("@/components/page-header", () => ({
   PageHeader: () => null,
 }))
 
-// Mock recharts to avoid SSR issues in tests
-vi.mock("recharts", () => ({
-  ResponsiveContainer: ({ children }: { children: React.ReactNode }) => children,
-  BarChart: () => null,
-  Bar: () => null,
-  XAxis: () => null,
-  YAxis: () => null,
-  CartesianGrid: () => null,
-  Tooltip: () => null,
-  Legend: () => null,
-  PieChart: () => null,
-  Pie: () => null,
-  Cell: () => null,
+// Mock D3 selection to avoid DOM issues in tests
+vi.mock("d3-selection", () => ({
+  select: () => ({
+    call: () => ({
+      selectAll: () => ({ attr: () => ({ attr: () => ({}) }) }),
+      select: () => ({ attr: () => ({}) }),
+    }),
+    selectAll: () => ({ attr: () => ({ attr: () => ({}) }) }),
+    select: () => ({ attr: () => ({}) }),
+  }),
 }))
 
 // Page imports (mock is hoisted, so these get the mocked graphqlClient)
@@ -554,34 +551,35 @@ describe("Page rendering", () => {
     expect(await screen.findByText("Failed to load dashboard data.")).toBeInTheDocument()
   })
 
-  it("YouTube dashboard renders summary cards and charts", async () => {
+  it("YouTube dashboard renders summary cards and tab bar", async () => {
     // DATA_QUERY: single query, client-side aggregation
     mockRequest.mockResolvedValueOnce({
       youtubeCreatorsCollection: {
         totalCount: 1,
-        edges: [{ node: { id: "cr1", title: "TestCreator", channelId: "UC123" } }],
+        edges: [{ node: { id: "cr1", title: "TestCreator", channelId: "UC123", isStarred: false } }],
       },
+      starredCreatorsCollection: { totalCount: 0 },
       youtubeVideosCollection: {
         totalCount: 2,
         edges: [
-          { node: { id: "v1", channelId: "UC123", views: 500, likes: 50, comments: 10, duration: 12.5, durationType: "Full", transcript: "some text", summary: null } },
-          { node: { id: "v2", channelId: "UC123", views: 200, likes: 20, comments: 5, duration: 4.0, durationType: "Short", transcript: null, summary: null } },
+          { node: { id: "v1", channelId: "UC123", views: 500, likes: 50, comments: 10, duration: 12.5, durationType: "Full", transcript: "some text", summary: null, engagementRatePercent: null, publishedDate: null } },
+          { node: { id: "v2", channelId: "UC123", views: 200, likes: 20, comments: 5, duration: 4.0, durationType: "Short", transcript: null, summary: null, engagementRatePercent: null, publishedDate: null } },
         ],
       },
+      starredVideosCollection: { totalCount: 0 },
     })
 
     render(<YouTubeDashboardPage />)
 
-    // Tab bar renders
-    expect(await screen.findByText("Overview")).toBeInTheDocument()
-    expect(screen.getByText("Content")).toBeInTheDocument()
-    expect(screen.getByText("Engagement")).toBeInTheDocument()
-    expect(screen.getByText("Coverage")).toBeInTheDocument()
-    // Overview tab shows summary cards and pie charts
-    expect(screen.getByText("Creators")).toBeInTheDocument()
-    expect(screen.getByText("Shorts vs Full-Length Videos")).toBeInTheDocument()
-    // Aggregated values render
-    expect(screen.getByText("700")).toBeInTheDocument() // total views 500+200
+    // Tab bar renders with current tab names
+    expect(await screen.findByText("Success Drivers")).toBeInTheDocument()
+    expect(screen.getByText("Strategy")).toBeInTheDocument()
+    expect(screen.getByText("Creator Profiles")).toBeInTheDocument()
+    expect(screen.getByText("Content Mix")).toBeInTheDocument()
+    expect(screen.getByText("Revenue")).toBeInTheDocument()
+    // Success Drivers tab shows summary cards (may appear in tab + card)
+    expect(screen.getAllByText("Creators").length).toBeGreaterThanOrEqual(1)
+    expect(screen.getAllByText("Videos").length).toBeGreaterThanOrEqual(1)
   })
 
   it("YouTube dashboard shows error when request fails", async () => {
@@ -597,24 +595,26 @@ describe("Page rendering", () => {
       youtubeCreatorsCollection: {
         totalCount: 2,
         edges: [
-          { node: { id: "cr1", title: "Creator A", channelId: "UCA" } },
-          { node: { id: "cr2", title: "Creator B", channelId: "UCB" } },
+          { node: { id: "cr1", title: "Creator A", channelId: "UCA", isStarred: false } },
+          { node: { id: "cr2", title: "Creator B", channelId: "UCB", isStarred: false } },
         ],
       },
+      starredCreatorsCollection: { totalCount: 0 },
       youtubeVideosCollection: {
         totalCount: 3,
         edges: [
-          { node: { id: "v1", channelId: "UCA", views: 1000, likes: 100, comments: 20, duration: 10, durationType: "Full", transcript: "yes", summary: null } },
-          { node: { id: "v2", channelId: "UCA", views: 500, likes: 50, comments: 10, duration: 2, durationType: "Short", transcript: null, summary: null } },
-          { node: { id: "v3", channelId: "UCB", views: 2000, likes: 200, comments: 30, duration: 15, durationType: "Full", transcript: "yes", summary: "sum" } },
+          { node: { id: "v1", channelId: "UCA", views: 1000, likes: 100, comments: 20, duration: 10, durationType: "Full", transcript: "yes", summary: null, engagementRatePercent: null, publishedDate: null } },
+          { node: { id: "v2", channelId: "UCA", views: 500, likes: 50, comments: 10, duration: 2, durationType: "Short", transcript: null, summary: null, engagementRatePercent: null, publishedDate: null } },
+          { node: { id: "v3", channelId: "UCB", views: 2000, likes: 200, comments: 30, duration: 15, durationType: "Full", transcript: "yes", summary: "sum", engagementRatePercent: null, publishedDate: null } },
         ],
       },
+      starredVideosCollection: { totalCount: 0 },
     })
 
     render(<YouTubeDashboardPage />)
 
-    // Total views = 1000 + 500 + 2000 = 3,500 → "3.5K"
-    expect(await screen.findByText("3.5K")).toBeInTheDocument()
+    // Total views = 1000 + 500 + 2000 = 3,500 → fmt rounds to "3,500"
+    expect(await screen.findByText("3,500")).toBeInTheDocument()
     // Shorts: 1 of 3 = 33%
     expect(screen.getByText("33%")).toBeInTheDocument()
     // Transcripts: 2 of 3 = 67%
