@@ -109,11 +109,12 @@ const AVG_VIEWS_SERIES = [
   { key: "avgViewsFull" as const, label: "Full-Length", color: "#38bdf8" },
 ]
 
-type ScaleMode = "linear" | "log2" | "log10"
+type ScaleMode = "linear" | "log2" | "log10" | "stacked%"
 const SCALE_OPTIONS: { value: ScaleMode; label: string }[] = [
   { value: "linear", label: "Linear" },
   { value: "log2", label: "Log₂" },
   { value: "log10", label: "Log₁₀" },
+  { value: "stacked%", label: "Stacked %" },
 ]
 
 const ENGAGEMENT_COLOR = "#f59e0b"
@@ -152,7 +153,14 @@ function AvgViewsChart({ data, scaleMode }: { data: AvgViewsRow[]; scaleMode: Sc
     [data],
   )
 
+  const isStacked = scaleMode === "stacked%"
+
   const yScale = useMemo(() => {
+    if (isStacked) {
+      return scaleLinear()
+        .domain([0, 100])
+        .range([dims.innerHeight, 0])
+    }
     if (scaleMode === "linear") {
       return scaleLinear()
         .domain([0, maxVal])
@@ -166,7 +174,7 @@ function AvgViewsChart({ data, scaleMode }: { data: AvgViewsRow[]; scaleMode: Sc
       .nice()
       .range([dims.innerHeight, 0])
       .clamp(true)
-  }, [scaleMode, maxVal, dims.innerHeight])
+  }, [isStacked, scaleMode, maxVal, dims.innerHeight])
 
   // Right Y-axis for engagement %
   const maxEngagement = useMemo(
@@ -185,16 +193,16 @@ function AvgViewsChart({ data, scaleMode }: { data: AvgViewsRow[]; scaleMode: Sc
   const yAxis = useMemo(
     () =>
       dims.innerHeight > 0
-        ? axisLeft(yScale).tickFormat((d) => formatNumber(Number(d)))
+        ? axisLeft(yScale).tickFormat((d) => isStacked ? `${Number(d)}%` : formatNumber(Number(d)))
         : null,
-    [yScale, dims.innerHeight],
+    [yScale, dims.innerHeight, isStacked],
   )
   const yRightAxis = useMemo(
     () =>
-      dims.innerHeight > 0
+      dims.innerHeight > 0 && !isStacked
         ? axisRight(yRightScale).ticks(5).tickFormat((d) => `${Number(d).toFixed(1)}%`)
         : null,
-    [yRightScale, dims.innerHeight],
+    [yRightScale, dims.innerHeight, isStacked],
   )
 
   const yAxisRef = useD3Axis(yAxis)
@@ -221,8 +229,8 @@ function AvgViewsChart({ data, scaleMode }: { data: AvgViewsRow[]; scaleMode: Sc
   }
 
   // For log scales, clamp values below 1 to 1 so bars start from the bottom
-  const yPos = (val: number) => yScale(scaleMode === "linear" ? val : Math.max(val, 1))
-  const barBase = scaleMode === "linear" ? dims.innerHeight : yScale(1)
+  const yPos = (val: number) => yScale(isStacked ? val : scaleMode === "linear" ? val : Math.max(val, 1))
+  const barBase = isStacked ? dims.innerHeight : scaleMode === "linear" ? dims.innerHeight : yScale(1)
 
   return (
     <div ref={ref} className="relative w-full" style={{ height: HEIGHT }}>
@@ -237,54 +245,91 @@ function AvgViewsChart({ data, scaleMode }: { data: AvgViewsRow[]; scaleMode: Sc
                   vertical={false}
                 />
                 {/* Bars */}
-                {data.map((d) => (
-                  <g
-                    key={d.name}
-                    transform={`translate(${xScale(d.name) ?? 0},0)`}
-                  >
-                    {AVG_VIEWS_SERIES.map((s) => {
-                      const val = d[s.key]
-                      const top = yPos(val)
-                      const h = Math.max(0, barBase - top)
+                {isStacked
+                  ? data.map((d) => {
+                      const total = d.avgViewsShort + d.avgViewsFull
+                      const shortPct = total > 0 ? (d.avgViewsShort / total) * 100 : 0
+                      const fullPct = total > 0 ? (d.avgViewsFull / total) * 100 : 0
+                      const bw = xScale.bandwidth()
                       return (
-                        <rect
-                          key={s.key}
-                          x={xInner(s.key) ?? 0}
-                          y={top}
-                          width={xInner.bandwidth()}
-                          height={h}
-                          fill={s.color}
-                          rx={2}
+                        <g
+                          key={d.name}
+                          transform={`translate(${xScale(d.name) ?? 0},0)`}
+                          onMouseMove={(e) => handleMouse(e, d)}
+                          onMouseLeave={() => setTooltip(null)}
+                        >
+                          {/* Full-length (bottom) */}
+                          <rect
+                            x={0}
+                            y={yScale(fullPct)}
+                            width={bw}
+                            height={Math.max(0, dims.innerHeight - yScale(fullPct))}
+                            fill={AVG_VIEWS_SERIES[1].color}
+                            rx={2}
+                          />
+                          {/* Short (top, stacked on full) */}
+                          <rect
+                            x={0}
+                            y={yScale(fullPct + shortPct)}
+                            width={bw}
+                            height={Math.max(0, yScale(fullPct) - yScale(fullPct + shortPct))}
+                            fill={AVG_VIEWS_SERIES[0].color}
+                            rx={2}
+                          />
+                        </g>
+                      )
+                    })
+                  : data.map((d) => (
+                      <g
+                        key={d.name}
+                        transform={`translate(${xScale(d.name) ?? 0},0)`}
+                      >
+                        {AVG_VIEWS_SERIES.map((s) => {
+                          const val = d[s.key]
+                          const top = yPos(val)
+                          const h = Math.max(0, barBase - top)
+                          return (
+                            <rect
+                              key={s.key}
+                              x={xInner(s.key) ?? 0}
+                              y={top}
+                              width={xInner.bandwidth()}
+                              height={h}
+                              fill={s.color}
+                              rx={2}
+                              onMouseMove={(e) => handleMouse(e, d)}
+                              onMouseLeave={() => setTooltip(null)}
+                            />
+                          )
+                        })}
+                      </g>
+                    ))}
+                {/* Engagement % line overlay (hidden in stacked mode) */}
+                {!isStacked && (
+                  <>
+                    <path
+                      d={engagementLine}
+                      fill="none"
+                      stroke={ENGAGEMENT_COLOR}
+                      strokeWidth={2}
+                      strokeLinejoin="round"
+                    />
+                    {data.map((d) =>
+                      d.engagementPct != null ? (
+                        <circle
+                          key={`eng-${d.name}`}
+                          cx={(xScale(d.name) ?? 0) + xScale.bandwidth() / 2}
+                          cy={yRightScale(d.engagementPct)}
+                          r={3.5}
+                          fill={ENGAGEMENT_COLOR}
+                          stroke="var(--color-background)"
+                          strokeWidth={1.5}
                           onMouseMove={(e) => handleMouse(e, d)}
                           onMouseLeave={() => setTooltip(null)}
                         />
-                      )
-                    })}
-                  </g>
-                ))}
-                {/* Engagement % line overlay */}
-                <path
-                  d={engagementLine}
-                  fill="none"
-                  stroke={ENGAGEMENT_COLOR}
-                  strokeWidth={2}
-                  strokeLinejoin="round"
-                />
-                {/* Engagement dots */}
-                {data.map((d) =>
-                  d.engagementPct != null ? (
-                    <circle
-                      key={`eng-${d.name}`}
-                      cx={(xScale(d.name) ?? 0) + xScale.bandwidth() / 2}
-                      cy={yRightScale(d.engagementPct)}
-                      r={3.5}
-                      fill={ENGAGEMENT_COLOR}
-                      stroke="var(--color-background)"
-                      strokeWidth={1.5}
-                      onMouseMove={(e) => handleMouse(e, d)}
-                      onMouseLeave={() => setTooltip(null)}
-                    />
-                  ) : null,
+                      ) : null,
+                    )}
+                  </>
                 )}
                 {/* Custom rotated X axis tick labels */}
                 {data.map((d) => (
@@ -325,16 +370,30 @@ function AvgViewsChart({ data, scaleMode }: { data: AvgViewsRow[]; scaleMode: Sc
                     <p className="font-medium text-xs mb-1">
                       {tooltip.row.name}
                     </p>
-                    <p className="text-xs">
-                      Avg Short: {formatNumber(tooltip.row.avgViewsShort)}
-                    </p>
-                    <p className="text-xs">
-                      Avg Full: {formatNumber(tooltip.row.avgViewsFull)}
-                    </p>
-                    {tooltip.row.engagementPct != null && (
-                      <p className="text-xs" style={{ color: ENGAGEMENT_COLOR }}>
-                        Engagement: {tooltip.row.engagementPct.toFixed(2)}%
-                      </p>
+                    {isStacked ? (() => {
+                      const total = tooltip.row.avgViewsShort + tooltip.row.avgViewsFull
+                      const sPct = total > 0 ? ((tooltip.row.avgViewsShort / total) * 100).toFixed(1) : "0"
+                      const fPct = total > 0 ? ((tooltip.row.avgViewsFull / total) * 100).toFixed(1) : "0"
+                      return (
+                        <>
+                          <p className="text-xs">Short: {sPct}%</p>
+                          <p className="text-xs">Full-Length: {fPct}%</p>
+                        </>
+                      )
+                    })() : (
+                      <>
+                        <p className="text-xs">
+                          Avg Short: {formatNumber(tooltip.row.avgViewsShort)}
+                        </p>
+                        <p className="text-xs">
+                          Avg Full: {formatNumber(tooltip.row.avgViewsFull)}
+                        </p>
+                        {tooltip.row.engagementPct != null && (
+                          <p className="text-xs" style={{ color: ENGAGEMENT_COLOR }}>
+                            Engagement: {tooltip.row.engagementPct.toFixed(2)}%
+                          </p>
+                        )}
+                      </>
                     )}
                   </div>
                 </div>
