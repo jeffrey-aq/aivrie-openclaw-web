@@ -114,6 +114,7 @@ export default function YouTubeDashboard() {
     with_transcript: number; total_videos: number
   } | null>(null)
   const [durationHistogram, setDurationHistogram] = useState<{ minute_bucket: number; video_count: number }[]>([])
+  const [viewsHistogram, setViewsHistogram] = useState<{ bucket_label: string; video_count: number }[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(false)
 
@@ -161,6 +162,14 @@ export default function YouTubeDashboard() {
           }
           setDurationHistogram(full)
         }
+      })
+
+    supabase
+      .schema("research")
+      .rpc("get_video_views_histogram")
+      .then(({ data, error }) => {
+        if (error) { console.error("Error loading views histogram:", error); return }
+        if (data) setViewsHistogram((data as { bucket_label: string; video_count: number }[]).map((r) => ({ bucket_label: r.bucket_label, video_count: Number(r.video_count) })))
       })
   }, [graphqlClient])
 
@@ -377,6 +386,30 @@ export default function YouTubeDashboard() {
                       </BarChart>
                     </ResponsiveContainer>
                   </div>
+                </div>
+
+                <div className="rounded-lg border p-5 mt-6">
+                  <h3 className="text-sm font-semibold mb-4">Videos by View Count</h3>
+                  <ResponsiveContainer width="100%" height={300}>
+                    <BarChart data={viewsHistogram} margin={{ top: 5, right: 20, bottom: 25, left: 0 }}>
+                      <CartesianGrid strokeDasharray="3 3" className="opacity-30" vertical={false} />
+                      <XAxis
+                        dataKey="bucket_label"
+                        tick={{ fontSize: 10 }}
+                        angle={-45}
+                        textAnchor="end"
+                        interval={0}
+                        height={60}
+                      />
+                      <YAxis tick={{ fontSize: 11 }} allowDecimals={false} />
+                      <Tooltip
+                        contentStyle={{ backgroundColor: "var(--color-popover)", border: "1px solid var(--color-border)", borderRadius: "0.375rem", fontSize: "0.75rem" }}
+                        formatter={(v: unknown) => [Number(v).toLocaleString(), "Videos"]}
+                        labelFormatter={(v) => `${v} views`}
+                      />
+                      <Bar dataKey="video_count" fill="#10b981" radius={[2, 2, 0, 0]} />
+                    </BarChart>
+                  </ResponsiveContainer>
                 </div>
               </>
             )}
