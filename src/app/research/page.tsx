@@ -201,12 +201,12 @@ function computeFrequency(count: number, minDate: string | null, maxDate: string
   return "Monthly"
 }
 
+interface BreakdownRow { label: string; value: string }
 interface SummaryCard {
   label: string
   value: string
-  sub?: string
-  fullVal?: string
-  shortVal?: string
+  badge?: string
+  rows?: BreakdownRow[]
   icon: typeof Youtube
   color: string
   bg: string
@@ -352,21 +352,57 @@ export default function YouTubeDashboard() {
   const commentsFull = fullVids.reduce((s, v) => s + toNum(v.comments), 0)
 
   const fmt = (n: number) => Math.round(n).toLocaleString()
+  const pct = (part: number, total: number) => total > 0 ? Math.round((part / total) * 100) : 0
+
+  const viewsPctFull = pct(viewsFull, totalViews)
+  const viewsPctShort = 100 - viewsPctFull
+  const likesPctFull = pct(likesFull, totalLikes)
+  const likesPctShort = 100 - likesPctFull
+  const commentsPctFull = pct(commentsFull, totalComments)
+  const commentsPctShort = 100 - commentsPctFull
+  const durationPctFull = pct(durationFull, totalDuration)
+  const durationPctShort = 100 - durationPctFull
+
+  const transcriptShort = shortVids.filter((v) => v.transcript).length
+  const transcriptFull = fullVids.filter((v) => v.transcript).length
 
   const summaryCards: SummaryCard[] = [
-    { label: "Creators", value: totalCreators.toLocaleString(), sub: `${starredCreators} starred`, icon: Youtube, color: "text-red-500", bg: "bg-red-50 dark:bg-red-950", href: "/research/creators" },
-    { label: "Videos", value: totalVideos.toLocaleString(), sub: `${starredVideos} starred`, icon: Video, color: "text-sky-500", bg: "bg-sky-50 dark:bg-sky-950", href: "/research/videos",
-      fullVal: `${fmt(fullVideos)} (${fullPct}%)`, shortVal: `${fmt(shortVideos)} (${shortPct}%)` },
+    { label: "Creators", value: totalCreators.toLocaleString(), badge: `${starredCreators} starred`, icon: Youtube, color: "text-red-500", bg: "bg-red-50 dark:bg-red-950", href: "/research/creators" },
+    { label: "Videos", value: totalVideos.toLocaleString(), badge: `${starredVideos} starred`, icon: Video, color: "text-sky-500", bg: "bg-sky-50 dark:bg-sky-950", href: "/research/videos",
+      rows: [
+        { label: "Full", value: `${fmt(fullVideos)} (${fullPct}%)` },
+        { label: "Short", value: `${fmt(shortVideos)} (${shortPct}%)` },
+      ] },
     { label: "Total Views", value: fmt(totalViews), icon: Eye, color: "text-emerald-500", bg: "bg-emerald-50 dark:bg-emerald-950",
-      fullVal: fmt(viewsFull), shortVal: fmt(viewsShort) },
+      rows: [
+        { label: "Full", value: `${fmt(viewsFull)} (${viewsPctFull}%)` },
+        { label: "Short", value: `${fmt(viewsShort)} (${viewsPctShort}%)` },
+      ] },
     { label: "Total Duration", value: fmt(totalDuration) + " min", icon: Clock, color: "text-violet-500", bg: "bg-violet-50 dark:bg-violet-950",
-      fullVal: fmt(durationFull) + " min", shortVal: fmt(durationShort) + " min" },
+      rows: [
+        { label: "Full", value: `${fmt(durationFull)} min (${durationPctFull}%)` },
+        { label: "Short", value: `${fmt(durationShort)} min (${durationPctShort}%)` },
+      ] },
     { label: "Total Likes", value: fmt(totalLikes), icon: ThumbsUp, color: "text-pink-500", bg: "bg-pink-50 dark:bg-pink-950",
-      fullVal: fmt(likesFull), shortVal: fmt(likesShort) },
+      rows: [
+        { label: "Full", value: `${fmt(likesFull)} (${likesPctFull}%)` },
+        { label: "Short", value: `${fmt(likesShort)} (${likesPctShort}%)` },
+      ] },
     { label: "Total Comments", value: fmt(totalComments), icon: MessageSquare, color: "text-amber-500", bg: "bg-amber-50 dark:bg-amber-950",
-      fullVal: fmt(commentsFull), shortVal: fmt(commentsShort) },
-    { label: "Transcripts", value: `${transcriptPct}%`, sub: `${withTranscript} of ${videoCount}`, icon: FileText, color: "text-teal-500", bg: "bg-teal-50 dark:bg-teal-950" },
-    { label: "Shorts", value: `${shortPct}%`, sub: `${fmt(shortVideos)} of ${fmt(videoCount)}`, icon: Video, color: "text-pink-500", bg: "bg-pink-50 dark:bg-pink-950" },
+      rows: [
+        { label: "Full", value: `${fmt(commentsFull)} (${commentsPctFull}%)` },
+        { label: "Short", value: `${fmt(commentsShort)} (${commentsPctShort}%)` },
+      ] },
+    { label: "Transcripts", value: `${transcriptPct}%`, icon: FileText, color: "text-teal-500", bg: "bg-teal-50 dark:bg-teal-950",
+      rows: [
+        { label: "Full", value: `${fmt(transcriptFull)} of ${fmt(fullVideos)}` },
+        { label: "Short", value: `${fmt(transcriptShort)} of ${fmt(shortVideos)}` },
+      ] },
+    { label: "Shorts", value: `${shortPct}%`, icon: Video, color: "text-pink-500", bg: "bg-pink-50 dark:bg-pink-950",
+      rows: [
+        { label: "Full", value: `${fmt(fullVideos)}` },
+        { label: "Short", value: `${fmt(shortVideos)}` },
+      ] },
   ]
 
   // ─── DashboardData prop for tabs ──────────────────────────────────────────
@@ -423,17 +459,23 @@ export default function YouTubeDashboard() {
                           <card.icon className={`size-4 ${card.color}`} />
                           <span className="text-xs font-medium text-muted-foreground">{card.label}</span>
                         </div>
-                        <div className="text-2xl font-bold">{card.value}</div>
-                        {card.sub && (
-                          <div className="flex items-center gap-1 text-xs text-muted-foreground mt-0.5">
-                            {card.sub.includes("starred") && <Star className="size-3 fill-yellow-400 text-yellow-400" />}
-                            {card.sub}
-                          </div>
-                        )}
-                        {card.fullVal && (
-                          <div className="mt-2 space-y-0.5 text-xs text-muted-foreground">
-                            <div className="flex justify-between"><span>Full</span><span className="font-medium tabular-nums">{card.fullVal}</span></div>
-                            <div className="flex justify-between"><span>Short</span><span className="font-medium tabular-nums">{card.shortVal}</span></div>
+                        <div className="flex items-baseline gap-2">
+                          <span className="text-2xl font-bold">{card.value}</span>
+                          {card.badge && (
+                            <span className="flex items-center gap-1 text-xs text-muted-foreground">
+                              <Star className="size-3 fill-yellow-400 text-yellow-400" />
+                              {card.badge}
+                            </span>
+                          )}
+                        </div>
+                        {card.rows && (
+                          <div className="mt-1.5 space-y-0.5 text-xs text-muted-foreground">
+                            {card.rows.map((row) => (
+                              <div key={row.label} className="flex justify-between">
+                                <span>{row.label}</span>
+                                <span className="font-medium tabular-nums">{row.value}</span>
+                              </div>
+                            ))}
                           </div>
                         )}
                       </div>
