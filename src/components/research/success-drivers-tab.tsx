@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react"
 import { scaleBand, scaleLinear, scaleLog, scaleSqrt } from "d3-scale"
-import { axisBottom, axisLeft } from "d3-axis"
+import { axisBottom, axisLeft, axisRight } from "d3-axis"
 import { max, extent } from "d3-array"
 import { line as d3line } from "d3-shape"
 import regression from "regression"
@@ -98,6 +98,7 @@ interface AvgViewsRow {
   name: string
   avgViewsShort: number
   avgViewsFull: number
+  engagementPct: number | null
 }
 
 // ─── Chart 1.0: Short vs Full Avg Views (Vertical Grouped Bar) ─────────────
@@ -114,8 +115,10 @@ const SCALE_OPTIONS: { value: ScaleMode; label: string }[] = [
   { value: "log10", label: "Log₁₀" },
 ]
 
+const ENGAGEMENT_COLOR = "#f59e0b"
+
 function AvgViewsChart({ data }: { data: AvgViewsRow[] }) {
-  const margin = { top: 10, right: 20, bottom: 100, left: 70 }
+  const margin = { top: 10, right: 55, bottom: 100, left: 70 }
   const HEIGHT = 400
   const [ref, dims] = useChartDimensions(margin)
   const [scaleMode, setScaleMode] = useState<ScaleMode>("linear")
@@ -165,6 +168,20 @@ function AvgViewsChart({ data }: { data: AvgViewsRow[] }) {
       .clamp(true)
   }, [scaleMode, maxVal, dims.innerHeight])
 
+  // Right Y-axis for engagement %
+  const maxEngagement = useMemo(
+    () => max(data, (d) => d.engagementPct ?? 0) ?? 10,
+    [data],
+  )
+  const yRightScale = useMemo(
+    () =>
+      scaleLinear()
+        .domain([0, maxEngagement])
+        .nice()
+        .range([dims.innerHeight, 0]),
+    [maxEngagement, dims.innerHeight],
+  )
+
   const yAxis = useMemo(
     () =>
       dims.innerHeight > 0
@@ -172,8 +189,25 @@ function AvgViewsChart({ data }: { data: AvgViewsRow[] }) {
         : null,
     [yScale, dims.innerHeight],
   )
+  const yRightAxis = useMemo(
+    () =>
+      dims.innerHeight > 0
+        ? axisRight(yRightScale).ticks(5).tickFormat((d) => `${Number(d).toFixed(1)}%`)
+        : null,
+    [yRightScale, dims.innerHeight],
+  )
 
   const yAxisRef = useD3Axis(yAxis)
+  const yRightAxisRef = useD3Axis(yRightAxis)
+
+  // Engagement line path
+  const engagementLine = useMemo(() => {
+    const lineGen = d3line<AvgViewsRow>()
+      .defined((d) => d.engagementPct != null)
+      .x((d) => (xScale(d.name) ?? 0) + xScale.bandwidth() / 2)
+      .y((d) => yRightScale(d.engagementPct ?? 0))
+    return lineGen(data) ?? ""
+  }, [data, xScale, yRightScale])
 
   const handleMouse = (e: React.MouseEvent, row: AvgViewsRow) => {
     const el = ref.current
@@ -216,6 +250,7 @@ function AvgViewsChart({ data }: { data: AvgViewsRow[] }) {
                 yTicks={yScale.ticks().map((t) => yScale(t))}
                 vertical={false}
               />
+              {/* Bars */}
               {data.map((d) => (
                 <g
                   key={d.name}
@@ -241,6 +276,30 @@ function AvgViewsChart({ data }: { data: AvgViewsRow[] }) {
                   })}
                 </g>
               ))}
+              {/* Engagement % line overlay */}
+              <path
+                d={engagementLine}
+                fill="none"
+                stroke={ENGAGEMENT_COLOR}
+                strokeWidth={2}
+                strokeLinejoin="round"
+              />
+              {/* Engagement dots */}
+              {data.map((d) =>
+                d.engagementPct != null ? (
+                  <circle
+                    key={`eng-${d.name}`}
+                    cx={(xScale(d.name) ?? 0) + xScale.bandwidth() / 2}
+                    cy={yRightScale(d.engagementPct)}
+                    r={3.5}
+                    fill={ENGAGEMENT_COLOR}
+                    stroke="var(--color-background)"
+                    strokeWidth={1.5}
+                    onMouseMove={(e) => handleMouse(e, d)}
+                    onMouseLeave={() => setTooltip(null)}
+                  />
+                ) : null,
+              )}
               {/* Custom rotated X axis tick labels */}
               {data.map((d) => (
                 <text
@@ -256,6 +315,7 @@ function AvgViewsChart({ data }: { data: AvgViewsRow[] }) {
                 </text>
               ))}
               <g ref={yAxisRef} />
+              <g ref={yRightAxisRef} transform={`translate(${dims.innerWidth},0)`} />
             </g>
           </svg>
           <ChartTooltip
@@ -276,6 +336,11 @@ function AvgViewsChart({ data }: { data: AvgViewsRow[] }) {
                 <p className="text-xs">
                   Avg Full: {formatNumber(tooltip.row.avgViewsFull)}
                 </p>
+                {tooltip.row.engagementPct != null && (
+                  <p className="text-xs" style={{ color: ENGAGEMENT_COLOR }}>
+                    Engagement: {tooltip.row.engagementPct.toFixed(2)}%
+                  </p>
+                )}
               </>
             )}
           </ChartTooltip>
@@ -955,6 +1020,7 @@ export function SuccessDriversTab({ data }: { data: DashboardData }) {
           name: c.title,
           avgViewsShort: avgShort,
           avgViewsFull: avgFull,
+          engagementPct: stats?.avgEngagement ?? null,
           _max: Math.max(avgShort, avgFull),
         }
       })
@@ -1108,10 +1174,13 @@ export function SuccessDriversTab({ data }: { data: DashboardData }) {
         </h3>
         <AvgViewsChart data={avgViewsData} />
         <ChartLegend
-          entries={AVG_VIEWS_SERIES.map((s) => ({
-            label: s.label,
-            color: s.color,
-          }))}
+          entries={[
+            ...AVG_VIEWS_SERIES.map((s) => ({
+              label: s.label,
+              color: s.color,
+            })),
+            { label: "Engagement %", color: ENGAGEMENT_COLOR, shape: "line" as const },
+          ]}
           className="mt-2"
         />
       </div>
