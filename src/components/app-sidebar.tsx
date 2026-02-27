@@ -93,6 +93,29 @@ const data = {
       ],
     },
     {
+      title: "YouTube",
+      url: "/research",
+      icon: Youtube,
+      color: "text-red-500",
+      items: [
+        {
+          title: "Dashboard",
+          url: "/research",
+          icon: LayoutDashboard,
+        },
+        {
+          title: "Creators",
+          url: "/research/creators",
+          icon: Youtube,
+        },
+        {
+          title: "Videos",
+          url: "/research/videos",
+          icon: Video,
+        },
+      ],
+    },
+    {
       title: "Insights",
       url: "/insights/recommendations",
       icon: Lightbulb,
@@ -137,29 +160,6 @@ const data = {
           title: "Digest Deliveries",
           url: "/insights/deliveries",
           icon: Send,
-        },
-      ],
-    },
-    {
-      title: "YouTube",
-      url: "/research",
-      icon: Youtube,
-      color: "text-red-500",
-      items: [
-        {
-          title: "Dashboard",
-          url: "/research",
-          icon: LayoutDashboard,
-        },
-        {
-          title: "Creators",
-          url: "/research/creators",
-          icon: Youtube,
-        },
-        {
-          title: "Videos",
-          url: "/research/videos",
-          icon: Video,
         },
       ],
     },
