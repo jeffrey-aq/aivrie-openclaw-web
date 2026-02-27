@@ -102,9 +102,34 @@ interface TooltipPayloadEntry<T> {
   color?: string
 }
 
+interface AvgViewsRow {
+  name: string
+  avgViewsShort: number
+  avgViewsFull: number
+}
+
 // ─── Component ──────────────────────────────────────────────────────────────
 export function SuccessDriversTab({ data }: { data: DashboardData }) {
   const { creators, videoStats } = data
+
+  // ── Chart 1.0: Short vs Full Avg Views ────────────────────────────────
+  const avgViewsData = useMemo<AvgViewsRow[]>(() => {
+    return creators
+      .map((c) => {
+        const stats = videoStats.get(c.channelId)
+        const avgShort = stats?.avgViewsShort ?? 0
+        const avgFull = stats?.avgViewsFull ?? 0
+        return {
+          name: c.title,
+          avgViewsShort: avgShort,
+          avgViewsFull: avgFull,
+          _max: Math.max(avgShort, avgFull),
+        }
+      })
+      .filter((r) => r._max > 0)
+      .sort((a, b) => b._max - a._max)
+      .map(({ _max: _, ...rest }) => rest)
+  }, [creators, videoStats])
 
   // ── Chart 1.1: Subscribers vs Engagement ────────────────────────────────
   const engagementData = useMemo<EngagementScatterRow[]>(() => {
@@ -243,6 +268,64 @@ export function SuccessDriversTab({ data }: { data: DashboardData }) {
 
   return (
     <div className="space-y-6">
+      {/* ── 1.0: Short vs Full Avg Views (full width, horizontal) ── */}
+      <div className="rounded-lg border p-5">
+        <h3 className="text-sm font-semibold mb-4">
+          Short vs Full-Length — Avg Views per Creator
+        </h3>
+        <ResponsiveContainer
+          width="100%"
+          height={Math.max(avgViewsData.length * 32 + 40, 200)}
+        >
+          <BarChart
+            data={avgViewsData}
+            layout="vertical"
+            margin={{ left: 120, right: 20, top: 5, bottom: 5 }}
+          >
+            <CartesianGrid
+              strokeDasharray="3 3"
+              className="opacity-30"
+              horizontal={false}
+            />
+            <XAxis
+              type="number"
+              allowDecimals={false}
+              tick={{ fontSize: 11 }}
+              tickFormatter={(v: number) => formatNumber(v)}
+            />
+            <YAxis
+              type="category"
+              dataKey="name"
+              tick={{ fontSize: 11 }}
+              width={115}
+            />
+            <Tooltip
+              contentStyle={TOOLTIP_STYLE}
+              formatter={(v: number | undefined, name?: string) => [
+                formatNumber(v ?? 0),
+                name === "avgViewsShort" ? "Avg Short" : "Avg Full",
+              ]}
+            />
+            <Legend
+              wrapperStyle={{ fontSize: "0.75rem" }}
+              formatter={(value: string) =>
+                value === "avgViewsShort" ? "Short" : "Full-Length"
+              }
+            />
+            <Bar
+              dataKey="avgViewsShort"
+              fill="#ec4899"
+              radius={[0, 2, 2, 0]}
+            />
+            <Bar
+              dataKey="avgViewsFull"
+              fill="#38bdf8"
+              radius={[0, 2, 2, 0]}
+            />
+          </BarChart>
+        </ResponsiveContainer>
+      </div>
+
       {/* ── Row 1: Two-column grid ── */}
       <div className="grid gap-6 lg:grid-cols-2">
         {/* 1.1 Subscribers vs Engagement */}
