@@ -8,25 +8,50 @@ import { useGraphQLClient } from "@/hooks/use-graphql"
 import { supabase } from "@/lib/supabase-client"
 import { PageHeader } from "@/components/page-header"
 import { Youtube, Video, Clock, FileText, Eye, ThumbsUp, MessageSquare, Star } from "lucide-react"
-import {
-  BarChart,
-  Bar,
-  XAxis,
-  YAxis,
-  CartesianGrid,
-  Tooltip,
-  ResponsiveContainer,
-  Legend,
-} from "recharts"
+import { SuccessDriversTab } from "@/components/research/success-drivers-tab"
+import { StrategyTab } from "@/components/research/strategy-tab"
+import { CreatorProfilesTab } from "@/components/research/creator-profiles-tab"
+import { ContentMixTab } from "@/components/research/content-mix-tab"
+import { RevenueTab } from "@/components/research/revenue-tab"
 
-// ─── Single query: fetch all rows, compute aggregates client-side ────────────
-interface Creator {
+// ─── Exported types for tab components ──────────────────────────────────────
+
+export interface CreatorFull {
   id: string
   title: string
   channelId: string
+  channelUrl: string | null
+  subscribers: number | string | null
+  totalViews: number | string | null
+  videoCount: number | null
+  viewsToSubRatio: number | null
+  avgViewsPerVideo: number | null
+  uploadFrequency: string | null
+  contentTypes: string | null
+  topContentType: string | null
+  typicalVideoLength: number | null
+  estRevenueRange: string | null
+  otherVentures: string | null
+  monetization: string[] | null
+  strengths: string | null
+  opportunities: string | null
+  keyInsights: string | null
+  competitiveThreat: string | null
+  lastAnalyzedDate: string | null
+  status: string | null
+  workstream: string | null
+  notes: string | null
+  avatarUrl: string | null
+  bannerUrl: string | null
+  description: string | null
+  keywords: string[] | null
+  country: string | null
+  topicCategories: string[] | null
+  trailerVideoId: string | null
+  isStarred: boolean
 }
 
-interface VideoRow {
+export interface VideoRow {
   id: string
   channelId: string
   views: number | string | null
@@ -36,13 +61,70 @@ interface VideoRow {
   durationType: string | null
   transcript: string | null
   summary: string | null
+  engagementRatePercent: number | null
+  publishedDate: string | null
 }
+
+export interface VideoStats {
+  videoCount: number
+  avgViewsShort: number | null
+  avgViewsFull: number | null
+  avgEngagement: number | null
+  avgLikesPct: number | null
+  avgCommentsPct: number | null
+  freqShort: string | null
+  freqFull: string | null
+  avgDurationShort: number | null
+  avgDurationFull: number | null
+}
+
+export interface HistogramRow {
+  bucket_label: string
+  video_count: number
+}
+
+export type DashboardStats = {
+  total_views: number
+  total_likes: number
+  total_comments: number
+  total_duration: number
+  short_count: number
+  full_count: number
+  with_transcript: number
+  total_videos: number
+}
+
+export interface DashboardData {
+  creators: CreatorFull[]
+  videos: VideoRow[]
+  videoStats: Map<string, VideoStats>
+  dbStats: DashboardStats | null
+  histograms: {
+    shortDuration: HistogramRow[]
+    fullDuration: HistogramRow[]
+    shortViews: HistogramRow[]
+    fullViews: HistogramRow[]
+  }
+}
+
+// ─── GraphQL query: full creator fields + extended video fields ─────────────
 
 const DATA_QUERY = gql`
   query {
     youtubeCreatorsCollection(orderBy: [{ title: AscNullsLast }], first: 1000) {
       totalCount
-      edges { node { id title channelId } }
+      edges {
+        node {
+          id title channelId channelUrl
+          subscribers totalViews videoCount viewsToSubRatio avgViewsPerVideo
+          uploadFrequency contentTypes topContentType typicalVideoLength
+          estRevenueRange otherVentures monetization
+          strengths opportunities keyInsights competitiveThreat
+          lastAnalyzedDate status workstream notes
+          avatarUrl bannerUrl description keywords country
+          topicCategories trailerVideoId isStarred
+        }
+      }
     }
     starredCreatorsCollection: youtubeCreatorsCollection(filter: { isStarred: { eq: true } }) {
       totalCount
@@ -53,6 +135,7 @@ const DATA_QUERY = gql`
         node {
           id channelId views likes comments duration
           durationType transcript summary
+          engagementRatePercent publishedDate
         }
       }
     }
@@ -62,7 +145,29 @@ const DATA_QUERY = gql`
   }
 `
 
+// ─── RPC types ──────────────────────────────────────────────────────────────
+
+interface RpcVideoStats {
+  channel_id: string
+  video_count: number
+  avg_views_short: number | null
+  avg_views_full: number | null
+  avg_engagement: number | null
+  total_views: number
+  total_likes: number
+  total_comments: number
+  short_count: number
+  full_count: number
+  short_min_date: string | null
+  short_max_date: string | null
+  full_min_date: string | null
+  full_max_date: string | null
+  avg_duration_short: number | null
+  avg_duration_full: number | null
+}
+
 // ─── Helpers ────────────────────────────────────────────────────────────────
+
 function toNum(v: unknown): number {
   if (v == null) return 0
   const n = Number(v)
@@ -83,42 +188,57 @@ function formatDuration(totalMinutes: number): string {
   return `${minutes}m`
 }
 
+function computeFrequency(count: number, minDate: string | null, maxDate: string | null): string | null {
+  if (count < 2 || !minDate || !maxDate) return null
+  const days = (new Date(maxDate).getTime() - new Date(minDate).getTime()) / (1000 * 60 * 60 * 24)
+  if (days <= 0) return null
+  const perWeek = (count / days) * 7
+  if (perWeek >= 5) return "Daily"
+  if (perWeek >= 3) return "3-4x/wk"
+  if (perWeek >= 1.5) return "2x/wk"
+  if (perWeek >= 0.8) return "Weekly"
+  if (perWeek >= 0.4) return "Bi-Weekly"
+  return "Monthly"
+}
+
+// ─── Tabs ───────────────────────────────────────────────────────────────────
+
 const TABS = [
-  { key: "overview", label: "Overview" },
-  { key: "content", label: "Content" },
-  { key: "engagement", label: "Engagement" },
-  { key: "coverage", label: "Coverage" },
+  { key: "success-drivers", label: "Success Drivers" },
+  { key: "strategy", label: "Strategy" },
+  { key: "creator-profiles", label: "Creator Profiles" },
+  { key: "content-mix", label: "Content Mix" },
+  { key: "revenue", label: "Revenue" },
 ] as const
 
 type TabKey = (typeof TABS)[number]["key"]
 
 // ─── Component ──────────────────────────────────────────────────────────────
+
 export default function YouTubeDashboard() {
   const graphqlClient = useGraphQLClient()
-  const [activeTab, setActiveTab] = useState<TabKey>("overview")
+  const [activeTab, setActiveTab] = useState<TabKey>("success-drivers")
 
-  const [creators, setCreators] = useState<Creator[]>([])
+  const [creators, setCreators] = useState<CreatorFull[]>([])
   const [videos, setVideos] = useState<VideoRow[]>([])
   const [totalCreators, setTotalCreators] = useState(0)
   const [totalVideos, setTotalVideos] = useState(0)
   const [starredCreators, setStarredCreators] = useState(0)
   const [starredVideos, setStarredVideos] = useState(0)
-  const [dbStats, setDbStats] = useState<{
-    total_views: number; total_likes: number; total_comments: number
-    total_duration: number; short_count: number; full_count: number
-    with_transcript: number; total_videos: number
-  } | null>(null)
-  const [shortDurationHist, setShortDurationHist] = useState<{ bucket_label: string; video_count: number }[]>([])
-  const [fullDurationHist, setFullDurationHist] = useState<{ bucket_label: string; video_count: number }[]>([])
-  const [shortViewsHist, setShortViewsHist] = useState<{ bucket_label: string; video_count: number }[]>([])
-  const [fullViewsHist, setFullViewsHist] = useState<{ bucket_label: string; video_count: number }[]>([])
+  const [videoStats, setVideoStats] = useState<Map<string, VideoStats>>(new Map())
+  const [dbStats, setDbStats] = useState<DashboardStats | null>(null)
+  const [shortDurationHist, setShortDurationHist] = useState<HistogramRow[]>([])
+  const [fullDurationHist, setFullDurationHist] = useState<HistogramRow[]>([])
+  const [shortViewsHist, setShortViewsHist] = useState<HistogramRow[]>([])
+  const [fullViewsHist, setFullViewsHist] = useState<HistogramRow[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(false)
 
   useEffect(() => {
+    // Fetch creators + videos via GraphQL
     graphqlClient
       .request<{
-        youtubeCreatorsCollection: { totalCount: number; edges: { node: Creator }[] }
+        youtubeCreatorsCollection: { totalCount: number; edges: { node: CreatorFull }[] }
         starredCreatorsCollection: { totalCount: number }
         youtubeVideosCollection: { totalCount: number; edges: { node: VideoRow }[] }
         starredVideosCollection: { totalCount: number }
@@ -134,6 +254,32 @@ export default function YouTubeDashboard() {
       .catch((err) => { console.error("Error loading overview:", err); setError(true) })
       .finally(() => setLoading(false))
 
+    // Fetch per-creator video stats via RPC
+    supabase
+      .schema("research")
+      .rpc("get_creator_video_stats")
+      .then(({ data, error }) => {
+        if (error) { console.error("Error loading video stats:", error); return }
+        const rows = data as RpcVideoStats[]
+        const stats = new Map<string, VideoStats>()
+        for (const r of rows) {
+          stats.set(r.channel_id, {
+            videoCount: r.video_count,
+            avgViewsShort: r.avg_views_short,
+            avgViewsFull: r.avg_views_full,
+            avgEngagement: r.avg_engagement,
+            avgLikesPct: r.total_views > 0 ? (r.total_likes / r.total_views) * 100 : null,
+            avgCommentsPct: r.total_views > 0 ? (r.total_comments / r.total_views) * 100 : null,
+            freqShort: computeFrequency(r.short_count, r.short_min_date, r.short_max_date),
+            freqFull: computeFrequency(r.full_count, r.full_min_date, r.full_max_date),
+            avgDurationShort: r.avg_duration_short,
+            avgDurationFull: r.avg_duration_full,
+          })
+        }
+        setVideoStats(stats)
+      })
+
+    // Dashboard aggregate stats
     supabase
       .schema("research")
       .rpc("get_youtube_dashboard_stats")
@@ -142,46 +288,38 @@ export default function YouTubeDashboard() {
         if (data && data.length > 0) setDbStats(data[0])
       })
 
-    supabase
-      .schema("research")
-      .rpc("get_short_duration_histogram")
+    // Histograms
+    supabase.schema("research").rpc("get_short_duration_histogram")
       .then(({ data, error }) => {
         if (error) { console.error("Error loading short duration histogram:", error); return }
-        if (data) setShortDurationHist((data as { bucket_label: string; video_count: number }[]).map((r) => ({ bucket_label: r.bucket_label, video_count: Number(r.video_count) })))
+        if (data) setShortDurationHist((data as HistogramRow[]).map((r) => ({ bucket_label: r.bucket_label, video_count: Number(r.video_count) })))
       })
 
-    supabase
-      .schema("research")
-      .rpc("get_full_duration_histogram")
+    supabase.schema("research").rpc("get_full_duration_histogram")
       .then(({ data, error }) => {
         if (error) { console.error("Error loading full duration histogram:", error); return }
-        if (data) setFullDurationHist((data as { bucket_label: string; video_count: number }[]).map((r) => ({ bucket_label: r.bucket_label, video_count: Number(r.video_count) })))
+        if (data) setFullDurationHist((data as HistogramRow[]).map((r) => ({ bucket_label: r.bucket_label, video_count: Number(r.video_count) })))
       })
 
-    supabase
-      .schema("research")
-      .rpc("get_video_views_histogram_by_type", { p_type: "Short" })
+    supabase.schema("research").rpc("get_video_views_histogram_by_type", { p_type: "Short" })
       .then(({ data, error }) => {
         if (error) { console.error("Error loading short views histogram:", error); return }
-        if (data) setShortViewsHist((data as { bucket_label: string; video_count: number }[]).map((r) => ({ bucket_label: r.bucket_label, video_count: Number(r.video_count) })))
+        if (data) setShortViewsHist((data as HistogramRow[]).map((r) => ({ bucket_label: r.bucket_label, video_count: Number(r.video_count) })))
       })
 
-    supabase
-      .schema("research")
-      .rpc("get_video_views_histogram_by_type", { p_type: "Full" })
+    supabase.schema("research").rpc("get_video_views_histogram_by_type", { p_type: "Full" })
       .then(({ data, error }) => {
         if (error) { console.error("Error loading full views histogram:", error); return }
-        if (data) setFullViewsHist((data as { bucket_label: string; video_count: number }[]).map((r) => ({ bucket_label: r.bucket_label, video_count: Number(r.video_count) })))
+        if (data) setFullViewsHist((data as HistogramRow[]).map((r) => ({ bucket_label: r.bucket_label, video_count: Number(r.video_count) })))
       })
   }, [graphqlClient])
 
-  // ─── Overview computed values (prefer DB-level aggregates, fall back to client) ─
+  // ─── Summary cards (shown on Success Drivers tab) ─────────────────────────
   const totalViews = dbStats?.total_views ?? videos.reduce((s, v) => s + toNum(v.views), 0)
   const totalLikes = dbStats?.total_likes ?? videos.reduce((s, v) => s + toNum(v.likes), 0)
   const totalComments = dbStats?.total_comments ?? videos.reduce((s, v) => s + toNum(v.comments), 0)
   const totalDuration = dbStats?.total_duration ?? videos.reduce((s, v) => s + toNum(v.duration), 0)
   const shortVideos = dbStats?.short_count ?? videos.filter((v) => v.durationType === "Short").length
-  const fullVideos = (dbStats?.full_count ?? totalVideos - shortVideos)
   const withTranscript = dbStats?.with_transcript ?? videos.filter((v) => v.transcript).length
   const videoCount = dbStats?.total_videos ?? totalVideos
   const transcriptPct = videoCount > 0 ? Math.round((withTranscript / videoCount) * 100) : 0
@@ -198,104 +336,21 @@ export default function YouTubeDashboard() {
     { label: "Shorts", value: `${shortPct}%`, sub: `${shortVideos} of ${videoCount}`, icon: Video, color: "text-pink-500", bg: "bg-pink-50 dark:bg-pink-950" },
   ]
 
-  // ─── Detail computed values (from client-side aggregation of rows) ──────
-  const videosPerCreator = useMemo(() => {
-    const counts: Record<string, number> = {}
-    videos.forEach((v) => { counts[v.channelId] = (counts[v.channelId] || 0) + 1 })
-    return creators
-      .map((c) => ({ name: c.title, videos: counts[c.channelId] || 0 }))
-      .sort((a, b) => b.videos - a.videos)
-      .slice(0, 20)
-  }, [creators, videos])
+  // ─── DashboardData prop for tabs ──────────────────────────────────────────
+  const dashboardData: DashboardData = useMemo(() => ({
+    creators,
+    videos,
+    videoStats,
+    dbStats,
+    histograms: {
+      shortDuration: shortDurationHist,
+      fullDuration: fullDurationHist,
+      shortViews: shortViewsHist,
+      fullViews: fullViewsHist,
+    },
+  }), [creators, videos, videoStats, dbStats, shortDurationHist, fullDurationHist, shortViewsHist, fullViewsHist])
 
-  const viewsPerCreator = useMemo(() => {
-    const sums: Record<string, number> = {}
-    videos.forEach((v) => { sums[v.channelId] = (sums[v.channelId] || 0) + toNum(v.views) })
-    return creators
-      .map((c) => ({ name: c.title, views: sums[c.channelId] || 0 }))
-      .sort((a, b) => b.views - a.views)
-      .slice(0, 20)
-  }, [creators, videos])
-
-  const engagementPerCreator = useMemo(() => {
-    const agg: Record<string, { likes: number; comments: number; views: number }> = {}
-    videos.forEach((v) => {
-      if (!agg[v.channelId]) agg[v.channelId] = { likes: 0, comments: 0, views: 0 }
-      agg[v.channelId].likes += toNum(v.likes)
-      agg[v.channelId].comments += toNum(v.comments)
-      agg[v.channelId].views += toNum(v.views)
-    })
-    return creators
-      .map((c) => {
-        const d = agg[c.channelId] || { likes: 0, comments: 0, views: 0 }
-        const engRate = d.views > 0 ? ((d.likes + d.comments) / d.views) * 100 : 0
-        return { name: c.title, engagement: Math.round(engRate * 10) / 10 }
-      })
-      .sort((a, b) => b.engagement - a.engagement)
-      .slice(0, 20)
-  }, [creators, videos])
-
-  const likesPerCreator = useMemo(() => {
-    const sums: Record<string, number> = {}
-    videos.forEach((v) => { sums[v.channelId] = (sums[v.channelId] || 0) + toNum(v.likes) })
-    return creators
-      .map((c) => ({ name: c.title, likes: sums[c.channelId] || 0 }))
-      .sort((a, b) => b.likes - a.likes)
-      .slice(0, 20)
-  }, [creators, videos])
-
-  const commentsPerCreator = useMemo(() => {
-    const sums: Record<string, number> = {}
-    videos.forEach((v) => { sums[v.channelId] = (sums[v.channelId] || 0) + toNum(v.comments) })
-    return creators
-      .map((c) => ({ name: c.title, comments: sums[c.channelId] || 0 }))
-      .sort((a, b) => b.comments - a.comments)
-      .slice(0, 20)
-  }, [creators, videos])
-
-  const shortFullPerCreator = useMemo(() => {
-    const agg: Record<string, { short: number; full: number }> = {}
-    videos.forEach((v) => {
-      if (!agg[v.channelId]) agg[v.channelId] = { short: 0, full: 0 }
-      if (v.durationType === "Short") agg[v.channelId].short++
-      else agg[v.channelId].full++
-    })
-    return creators
-      .map((c) => {
-        const d = agg[c.channelId] || { short: 0, full: 0 }
-        return { name: c.title, Short: d.short, Full: d.full, total: d.short + d.full }
-      })
-      .sort((a, b) => b.total - a.total)
-      .slice(0, 20)
-  }, [creators, videos])
-
-  const durationPerCreator = useMemo(() => {
-    const sums: Record<string, number> = {}
-    videos.forEach((v) => { sums[v.channelId] = (sums[v.channelId] || 0) + toNum(v.duration) })
-    return creators
-      .map((c) => ({ name: c.title, duration: Math.round(sums[c.channelId] || 0) }))
-      .sort((a, b) => b.duration - a.duration)
-      .slice(0, 20)
-  }, [creators, videos])
-
-  const transcriptPerCreator = useMemo(() => {
-    const agg: Record<string, { total: number; withTranscript: number }> = {}
-    videos.forEach((v) => {
-      if (!agg[v.channelId]) agg[v.channelId] = { total: 0, withTranscript: 0 }
-      agg[v.channelId].total++
-      if (v.transcript) agg[v.channelId].withTranscript++
-    })
-    return creators
-      .map((c) => {
-        const d = agg[c.channelId] || { total: 0, withTranscript: 0 }
-        const pct = d.total > 0 ? Math.round((d.withTranscript / d.total) * 100) : 0
-        return { name: c.title, coverage: pct, withTranscript: d.withTranscript, total: d.total }
-      })
-      .sort((a, b) => b.coverage - a.coverage)
-      .slice(0, 20)
-  }, [creators, videos])
-
-  // ─── Render ─────────────────────────────────────────────────────────────
+  // ─── Render ───────────────────────────────────────────────────────────────
   return (
     <>
       <PageHeader section="YouTube" sectionHref="/research" page="Dashboard" />
@@ -324,9 +379,9 @@ export default function YouTubeDashboard() {
           <p className="text-muted-foreground">Failed to load dashboard data.</p>
         ) : (
           <>
-            {/* ── Overview ── */}
-            {activeTab === "overview" && (
+            {activeTab === "success-drivers" && (
               <>
+                {/* Summary cards */}
                 <div className="grid gap-4 grid-cols-2 md:grid-cols-4 mb-8">
                   {summaryCards.map((card) => (
                     <CardWrapper key={card.label} href={card.href}>
@@ -346,104 +401,14 @@ export default function YouTubeDashboard() {
                     </CardWrapper>
                   ))}
                 </div>
-
-                <div className="grid gap-6 md:grid-cols-2">
-                  <ViewsHistogramChart title="Short Videos — Duration (seconds)" data={shortDurationHist} color="#ec4899" labelSuffix="" />
-                  <ViewsHistogramChart title="Full-Length Videos — Duration (minutes)" data={fullDurationHist} color="#0ea5e9" labelSuffix="" />
-                  <ViewsHistogramChart title="Short Videos — Views (thousands)" data={shortViewsHist} color="#f472b6" labelSuffix="" />
-                  <ViewsHistogramChart title="Full-Length Videos — Views (thousands)" data={fullViewsHist} color="#38bdf8" labelSuffix="" />
-                </div>
+                <SuccessDriversTab data={dashboardData} />
               </>
             )}
 
-            {/* ── Content ── */}
-            {activeTab === "content" && (
-              <div className="space-y-6">
-                <div className="grid gap-6 lg:grid-cols-2">
-                  <HorizontalBarChart title="Videos per Creator" data={videosPerCreator} dataKey="videos" color="#3b82f6" formatter={(v: number) => `${v} videos`} />
-                  <HorizontalBarChart title="Total Duration per Creator (min)" data={durationPerCreator} dataKey="duration" color="#8b5cf6" formatter={(v: number) => formatDuration(v)} />
-                </div>
-                <div className="rounded-lg border p-5">
-                  <h3 className="text-sm font-semibold mb-4">Shorts vs Full-Length by Creator</h3>
-                  <ResponsiveContainer width="100%" height={Math.max(shortFullPerCreator.length * 32 + 40, 200)}>
-                    <BarChart data={shortFullPerCreator} layout="vertical" margin={{ left: 120, right: 20, top: 5, bottom: 5 }}>
-                      <CartesianGrid strokeDasharray="3 3" className="opacity-30" horizontal={false} />
-                      <XAxis type="number" allowDecimals={false} tick={{ fontSize: 11 }} />
-                      <YAxis type="category" dataKey="name" tick={{ fontSize: 11 }} width={115} />
-                      <ChartTooltip />
-                      <Legend wrapperStyle={{ fontSize: "0.75rem" }} />
-                      <Bar dataKey="Short" stackId="a" fill="#ec4899" radius={[0, 0, 0, 0]} />
-                      <Bar dataKey="Full" stackId="a" fill="#0ea5e9" radius={[0, 2, 2, 0]} />
-                    </BarChart>
-                  </ResponsiveContainer>
-                </div>
-              </div>
-            )}
-
-            {/* ── Engagement ── */}
-            {activeTab === "engagement" && (
-              <div className="grid gap-6 lg:grid-cols-2">
-                <HorizontalBarChart title="Total Views per Creator" data={viewsPerCreator} dataKey="views" color="#10b981" formatter={(v: number) => formatNumber(v)} />
-                <HorizontalBarChart title="Total Likes per Creator" data={likesPerCreator} dataKey="likes" color="#ec4899" formatter={(v: number) => formatNumber(v)} />
-                <HorizontalBarChart title="Total Comments per Creator" data={commentsPerCreator} dataKey="comments" color="#f59e0b" formatter={(v: number) => formatNumber(v)} />
-                <HorizontalBarChart title="Engagement Rate by Creator" data={engagementPerCreator} dataKey="engagement" color="#6366f1" formatter={(v: number) => `${v}%`} unit="%" />
-              </div>
-            )}
-
-            {/* ── Coverage ── */}
-            {activeTab === "coverage" && (
-              <div className="space-y-6">
-                <div className="rounded-lg border p-5">
-                  <h3 className="text-sm font-semibold mb-4">Transcript Coverage by Creator</h3>
-                  <ResponsiveContainer width="100%" height={Math.max(transcriptPerCreator.length * 32 + 40, 200)}>
-                    <BarChart data={transcriptPerCreator} layout="vertical" margin={{ left: 120, right: 20, top: 5, bottom: 5 }}>
-                      <CartesianGrid strokeDasharray="3 3" className="opacity-30" horizontal={false} />
-                      <XAxis type="number" domain={[0, 100]} tick={{ fontSize: 11 }} unit="%" />
-                      <YAxis type="category" dataKey="name" tick={{ fontSize: 11 }} width={115} />
-                      <Tooltip
-                        contentStyle={{ backgroundColor: "var(--color-popover)", border: "1px solid var(--color-border)", borderRadius: "0.375rem", fontSize: "0.75rem" }}
-                        formatter={(v: unknown) => [`${v}%`, "Coverage"]}
-                      />
-                      <Bar dataKey="coverage" fill="#14b8a6" radius={[0, 2, 2, 0]} />
-                    </BarChart>
-                  </ResponsiveContainer>
-                </div>
-
-                <div className="grid gap-4 grid-cols-2 md:grid-cols-4">
-                  {creators.slice(0, 20).map((c) => {
-                    const cVideos = videos.filter((v) => v.channelId === c.channelId)
-                    const hasTranscript = cVideos.filter((v) => v.transcript).length
-                    const hasSummary = cVideos.filter((v) => v.summary).length
-                    const pct = cVideos.length > 0 ? Math.round((hasTranscript / cVideos.length) * 100) : 0
-                    const sumPct = cVideos.length > 0 ? Math.round((hasSummary / cVideos.length) * 100) : 0
-                    return (
-                      <div key={c.id} className="rounded-lg border p-4">
-                        <div className="text-sm font-medium truncate mb-2">{c.title}</div>
-                        <div className="space-y-1.5">
-                          <div className="flex items-center justify-between text-xs text-muted-foreground">
-                            <span>Transcripts</span>
-                            <span className="font-bold text-foreground">{pct}%</span>
-                          </div>
-                          <div className="h-1.5 rounded-full bg-muted overflow-hidden">
-                            <div className="h-full rounded-full bg-teal-500" style={{ width: `${pct}%` }} />
-                          </div>
-                          <div className="flex items-center justify-between text-xs text-muted-foreground">
-                            <span>Summaries</span>
-                            <span className="font-bold text-foreground">{sumPct}%</span>
-                          </div>
-                          <div className="h-1.5 rounded-full bg-muted overflow-hidden">
-                            <div className="h-full rounded-full bg-violet-500" style={{ width: `${sumPct}%` }} />
-                          </div>
-                          <div className="text-xs text-muted-foreground mt-1">
-                            {hasTranscript}/{cVideos.length} transcripts, {hasSummary}/{cVideos.length} summaries
-                          </div>
-                        </div>
-                      </div>
-                    )
-                  })}
-                </div>
-              </div>
-            )}
+            {activeTab === "strategy" && <StrategyTab data={dashboardData} />}
+            {activeTab === "creator-profiles" && <CreatorProfilesTab data={dashboardData} />}
+            {activeTab === "content-mix" && <ContentMixTab data={dashboardData} />}
+            {activeTab === "revenue" && <RevenueTab data={dashboardData} />}
           </>
         )}
       </div>
@@ -454,74 +419,4 @@ export default function YouTubeDashboard() {
 function CardWrapper({ href, children }: { href?: string; children: React.ReactNode }) {
   if (href) return <Link href={href}>{children}</Link>
   return <>{children}</>
-}
-
-function ChartTooltip() {
-  return (
-    <Tooltip
-      contentStyle={{ backgroundColor: "var(--color-popover)", border: "1px solid var(--color-border)", borderRadius: "0.375rem", fontSize: "0.75rem" }}
-    />
-  )
-}
-
-function ViewsHistogramChart({
-  title, data, color, labelSuffix,
-}: {
-  title: string
-  data: { bucket_label: string; video_count: number }[]
-  color: string
-  labelSuffix: string
-}) {
-  return (
-    <div className="rounded-lg border p-5">
-      <h3 className="text-sm font-semibold mb-4">{title}</h3>
-      <ResponsiveContainer width="100%" height={280}>
-        <BarChart data={data} margin={{ top: 5, right: 10, bottom: 5, left: 0 }}>
-          <CartesianGrid strokeDasharray="3 3" className="opacity-30" vertical={false} />
-          <XAxis
-            dataKey="bucket_label"
-            tick={{ fontSize: 11, fontWeight: 600 }}
-            interval={0}
-            height={30}
-          />
-          <YAxis tick={{ fontSize: 11 }} allowDecimals={false} />
-          <Tooltip
-            contentStyle={{ backgroundColor: "var(--color-popover)", border: "1px solid var(--color-border)", borderRadius: "0.375rem", fontSize: "0.75rem" }}
-            formatter={(v: unknown) => [Number(v).toLocaleString(), "Videos"]}
-            labelFormatter={(v) => `${v}${labelSuffix}`}
-          />
-          <Bar dataKey="video_count" fill={color} radius={[2, 2, 0, 0]} />
-        </BarChart>
-      </ResponsiveContainer>
-    </div>
-  )
-}
-
-function HorizontalBarChart({
-  title, data, dataKey, color, formatter, unit,
-}: {
-  title: string
-  data: { name: string; [key: string]: string | number }[]
-  dataKey: string
-  color: string
-  formatter?: (v: number) => string
-  unit?: string
-}) {
-  return (
-    <div className="rounded-lg border p-5">
-      <h3 className="text-sm font-semibold mb-4">{title}</h3>
-      <ResponsiveContainer width="100%" height={Math.max(data.length * 32 + 40, 200)}>
-        <BarChart data={data} layout="vertical" margin={{ left: 120, right: 20, top: 5, bottom: 5 }}>
-          <CartesianGrid strokeDasharray="3 3" className="opacity-30" horizontal={false} />
-          <XAxis type="number" allowDecimals={false} tick={{ fontSize: 11 }} unit={unit} />
-          <YAxis type="category" dataKey="name" tick={{ fontSize: 11 }} width={115} />
-          <Tooltip
-            contentStyle={{ backgroundColor: "var(--color-popover)", border: "1px solid var(--color-border)", borderRadius: "0.375rem", fontSize: "0.75rem" }}
-            formatter={formatter ? (v: unknown) => [formatter(v as number), title.split(" ")[0]] : undefined}
-          />
-          <Bar dataKey={dataKey} fill={color} radius={[0, 2, 2, 0]} />
-        </BarChart>
-      </ResponsiveContainer>
-    </div>
-  )
 }

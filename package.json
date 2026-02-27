@@ -1,6 +1,6 @@
 {
   "name": "aivrie-openclaw-web",
-  "version": "0.2.77",
+  "version": "0.2.78",
   "private": true,
   "scripts": {
     "dev": "next dev",
@@ -21,6 +21,7 @@
     "react": "19.2.3",
     "react-dom": "19.2.3",
     "recharts": "^3.7.0",
+    "regression": "^2.0.1",
     "tailwind-merge": "^3.5.0"
   },
   "devDependencies": {
@@ -30,6 +31,7 @@
     "@types/node": "^20",
     "@types/react": "^19",
     "@types/react-dom": "^19",
+    "@types/regression": "^2.0.6",
     "@vitejs/plugin-react": "^5.1.4",
     "eslint": "^9",
     "eslint-config-next": "16.1.6",
