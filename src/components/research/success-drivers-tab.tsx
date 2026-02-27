@@ -273,31 +273,38 @@ export function SuccessDriversTab({ data }: { data: DashboardData }) {
         <h3 className="text-sm font-semibold mb-4">
           Short vs Full-Length — Avg Views per Creator
         </h3>
-        <ResponsiveContainer
-          width="100%"
-          height={Math.max(avgViewsData.length * 32 + 40, 200)}
-        >
+        <ResponsiveContainer width="100%" height={400}>
           <BarChart
             data={avgViewsData}
-            layout="vertical"
-            margin={{ left: 120, right: 20, top: 5, bottom: 5 }}
+            margin={{ top: 5, right: 20, bottom: 60, left: 10 }}
           >
             <CartesianGrid
               strokeDasharray="3 3"
               className="opacity-30"
-              horizontal={false}
+              vertical={false}
             />
             <XAxis
-              type="number"
-              allowDecimals={false}
-              tick={{ fontSize: 11 }}
-              tickFormatter={(v: number) => formatNumber(v)}
+              dataKey="name"
+              // eslint-disable-next-line @typescript-eslint/no-explicit-any
+              tick={((props: any) => (
+                <text
+                  x={props.x}
+                  y={props.y}
+                  textAnchor="end"
+                  fontSize={10}
+                  fill="currentColor"
+                  className="text-muted-foreground"
+                  transform={`rotate(-45, ${props.x}, ${props.y})`}
+                >
+                  {props.payload.value}
+                </text>
+              )) as any}
+              interval={0}
+              height={70}
             />
             <YAxis
-              type="category"
-              dataKey="name"
               tick={{ fontSize: 11 }}
-              width={115}
+              tickFormatter={(v: number) => formatNumber(v)}
             />
             <Tooltip
               contentStyle={TOOLTIP_STYLE}
@@ -315,12 +322,12 @@ export function SuccessDriversTab({ data }: { data: DashboardData }) {
             <Bar
               dataKey="avgViewsShort"
               fill="#ec4899"
-              radius={[0, 2, 2, 0]}
+              radius={[2, 2, 0, 0]}
             />
             <Bar
               dataKey="avgViewsFull"
               fill="#38bdf8"
-              radius={[0, 2, 2, 0]}
+              radius={[2, 2, 0, 0]}
             />
           </BarChart>
         </ResponsiveContainer>
